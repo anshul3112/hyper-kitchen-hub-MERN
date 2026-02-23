@@ -24,6 +24,7 @@ import {
   upsertInventoryItem,
   updateInventoryPrice,
   updateInventoryQuantity,
+  toggleInventoryStatus,
 } from "../controllers/inventoryController.js";
 
 const router = Router();
@@ -52,13 +53,15 @@ router.route("/:itemId").delete(deleteItem);
 router.route("/menu/all").get(getMenuDetails);
 
 // ── Outlet-level inventory routes (outletAdmin only) ──────────────────────────
-// GET    /api/v1/items/inventory              → all inventory for caller's outlet
-// PUT    /api/v1/items/inventory/:itemId      → upsert price + quantity
-// PATCH  /api/v1/items/inventory/:itemId/price → change price only
-// PATCH  /api/v1/items/inventory/:itemId/quantity   → change quantity only
+// GET    /api/v1/items/inventory                   → all inventory for caller's outlet
+// PUT    /api/v1/items/inventory/:itemId             → upsert price + quantity
+// PATCH  /api/v1/items/inventory/:itemId/price       → change price only
+// PATCH  /api/v1/items/inventory/:itemId/quantity    → change quantity only
+// PATCH  /api/v1/items/inventory/:itemId/status      → enable / disable item at outlet level
 router.route("/inventory").get(getOutletInventory);
 router.route("/inventory/:itemId").put(upsertInventoryItem);
 router.route("/inventory/:itemId/price").patch(updateInventoryPrice);
 router.route("/inventory/:itemId/quantity").patch(updateInventoryQuantity);
+router.route("/inventory/:itemId/status").patch(toggleInventoryStatus);
 
 export default router;

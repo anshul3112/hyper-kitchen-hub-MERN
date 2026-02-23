@@ -129,6 +129,8 @@ export type InventoryRecord = {
   outletId: string;
   price: number;
   quantity: number;
+  /** outlet-level enable/disable flag — defaults to true */
+  status: boolean;
   editedBy: string;
   createdAt?: string;
   updatedAt?: string;
@@ -178,7 +180,7 @@ export async function updateInventoryPrice(
   return parsed.data;
 }
 
-/** PATCH: change quantity only for an item (record must already exist) */
+/** PATCH: change quantity only for an item */
 export async function updateInventoryQuantity(
   itemId: string,
   quantity: number
@@ -188,6 +190,21 @@ export async function updateInventoryQuantity(
     credentials: "include",
     headers: getAuthHeaders(),
     body: JSON.stringify({ quantity }),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
+  return parsed.data;
+}
+
+/** PATCH: toggle outlet-level status (enable/disable) for an item */
+export async function toggleInventoryStatus(
+  itemId: string,
+  status: boolean
+): Promise<InventoryRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}/status`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ status }),
   });
   const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
   return parsed.data;

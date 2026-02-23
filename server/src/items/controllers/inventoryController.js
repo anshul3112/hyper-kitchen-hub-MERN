@@ -18,6 +18,22 @@ const resolveOutlet = (user) => {
   return outletId;
 };
 
+/**
+ * Resolve outletId from either a normal user (outletAdmin) or a kiosk device.
+ * Used for read-only inventory access shared between both roles.
+ */
+const resolveOutletForRead = (req) => {
+  // Kiosk JWT path — req.kiosk is set by verifyKioskJWT
+  if (req.kiosk) {
+    const outletId = req.kiosk.outlet?.outletId;
+    if (!outletId) throw new ApiError(400, "Outlet information not found in kiosk data");
+    return outletId;
+  }
+  // Normal user path — outletAdmin
+  requireOutletAdmin(req.user);
+  return resolveOutlet(req.user);
+};
+
 // Verify item belongs to the same tenant as the outlet admin
 const validateItem = async (itemId, tenantId) => {
   const item = await Items.findOne({ _id: itemId, tenantId });
@@ -26,10 +42,10 @@ const validateItem = async (itemId, tenantId) => {
 };
 
 // ─── GET /api/v1/items/inventory ─────────────────────────────────────────────
-// Returns all inventory records for the caller's outlet, joined with item details
+// Returns all inventory records for the caller's outlet.
+// Accessible by outletAdmin (verifyJWT) and kiosk device (verifyKioskJWT).
 export const getOutletInventory = asyncHandler(async (req, res) => {
-  requireOutletAdmin(req.user);
-  const outletId = resolveOutlet(req.user);
+  const outletId = resolveOutletForRead(req);
 
   const inventory = await Inventory.find({ outletId }).sort({ updatedAt: -1 });
 
@@ -93,7 +109,8 @@ export const updateInventoryPrice = asyncHandler(async (req, res) => {
 });
 
 // ─── PATCH /api/v1/items/inventory/:itemId/quantity ────────────────────────────────
-// Change quantity only for an item at this outlet
+// Change quantity only for an item at this outlet.
+// If no inventory record exists yet, upserts one using the item's defaultAmount as price.
 // Body: { quantity }
 export const updateInventoryQuantity = asyncHandler(async (req, res) => {
   requireOutletAdmin(req.user);
@@ -107,21 +124,45 @@ export const updateInventoryQuantity = asyncHandler(async (req, res) => {
 
   await validateItem(itemId, tenantId);
 
-  // qty-only patch: inventory record must already exist
   const record = await Inventory.findOneAndUpdate(
     { itemId, outletId },
     { quantity: Number(quantity), editedBy: req.user._id },
-    { new: true }
+    { new: true, upsert: true, runValidators: true }
   );
-
-  if (!record) {
-    throw new ApiError(
-      404,
-      "No inventory record found for this item. Set a price first using PUT /inventory/:itemId"
-    );
-  }
 
   return res.status(200).json(
     new ApiResponse(200, record, "Quantity updated successfully")
+  );
+});
+
+// ─── PATCH /api/v1/items/inventory/:itemId/status ──────────────────────────────
+// Toggle the outlet-level status (enabled/disabled) for an item.
+// If no record exists yet, creates one with qty 0 and no price (price shown as default on kiosk).
+// Body: { status: boolean }
+export const toggleInventoryStatus = asyncHandler(async (req, res) => {
+  requireOutletAdmin(req.user);
+  const outletId = resolveOutlet(req.user);
+  const tenantId = req.user.tenant?.tenantId;
+  const { itemId } = req.params;
+  const { status } = req.body;
+
+  if (status === undefined || status === null) throw new ApiError(400, "status (boolean) is required");
+  if (typeof status !== "boolean") throw new ApiError(400, "status must be a boolean");
+
+  await validateItem(itemId, tenantId);
+  const existing = await Inventory.findOne({ itemId, outletId });
+  const qtyToUse = existing ? existing.quantity : 0;
+  // Only carry price if one has already been set; do not auto-fill defaultAmount
+  const updateFields = { status, quantity: qtyToUse, editedBy: req.user._id };
+  if (existing?.price != null) updateFields.price = existing.price;
+
+  const record = await Inventory.findOneAndUpdate(
+    { itemId, outletId },
+    updateFields,
+    { new: true, upsert: true, runValidators: true }
+  );
+
+  return res.status(200).json(
+    new ApiResponse(200, record, `Item ${status ? "enabled" : "disabled"} at outlet level`)
   );
 });

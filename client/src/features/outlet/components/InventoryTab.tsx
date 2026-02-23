@@ -5,6 +5,7 @@ import {
   upsertInventoryItem,
   updateInventoryPrice,
   updateInventoryQuantity,
+  toggleInventoryStatus,
   type InventoryRecord,
   type MenuItem,
 } from "../api";
@@ -18,13 +19,14 @@ type RowState = {
   priceInput: string;
   quantityInput: string;
   saving: boolean;
+  toggling: boolean;
   error: string;
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function emptyRow(): RowState {
-  return { editMode: null, priceInput: "", quantityInput: "", saving: false, error: "" };
+  return { editMode: null, priceInput: "", quantityInput: "", saving: false, toggling: false, error: "" };
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -75,6 +77,17 @@ export default function InventoryTab() {
   };
 
   const cancelEdit = (itemId: string) => setRow(itemId, emptyRow());
+
+  const toggle = async (itemId: string, newStatus: boolean) => {
+    setRow(itemId, { toggling: true, error: "" });
+    try {
+      const updated = await toggleInventoryStatus(itemId, newStatus);
+      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
+      setRow(itemId, { toggling: false });
+    } catch (err: unknown) {
+      setRow(itemId, { toggling: false, error: err instanceof Error ? err.message : "Failed to toggle" });
+    }
+  };
 
   const save = async (itemId: string) => {
     const row = getRow(itemId);
@@ -149,6 +162,7 @@ export default function InventoryTab() {
               <th className="text-left px-5 py-3 font-medium text-gray-600">Default Price</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Outlet Price</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Quantity</th>
+              <th className="text-left px-5 py-3 font-medium text-gray-600">Kiosk Visible</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Actions</th>
             </tr>
           </thead>
@@ -194,10 +208,13 @@ export default function InventoryTab() {
                         className="w-24 px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                         autoFocus={row.editMode === "price"}
                       />
-                    ) : inv ? (
+                    ) : inv && inv.price != null ? (
                       <span className="font-semibold text-gray-800">₹{inv.price}</span>
                     ) : (
-                      <span className="text-gray-400 italic text-xs">Not set</span>
+                      <span className="text-gray-500 text-xs">
+                        ₹{item.defaultAmount}
+                        <span className="ml-1 text-gray-400 italic">(default)</span>
+                      </span>
                     )}
                   </td>
 
@@ -218,7 +235,33 @@ export default function InventoryTab() {
                         {inv.quantity}
                       </span>
                     ) : (
-                      <span className="text-gray-400 italic text-xs">Not set</span>
+                      <span className="text-red-400 text-xs font-medium">0 (not set)</span>
+                    )}
+                  </td>
+
+                  {/* Kiosk Visible toggle */}
+                  <td className="px-5 py-3">
+                    {(() => {
+                      const enabled = inv ? inv.status : true;
+                      return (
+                        <button
+                          onClick={() => toggle(item._id, !enabled)}
+                          disabled={row.toggling}
+                          title={enabled ? "Click to hide from kiosk" : "Click to show on kiosk"}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                            enabled ? "bg-green-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                              enabled ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      );
+                    })()}
+                    {row.error && !row.editMode && (
+                      <p className="text-xs text-red-500 mt-1">{row.error}</p>
                     )}
                   </td>
 
@@ -264,9 +307,8 @@ export default function InventoryTab() {
                         </button>
                         <button
                           onClick={() => openEdit(item._id, "quantity")}
-                          disabled={!inv}
-                          className="px-2 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={!inv ? "Set a price first before updating quantity" : "Update quantity only"}
+                          className="px-2 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded hover:bg-gray-100"
+                          title="Update quantity"
                         >
                           Qty
                         </button>

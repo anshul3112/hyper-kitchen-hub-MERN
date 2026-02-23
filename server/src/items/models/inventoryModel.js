@@ -11,8 +11,9 @@ const inventorySchema = new Schema({
     default: 0
   },
   price: {
-    type: Number,
-    required: true
+    type: Number
+    // optional: outlet admin may set quantity without specifying a price;
+    // the item's defaultAmount is used as the display price in that case
   },
   outletId: {
     type: Schema.Types.ObjectId,
@@ -23,6 +24,11 @@ const inventorySchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "User",
     required: true
+  },
+  // outlet-level enable/disable for this item (does not affect item master)
+  status: {
+    type: Boolean,
+    default: true
   }
 }, { timestamps: true });
 

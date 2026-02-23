@@ -5,6 +5,8 @@ import { createKiosk } from "../controllers/createKiosk.js";
 import { getAllKiosks } from "../controllers/getAllKiosks.js";
 import { toggleKiosk } from "../controllers/toggleKiosk.js";
 import { loginKiosk } from "../controllers/loginKiosk.js";
+import { getKioskMenu } from "../controllers/getKioskMenu.js";
+import { getOutletInventory } from "../../../items/controllers/inventoryController.js";
 
 const router = Router();
 
@@ -17,8 +19,11 @@ router.route('/create').post(verifyJWT, createKiosk);
 router.route('/').get(verifyJWT, getAllKiosks);
 router.route('/:id/toggle').patch(verifyJWT, toggleKiosk);
 
-// ── Kiosk-device routes (add below with verifyKioskJWT) ──────────────────────
-// router.route('/orders').get(verifyKioskJWT, getOrders);
+// ── Kiosk-device routes ───────────────────────────────────────────────────────
+// GET /api/v1/kiosks/menu        → fetch all menu (categories, filters, items)
+// GET /api/v1/kiosks/inventory   → fetch outlet inventory for this kiosk's outlet
+router.route('/menu').get(verifyKioskJWT, getKioskMenu);
+router.route('/inventory').get(verifyKioskJWT, getOutletInventory);
 
 export { verifyKioskJWT };
 export default router;
