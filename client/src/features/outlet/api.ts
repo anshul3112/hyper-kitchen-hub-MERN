@@ -21,6 +21,7 @@ export type Kiosk = {
   createdAt?: string;
   updatedAt?: string;
   loginCode?: string;
+  loginCodeExpiresAt?: string;
 };
 
 export type MenuCategory = {
@@ -99,14 +100,96 @@ export async function fetchKiosks(): Promise<Kiosk[]> {
   return parsed.data;
 }
 
-export async function createKiosk(number: number): Promise<Kiosk> {
+export async function createKiosk(): Promise<Kiosk> {
   const res = await fetch(`${API_BASE_URL}/api/v1/kiosks/create`, {
     method: "POST",
     credentials: "include",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ number }),
+    body: JSON.stringify({}),
   });
   const parsed = await parseOrThrow<ApiResponse<Kiosk>>(res);
+  return parsed.data;
+}
+
+export async function toggleKiosk(id: string): Promise<Kiosk> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/kiosks/${id}/toggle`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const parsed = await parseOrThrow<ApiResponse<Kiosk>>(res);
+  return parsed.data;
+}
+
+// ── Inventory types ──────────────────────────────────────────────────────────────────
+
+export type InventoryRecord = {
+  _id: string;
+  itemId: string;
+  outletId: string;
+  price: number;
+  quantity: number;
+  editedBy: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+// ── Inventory APIs ──────────────────────────────────────────────────────────────────
+
+/** GET all inventory records for the caller's outlet (price + qty per item) */
+export async function fetchOutletInventory(): Promise<InventoryRecord[]> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory`, {
+    method: "GET",
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord[]>>(res);
+  return parsed.data;
+}
+
+/** PUT: create or fully replace inventory entry (price + quantity) for one item */
+export async function upsertInventoryItem(
+  itemId: string,
+  price: number,
+  quantity: number
+): Promise<InventoryRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ price, quantity }),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
+  return parsed.data;
+}
+
+/** PATCH: change price only for an item */
+export async function updateInventoryPrice(
+  itemId: string,
+  price: number
+): Promise<InventoryRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}/price`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ price }),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
+  return parsed.data;
+}
+
+/** PATCH: change quantity only for an item (record must already exist) */
+export async function updateInventoryQuantity(
+  itemId: string,
+  quantity: number
+): Promise<InventoryRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}/quantity`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ quantity }),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
   return parsed.data;
 }
 

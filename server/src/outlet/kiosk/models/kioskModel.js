@@ -48,6 +48,14 @@ isActive: {
     type: Number,
     required: true
   },
+  loginCode: {
+    type: String,
+    default: null
+  },
+  loginCodeExpiresAt: {
+    type: Date,
+    default: null
+  },
   images: {
     type: Array
   },
@@ -56,5 +64,12 @@ isActive: {
     default: "Kiosk"
   }
 }, { timestamps: true });
+
+// outlet lookup (getAllKiosks, auto-increment)
+kioskSchema.index({ "outlet.outletId": 1 });
+// unique kiosk number per outlet
+kioskSchema.index({ "outlet.outletId": 1, number: 1 }, { unique: true });
+// login-code lookup (loginKiosk)
+kioskSchema.index({ loginCode: 1, loginCodeExpiresAt: 1 });
 
 export const Kiosk = mongoose.model("Kiosk", kioskSchema);

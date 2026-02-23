@@ -5,6 +5,7 @@ import LoginPage from "./features/auth/pages/LoginPage"
 import SuperAdminPage from "./features/superAdmin/pages/SuperAdminPage"
 import TenantAdminPage from "./features/tenant/pages/TenantAdminPage"
 import OutletAdminPage from "./features/outlet/pages/OutletAdminPage"
+import KioskLoginPage from "./features/kiosk/pages/KioskLoginPage"
 
 function App() {
 
@@ -16,6 +17,7 @@ function App() {
         <Route path="/superAdmin" element={<SuperAdminPage />} />
         <Route path="/tenantAdmin" element={<TenantAdminPage />} />
         <Route path="/outletAdmin" element={<OutletAdminPage />} />
+        <Route path="/kiosk/login" element={<KioskLoginPage />} />
         <Route path="/*" element={<ErrorPage />} />
       </Routes>
     </BrowserRouter>

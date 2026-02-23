@@ -26,4 +26,9 @@ const categorySchema = new Schema({
   }
 }, { timestamps: true });
 
+// tenant lookup (getCategories)
+categorySchema.index({ tenantId: 1 });
+// duplicate-name check per tenant
+categorySchema.index({ name: 1, tenantId: 1 }, { unique: true });
+
 export const Category = mongoose.model("Category", categorySchema);

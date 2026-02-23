@@ -6,7 +6,7 @@ const inventorySchema = new Schema({
     ref: "Items",
     required: true
   },
-  qty: {
+  quantity: {
     type: Number,
     default: 0
   },
@@ -25,5 +25,10 @@ const inventorySchema = new Schema({
     required: true
   }
 }, { timestamps: true });
+
+// unique record per item+outlet (upsert, price, quantity patches)
+inventorySchema.index({ itemId: 1, outletId: 1 }, { unique: true });
+// outlet lookup (getOutletInventory)
+inventorySchema.index({ outletId: 1 });
 
 export const Inventory = mongoose.model("Inventory", inventorySchema);

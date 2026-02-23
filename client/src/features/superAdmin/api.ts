@@ -51,6 +51,36 @@ export async function fetchTenants(): Promise<ApiResponse<Tenant[]>> {
 	return parseOrThrow(res);
 }
 
+export type CreateTenantAdminInput = {
+	name: string;
+	email: string;
+	password: string;
+	phoneNumber: string;
+	tenant: { tenantId: string; tenantName: string };
+};
+
+export type TenantAdmin = {
+	_id: string;
+	name: string;
+	email: string;
+	role: string;
+	tenant: { tenantId: string; tenantName: string };
+	phoneNumber?: string;
+	status: boolean;
+	createdAt: string;
+};
+
+export async function createTenantAdmin(payload: CreateTenantAdminInput): Promise<TenantAdmin> {
+	const res = await fetch(`${API_BASE_URL}/api/v1/users/create-tenant-admin`, {
+		method: "POST",
+		credentials: "include",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(payload),
+	});
+	const parsed = (await parseOrThrow(res)) as ApiResponse<TenantAdmin>;
+	return parsed.data;
+}
+
 export async function createTenant(payload: CreateTenantInput): Promise<Tenant> {
 	const res = await fetch(`${API_BASE_URL}/api/v1/tenants/create-tenant`, {
 		method: "POST",

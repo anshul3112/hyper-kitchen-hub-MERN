@@ -6,6 +6,7 @@ import StatCard from "../../../common/components/StatCard";
 
 import { fetchOutlets, type Outlet } from "../api";
 import AddOutletModal from "../components/AddOutletModal";
+import AddOutletAdminModal from "../components/AddOutletAdminModal";
 import OutletsTable from "../components/OutletsTable";
 import TenantMenuPanel from "../components/TenantMenuPanel";
 
@@ -21,6 +22,7 @@ export default function TenantAdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   useEffect(() => {
     loadOutlets();
@@ -42,6 +44,10 @@ export default function TenantAdminPage() {
   const handleOutletAdded = (newOutlet: Outlet) => {
     setOutlets((prev) => [newOutlet, ...prev]);
     setIsModalOpen(false);
+  };
+
+  const handleOutletToggled = (updated: Outlet) => {
+    setOutlets((prev) => prev.map((o) => (o._id === updated._id ? updated : o)));
   };
 
   return (
@@ -79,6 +85,8 @@ export default function TenantAdminPage() {
             loading={loading}
             error={error}
             onAddClick={() => setIsModalOpen(true)}
+            onAddAdminClick={() => setIsAdminModalOpen(true)}
+            onToggle={handleOutletToggled}
           />
         )}
 
@@ -89,6 +97,14 @@ export default function TenantAdminPage() {
         <AddOutletModal
           onClose={() => setIsModalOpen(false)}
           onSuccess={handleOutletAdded}
+        />
+      )}
+
+      {isAdminModalOpen && (
+        <AddOutletAdminModal
+          outlets={outlets}
+          onClose={() => setIsAdminModalOpen(false)}
+          onSuccess={() => setIsAdminModalOpen(false)}
         />
       )}
     </div>

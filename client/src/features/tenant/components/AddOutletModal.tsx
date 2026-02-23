@@ -48,7 +48,7 @@ export default function AddOutletModal({ onClose, onSuccess }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
         <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-800">Add New Outlet</h3>
@@ -63,7 +63,7 @@ export default function AddOutletModal({ onClose, onSuccess }: Props) {
           ) : null}
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Outlet Name</label>
             <input
               value={form.name}
               onChange={(e) => update("name", e.target.value)}

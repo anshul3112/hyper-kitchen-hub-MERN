@@ -26,4 +26,9 @@ const filterSchema = new Schema({
   }
 }, { timestamps: true });
 
+// tenant lookup (getFilters)
+filterSchema.index({ tenantId: 1 });
+// duplicate-name check per tenant
+filterSchema.index({ name: 1, tenantId: 1 }, { unique: true });
+
 export const Filters = mongoose.model("Filters", filterSchema);

@@ -60,4 +60,7 @@ const outletSchema = new Schema({
   }
 }, { timestamps: true });
 
+// tenant lookup (getAllOutletsByTenant, toggleOutletStatus)
+outletSchema.index({ "tenant.tenantId": 1 });
+
 export const Outlet = mongoose.model("Outlet", outletSchema);

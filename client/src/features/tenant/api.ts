@@ -74,6 +74,50 @@ export async function createOutlet(payload: CreateOutletInput): Promise<Outlet> 
 	return parsed.data;
 }
 
+export async function toggleOutletStatus(outletId: string): Promise<Outlet> {
+	const res = await fetch(`${API_BASE_URL}/api/v1/outlets/${outletId}/toggle`, {
+		method: "PATCH",
+		credentials: "include",
+		headers: getAuthHeaders(),
+	});
+	const parsed = (await parseOrThrow(res)) as ApiResponse<Outlet>;
+	return parsed.data;
+}
+
+// ── Outlet Admin ─────────────────────────────────────────────────────────────
+
+export type OutletAdmin = {
+	_id: string;
+	name: string;
+	email: string;
+	role: string;
+	phoneNumber?: string;
+	status: boolean;
+	outlet: { outletId: string; outletName: string };
+	tenant: { tenantId: string; tenantName: string };
+	createdAt: string;
+};
+
+export type CreateOutletAdminInput = {
+	name: string;
+	email: string;
+	password: string;
+	phoneNumber: string;
+	outlet: { outletId: string; outletName: string };
+	tenant: { tenantId: string; tenantName: string };
+};
+
+export async function createOutletAdmin(payload: CreateOutletAdminInput): Promise<OutletAdmin> {
+	const res = await fetch(`${API_BASE_URL}/api/v1/users/create-outlet-admin`, {
+		method: "POST",
+		credentials: "include",
+		headers: getAuthHeaders(),
+		body: JSON.stringify(payload),
+	});
+	const parsed = (await parseOrThrow(res)) as ApiResponse<OutletAdmin>;
+	return parsed.data;
+}
+
 // ── Menu types ──────────────────────────────────────────────────────────────
 
 export type MenuFilter = {

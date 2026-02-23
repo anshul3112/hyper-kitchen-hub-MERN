@@ -12,7 +12,7 @@ const ErrorPage = () => {
         to="/"
         className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
       >
-        Go Back Home
+        Go Back To Login Screen
       </Link>
     </div>
   );

@@ -13,10 +13,12 @@ import {
 import CreateKioskModal from "../components/CreateKioskModal";
 import KioskCard from "../components/KioskCard";
 import MenuGrid from "../components/MenuGrid";
+import InventoryTab from "../components/InventoryTab";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "menu", label: "Menu" },
+  { key: "inventory", label: "Inventory" },
   { key: "kiosks", label: "Kiosks" },
 ];
 
@@ -76,7 +78,11 @@ export default function OutletAdminPage() {
 
   const handleKioskCreated = (newKiosk: Kiosk) => {
     setKiosks((prev) => [...prev, newKiosk]);
-    setIsKioskModalOpen(false);
+    // Keep modal open so user can see the login code countdown
+  };
+
+  const handleKioskToggled = (updated: Kiosk) => {
+    setKiosks((prev) => prev.map((k) => (k._id === updated._id ? updated : k)));
   };
 
   return (
@@ -154,6 +160,17 @@ export default function OutletAdminPage() {
           </div>
         )}
 
+        {/* ── Inventory ── */}
+        {activeSection === "inventory" && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">Inventory</h2>
+              <p className="text-xs text-gray-400">Set outlet-level prices and quantities for each item.</p>
+            </div>
+            <InventoryTab />
+          </div>
+        )}
+
         {/* ── Kiosks ── */}
         {activeSection === "kiosks" && (
           <div>
@@ -201,7 +218,7 @@ export default function OutletAdminPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {kiosks.map((kiosk) => (
-                  <KioskCard key={kiosk._id} kiosk={kiosk} />
+                  <KioskCard key={kiosk._id} kiosk={kiosk} onToggle={handleKioskToggled} />
                 ))}
               </div>
             )}

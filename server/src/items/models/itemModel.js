@@ -37,4 +37,9 @@ const itemsSchema = new Schema({
   }
 }, { timestamps: true });
 
+// tenant lookup (getItems)
+itemsSchema.index({ tenantId: 1 });
+// duplicate-name check per tenant
+itemsSchema.index({ name: 1, tenantId: 1 }, { unique: true });
+
 export const Items = mongoose.model("Items", itemsSchema);

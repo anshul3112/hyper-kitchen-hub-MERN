@@ -17,8 +17,6 @@ const userSchema = new Schema({
     type: String,
     trim: true,
     required: true,
-    unique: true,
-    index: true
   },
   role: {
     type: String,
@@ -74,5 +72,13 @@ userSchema.methods.generateAccessToken = function() {
     { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
   );
 };
+
+userSchema.index({ email: 1 }, { unique: true });
+// role filter (role-based queries)
+userSchema.index({ role: 1 });
+// tenant lookup (getUsersByTenant)
+userSchema.index({ "tenant.tenantId": 1 });
+// outlet lookup (getOutletAdmins)
+userSchema.index({ "outlet.outletId": 1 });
 
 export const User = mongoose.model("User", userSchema);

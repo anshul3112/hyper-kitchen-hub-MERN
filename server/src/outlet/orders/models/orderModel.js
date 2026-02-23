@@ -48,4 +48,13 @@ const ordersSchema = new Schema(
   { timestamps: true },
 );
 
+// outlet lookup (fetch orders for an outlet)
+ordersSchema.index({ outletId: 1 });
+// tenant lookup (fetch orders for a tenant)
+ordersSchema.index({ tenantId: 1 });
+// orders by outlet sorted by date (order history)
+ordersSchema.index({ outletId: 1, date: -1 });
+// status filter (kitchen/billing views)
+ordersSchema.index({ orderStatus: 1 });
+
 export const Orders = mongoose.model("Orders", ordersSchema);

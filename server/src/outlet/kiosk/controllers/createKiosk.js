@@ -3,28 +3,22 @@ import { ApiError } from "../../../utils/ApiError.js";
 import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 
-// Generate random unique kiosk code
-const generateKioskCode = async () => {
+// Generate a unique 6-digit numeric login code
+const generateLoginCode = async () => {
   let code;
   let exists = true;
-  
+
   while (exists) {
-    // Generate random 8-character alphanumeric code
-    code = Math.random().toString(36).substring(2, 10).toUpperCase();
-    
-    // Check if code already exists
-    const existingKiosk = await Kiosk.findOne({ code });
-    if (!existingKiosk) {
-      exists = false;
-    }
+    code = String(Math.floor(100000 + Math.random() * 900000));
+    const existingKiosk = await Kiosk.findOne({ loginCode: code, loginCodeExpiresAt: { $gt: new Date() } });
+    if (!existingKiosk) exists = false;
   }
-  
+
   return code;
 };
 
 // Create new kiosk
 export const createKiosk = asyncHandler(async (req, res) => {
-  const { number } = req.body;
   const user = req.user;
 
   // Check if user is outletAdmin
@@ -46,28 +40,20 @@ export const createKiosk = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Tenant information not found in user data");
   }
 
-  // Validate kiosk number
-  if (!number || number < 1) {
-    throw new ApiError(400, "Valid kiosk number is required");
-  }
+  // Auto-increment: find the highest kiosk number in this outlet and add 1
+  const lastKiosk = await Kiosk.findOne({ "outlet.outletId": outletId }).sort({ number: -1 }).select("number");
+  const number = lastKiosk ? lastKiosk.number + 1 : 1;
 
-  // Check if kiosk with this number already exists in this outlet
-  const existingKiosk = await Kiosk.findOne({
-    "outlet.outletId": outletId,
-    number
-  });
-
-  if (existingKiosk) {
-    throw new ApiError(409, `Kiosk with number ${number} already exists in this outlet`);
-  }
-
-  // Generate unique code
-  const code = await generateKioskCode();
+  // Generate 6-digit login code valid for 1 minute
+  const loginCode = await generateLoginCode();
+  const loginCodeExpiresAt = new Date(Date.now() + 60 * 1000);
 
   // Create kiosk
   const kiosk = new Kiosk({
-    code,
+    code: loginCode,   // keep `code` field populated (used elsewhere)
     number,
+    loginCode,
+    loginCodeExpiresAt,
     status: "ACTIVE",
     isActive: true,
     outlet: {
@@ -83,11 +69,10 @@ export const createKiosk = asyncHandler(async (req, res) => {
 
   await kiosk.save();
 
-  // Return response with code
+  // Return response with the temporary login code and its expiry
   return res.status(201).json(
     new ApiResponse(201, {
-      ...kiosk.toObject(),
-      loginCode: code
+      ...kiosk.toObject()
     }, "Kiosk created successfully. Use the loginCode to access the kiosk.")
   );
 });
