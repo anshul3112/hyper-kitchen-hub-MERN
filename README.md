@@ -96,11 +96,3 @@ Before starting, ensure you have the following installed on your system:
 ### Server
 
 - `npm start`: Start the server.
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
-
----
-
-Happy coding!
