@@ -39,10 +39,9 @@ Before starting, ensure you have the following installed on your system:
      PORT=8000
      ACCESS_TOKEN_SECRET=<your-token-secret>
      ACCESS_TOKEN_EXPIRY=1d
-
-    KIOSK_TOKEN_SECRET=<your-kiosk-secret>
-    KIOSK_TOKEN_EXPIRY=30d
-    ```
+     KIOSK_TOKEN_SECRET=<your-kiosk-secret>
+     KIOSK_TOKEN_EXPIRY=30d
+     ```
 
 - **Client**: Create a `.env` file in the `client` directory with the following variables:
   ```env
