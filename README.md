@@ -33,7 +33,9 @@ Before starting, ensure you have the following installed on your system:
 ## Environment Setup
 
 1. Create environment files for the server and client:
+
    - **Server**: Create a `.env` file in the `server` directory with the following variables:
+
      ```env
      MONGO_URI=<your-mongodb-uri>
      PORT=8000
@@ -43,10 +45,11 @@ Before starting, ensure you have the following installed on your system:
      KIOSK_TOKEN_EXPIRY=30d
      ```
 
-- **Client**: Create a `.env` file in the `client` directory with the following variables:
-  ```env
-  VITE_API_BASE_URL=http://localhost:8000
-  ```
+   - **Client**: Create a `.env` file in the `client` directory with the following variables:
+
+     ```env
+     VITE_API_BASE_URL=http://localhost:8000
+     ```
 
 ## Running the Application
 
