@@ -8,6 +8,8 @@ import OutletAdminPage from "./features/outlet/pages/OutletAdminPage"
 import KioskLoginPage from "./features/kiosk/pages/KioskLoginPage"
 import KioskScreenPage from "./features/kiosk/pages/KioskPage"
 import KitchenPage from "./features/kitchen/pages/KitchenPage"
+import DisplayLoginPage from "./features/display/pages/DisplayLoginPage"
+import DisplayPage from "./features/display/pages/DisplayPage"
 
 function App() {
 
@@ -22,6 +24,8 @@ function App() {
         <Route path="/kiosk/login" element={<KioskLoginPage />} />
         <Route path="/kiosk/dashboard" element={<KioskScreenPage />} />
         <Route path="/kitchen" element={<KitchenPage />} />
+        <Route path="/display/login" element={<DisplayLoginPage />} />
+        <Route path="/display/screen" element={<DisplayPage />} />
         <Route path="/*" element={<ErrorPage />} />
       </Routes>
     </BrowserRouter>

@@ -12,12 +12,13 @@ import itemRouter from "./src/items/routes/itemRoutes.js";
 import kioskRouter from "./src/outlet/kiosk/routes/kioskRoutes.js";
 import orderRouter from "./src/outlet/orders/routes/orderRoutes.js";
 import kitchenRouter from "./src/outlet/kitchen/routes/kitchenRoutes.js";
+import displayRouter from "./src/outlet/display/routes/displayRoutes.js";
 
 dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
-const PORT = process.env.PORT || 8080; 
+const PORT = process.env.PORT || 8000; 
 
 connectDB();
 initSocket(httpServer);
@@ -38,6 +39,7 @@ app.use('/api/v1/items', itemRouter);
 app.use('/api/v1/kiosks', kioskRouter);
 app.use('/api/v1/orders', orderRouter);
 app.use('/api/v1/kitchen', kitchenRouter);
+app.use('/api/v1/displays', displayRouter);
 
 // error handling middleware at last :
 app.use((err, req, res, next) => {

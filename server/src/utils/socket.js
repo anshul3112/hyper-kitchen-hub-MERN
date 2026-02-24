@@ -13,7 +13,7 @@ export function initSocket(httpServer) {
 
   // ── Auth middleware ─────────────────────────────────────────────────────────
   // Clients must send  { auth: { token: "<jwt>" } }  on connect.
-  // Both user JWTs (staff/kitchen/outletAdmin) and kiosk JWTs are accepted.
+  // Accepted token types: user JWT, kiosk JWT, display JWT.
 
   io.use((socket, next) => {
     const token =
@@ -30,12 +30,18 @@ export function initSocket(httpServer) {
       socket.data.user = decoded;
       return next();
     } catch {
-      // Fall through to kiosk JWT
+      // Fall through
     }
 
     try {
+      // KIOSK_TOKEN_SECRET is shared by kiosk and display devices.
+      // Distinguish by the role field in the payload.
       const decoded = jwt.verify(token, process.env.KIOSK_TOKEN_SECRET);
-      socket.data.kiosk = decoded;
+      if (decoded.role === "Display") {
+        socket.data.display = decoded; // display screen device
+      } else {
+        socket.data.kiosk = decoded;   // ordering kiosk
+      }
       return next();
     } catch {
       return next(new Error("Invalid or expired token"));
@@ -45,6 +51,8 @@ export function initSocket(httpServer) {
   io.on("connection", (socket) => {
     const identity = socket.data.user
       ? `user:${socket.data.user._id ?? socket.data.user.id}`
+      : socket.data.display
+      ? `display:${socket.data.display._id}`
       : `kiosk:${socket.data.kiosk?._id}`;
 
     console.log(`[socket] connected  ${socket.id}  (${identity})`);
@@ -55,7 +63,8 @@ export function initSocket(httpServer) {
 
       const userOutlet =
         socket.data.user?.outlet?.outletId?.toString() ||
-        socket.data.kiosk?.outlet?.outletId?.toString();
+        socket.data.kiosk?.outlet?.outletId?.toString() ||
+        socket.data.display?.outlet?.outletId?.toString();
 
       if (userOutlet && userOutlet !== outletId.toString()) {
         socket.emit("error", { message: "Not authorised for this outlet" });

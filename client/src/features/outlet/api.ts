@@ -273,3 +273,54 @@ export async function createOutletStaff(
   return parsed.data;
 }
 
+// ── Display Device types ──────────────────────────────────────────────────────
+
+export type DisplayDevice = {
+  _id: string;
+  number: number;
+  isActive: boolean;
+  outlet: { outletId: string; outletName: string };
+  tenant: { tenantId: string; tenantName: string };
+  loginCode?: string | null;
+  loginCodeExpiresAt?: string | null;
+  lastLoginAt?: string;
+  createdAt?: string;
+};
+
+// ── Display Device APIs ───────────────────────────────────────────────────────
+
+/** POST /api/v1/displays/create — create a new display screen device */
+export async function createDisplay(): Promise<DisplayDevice> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/displays/create`, {
+    method: "POST",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({}),
+  });
+  const parsed = await parseOrThrow<ApiResponse<DisplayDevice>>(res);
+  return parsed.data;
+}
+
+/** GET /api/v1/displays — list display devices for caller's outlet */
+export async function fetchDisplays(): Promise<DisplayDevice[]> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/displays`, {
+    method: "GET",
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const parsed = await parseOrThrow<ApiResponse<DisplayDevice[]>>(res);
+  return parsed.data;
+}
+
+/** PATCH /api/v1/displays/:id/toggle — enable or disable a display device */
+export async function toggleDisplay(id: string): Promise<DisplayDevice> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/displays/${id}/toggle`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const parsed = await parseOrThrow<ApiResponse<DisplayDevice>>(res);
+  return parsed.data;
+}
+
+
