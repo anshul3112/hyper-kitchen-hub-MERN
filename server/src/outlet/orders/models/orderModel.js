@@ -40,9 +40,15 @@ const ordersSchema = new Schema(
       required: true,
     },
     orderStatus: {
+      // this is order status not cooking status
       type: String,
       enum: ["Pending", "Processing", "Failed", "Completed"],
       default: "Pending",
+    },
+    fulfillmentStatus: {
+      type: String,
+      enum: ["created", "received", "cooking", "prepared", "served"],
+      default: "created",
     },
     /**
      * Arbitrary payment details object (e.g. { name, upiId } for UPI payments).

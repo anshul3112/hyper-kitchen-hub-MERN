@@ -40,6 +40,10 @@ export default function LoginPage() {
         if (data.data?.user?.role) {
           localStorage.setItem("userRole", data.data.user.role);
         }
+        // Store outletId for outlet-scoped pages (kitchen, outlet admin)
+        if (data.data?.user?.outlet?.outletId) {
+          localStorage.setItem("outletId", data.data.user.outlet.outletId);
+        }
 
         const userRole = data.data?.user?.role;
         if (userRole === "superAdmin") {
@@ -48,6 +52,8 @@ export default function LoginPage() {
           navigate("/tenantAdmin");
         } else if (userRole === "outletAdmin") {
           navigate("/outletAdmin");
+        } else if (userRole === "kitchenStaff") {
+          navigate("/kitchen");
         } else {
           navigate("/errorPage");
         }

@@ -27,3 +27,11 @@ export function validateCreateOutletAdmin(data) {
 export function validateCreateSuperAdmin(data) {
   validateCreateUserBase(data);
 }
+
+/**
+ * Outlet staff (kitchenStaff / billingStaff) — outlet & tenant are inherited
+ * from the creating outletAdmin's session, so only base fields are needed.
+ */
+export function validateCreateOutletStaff(data) {
+  validateCreateUserBase(data);
+}

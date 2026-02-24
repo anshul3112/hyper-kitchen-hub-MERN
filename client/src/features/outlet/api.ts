@@ -221,3 +221,55 @@ export async function fetchMenuDetails(): Promise<MenuDetails> {
   const parsed = await parseOrThrow<ApiResponse<MenuDetails>>(res);
   return parsed.data;
 }
+
+// ── Outlet Staff types ─────────────────────────────────────────────────────────
+
+export type OutletStaffRole = "kitchenStaff" | "billingStaff";
+
+export type OutletStaffMember = {
+  _id: string;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  role: OutletStaffRole;
+  status: boolean;
+  outlet: { outletId: string; outletName: string };
+  tenant: { tenantId: string; tenantName: string };
+  createdAt?: string;
+};
+
+export type CreateOutletStaffInput = {
+  name: string;
+  email: string;
+  password: string;
+  phoneNumber: string;
+  role: OutletStaffRole;
+};
+
+// ── Outlet Staff APIs ─────────────────────────────────────────────────────────
+
+/** GET all kitchenStaff + billingStaff for the logged-in outlet admin's outlet */
+export async function fetchOutletStaff(): Promise<OutletStaffMember[]> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/users/outlet-staff`, {
+    method: "GET",
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const parsed = await parseOrThrow<ApiResponse<OutletStaffMember[]>>(res);
+  return parsed.data;
+}
+
+/** POST create a new kitchenStaff or billingStaff for the caller's outlet */
+export async function createOutletStaff(
+  input: CreateOutletStaffInput
+): Promise<OutletStaffMember> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/users/create-outlet-staff`, {
+    method: "POST",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(input),
+  });
+  const parsed = await parseOrThrow<ApiResponse<OutletStaffMember>>(res);
+  return parsed.data;
+}
+

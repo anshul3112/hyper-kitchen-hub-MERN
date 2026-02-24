@@ -6,6 +6,7 @@ import { Orders } from "../models/orderModel.js";
 import { callMockPayment } from "../../utils/mockPayment.js";
 import { getNextOrderNumber } from "../../core/controllers/getNextOrderNumber.js";
 import { reserveInventoryStock, restoreInventoryStock } from "../../utils/decrementInventory.js";
+import { emitNewOrder, emitOrderStatusUpdate } from "../../../utils/socket.js";
 
 /**
  * POST /api/v1/orders
@@ -97,6 +98,8 @@ export const placeOrder = asyncHandler(async (req, res) => {
 
     if (paymentSucceeded) {
       // 5a. Payment ok → mark order Completed
+      // Notify outlet room: a new successful order has arrived
+      emitNewOrder(outletId, order.toObject());
       order.paymentStatus = "done";
       order.orderStatus = "Completed";
       order.paymentDetails = paymentDetails;
@@ -108,6 +111,7 @@ export const placeOrder = asyncHandler(async (req, res) => {
       order.orderStatus = "Failed";
       await order.save();
     }
+
 
     return res.status(201).json(
       new ApiResponse(201, order, "Order placed successfully")

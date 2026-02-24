@@ -46,4 +46,27 @@ export const getOutletAdmins = asyncHandler(async (req, res) => {
     }   
 });
 
+/**
+ * GET /api/v1/users/outlet-staff
+ * OutletAdmin fetches all kitchenStaff + billingStaff for their outlet.
+ */
+export const getOutletStaff = asyncHandler(async (req, res) => {
+    const user = req.user;
+    if (user.role !== "outletAdmin") {
+        throw new ApiError(403, "Only outletAdmins can view outlet staff");
+    }
+    const outletId = user.outlet?.outletId;
+    if (!outletId) {
+        throw new ApiError(403, "No outlet associated with this user");
+    }
+    try {
+        const staff = await User
+            .find({ role: { $in: ["kitchenStaff", "billingStaff"] }, "outlet.outletId": outletId })
+            .select("-password")
+            .sort({ createdAt: -1 });
+        return res.status(200).json(new ApiResponse(200, staff, "Outlet staff fetched successfully"));
+    } catch (error) {
+        throw new ApiError(500, "Failed to fetch outlet staff");
+    }
+});
 

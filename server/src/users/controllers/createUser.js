@@ -3,9 +3,52 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { ensureUniqueEmailAndPhone } from "../services/ensureUnique.js";
-import { validateCreateTenantAdmin } from "../services/validation.js";
-import { validateCreateOutletAdmin } from "../services/validation.js";
-import { validateCreateSuperAdmin } from "../services/validation.js";
+import {
+  validateCreateTenantAdmin,
+  validateCreateOutletAdmin,
+  validateCreateSuperAdmin,
+  validateCreateOutletStaff,
+} from "../services/validation.js";
+
+const OUTLET_STAFF_ROLES = ["kitchenStaff", "billingStaff"];
+
+/**
+ * POST /api/v1/users/create-outlet-staff
+ * Only outletAdmins can create kitchenStaff / billingStaff for their own outlet.
+ * outlet & tenant are inherited from the creating user — not supplied in the body.
+ */
+export const createOutletStaff = asyncHandler(async (req, res) => {
+  const creator = req.user;
+  if (creator.role !== "outletAdmin") {
+    throw new ApiError(403, "Only outletAdmins can create outlet staff");
+  }
+
+  const { name, email, password, phoneNumber, role } = req.body;
+
+  if (!role || !OUTLET_STAFF_ROLES.includes(role)) {
+    throw new ApiError(400, `role must be one of: ${OUTLET_STAFF_ROLES.join(", ")}`);
+  }
+
+  validateCreateOutletStaff(req.body);
+  await ensureUniqueEmailAndPhone(email, phoneNumber);
+
+  const staffUser = new User({
+    name,
+    email,
+    password,
+    role,
+    phoneNumber,
+    outlet: creator.outlet,
+    tenant: creator.tenant,
+  });
+
+  await staffUser.save();
+
+  const { password: _, ...staffData } = staffUser.toObject();
+  return res
+    .status(201)
+    .json(new ApiResponse(201, staffData, `${role} created successfully`));
+});
 
 export const createTenantAdmin = asyncHandler(async (req, res) => {
   const user = req.user;
