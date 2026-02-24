@@ -1,5 +1,6 @@
-import { useState } from "react";
-import type { MenuCategory, MenuFilter, EnrichedMenuItem } from "../api";
+import { useState, useEffect, useRef } from "react";
+import type { MenuCategory, MenuFilter, EnrichedMenuItem, OrderResult } from "../api";
+import { placeOrder } from "../api";
 import { useCart } from "../hooks/useCart";
 
 type Props = {
@@ -20,17 +21,92 @@ export default function KioskScreen({
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
 
-  const { cart, cartCount, cartTotal, addToCart, increment, decrement } = useCart();
+  const { cart, cartCount, cartTotal, cartItems, addToCart, increment, decrement, clearCart } = useCart();
+
+  // ── Checkout modal state ─────────────────────────────────────────────────────
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  type PayStep = "cart" | "payment" | "loading" | "success" | "error";
+  const [payStep, setPayStep] = useState<PayStep>("cart");
+  const [payerName, setPayerName] = useState("");
+  const [upiId, setUpiId] = useState("");
+  const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
+  const [orderError, setOrderError] = useState("");
+
+  const openCheckout = () => {
+    setPayStep("cart");
+    setPayerName("");
+    setUpiId("");
+    setOrderResult(null);
+    setOrderError("");
+    setCheckoutOpen(true);
+  };
+
+  const closeCheckout = () => setCheckoutOpen(false);
+
+  const handlePlaceOrder = async () => {
+    if (!payerName.trim() || !upiId.trim()) return;
+    setPayStep("loading");
+    try {
+      const result = await placeOrder({
+        items: cartItems,
+        totalAmount: cartTotal,
+        paymentDetails: { name: payerName.trim(), upiId: upiId.trim() },
+      });
+      setOrderResult(result);
+      setPayStep("success");
+      clearCart();
+    } catch (err: unknown) {
+      setOrderError(err instanceof Error ? err.message : "Something went wrong");
+      setPayStep("error");
+    }
+  };
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
+  };
+
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
+  // ── Stock-limited add / increment ─────────────────────────────────────────
+  const handleAddToCart = (item: EnrichedMenuItem) => {
+    const qty = cart[item._id]?.quantity ?? 0;
+    if (qty >= item.stockQuantity) {
+      showToast(`Only ${item.stockQuantity} of "${item.name}" available`);
+      return;
+    }
+    addToCart(item);
+  };
+
+  const handleIncrement = (item: EnrichedMenuItem) => {
+    const qty = cart[item._id]?.quantity ?? 0;
+    if (qty >= item.stockQuantity) {
+      showToast(`Only ${item.stockQuantity} of "${item.name}" available`);
+      return;
+    }
+    increment(item._id);
+  };
 
   const visibleItems = items.filter((item) => {
     if (selectedCategory !== "all") {
-      if (!item.categories.some((c) => c._id === selectedCategory)) return false;
+      if (item.category?._id !== selectedCategory) return false;
     }
     if (selectedFilter !== "all") {
       if (!item.filters.some((f) => f._id === selectedFilter)) return false;
     }
     return true;
   });
+
+  // Only show categories that have at least one item assigned to them
+  const populatedCategoryIds = new Set(
+    items.map((item) => item.category?._id).filter(Boolean)
+  );
+  const activeCategories = categories.filter((cat) => populatedCategoryIds.has(cat._id));
 
   return (
     <div className="flex flex-col h-screen bg-gray-100 overflow-hidden">
@@ -76,15 +152,23 @@ export default function KioskScreen({
           ))}
         </div>
 
-        {/* Right: Cart summary */}
-        <div className="flex items-center gap-2">
+        {/* Right: Cart summary + Checkout */}
+        <div className="flex items-center gap-3">
           {cartCount > 0 ? (
-            <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-4 py-2">
-              <span className="text-orange-600 text-sm font-bold">
-                🛒 {cartCount} item{cartCount > 1 ? "s" : ""}
-              </span>
-              <span className="text-orange-700 font-bold text-sm">— ₹{cartTotal}</span>
-            </div>
+            <>
+              <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-4 py-2">
+                <span className="text-orange-600 text-sm font-bold">
+                  🛒 {cartCount} item{cartCount > 1 ? "s" : ""}
+                </span>
+                <span className="text-orange-700 font-bold text-sm">— ₹{cartTotal}</span>
+              </div>
+              <button
+                onClick={openCheckout}
+                className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold text-sm px-5 py-2 rounded-xl transition-all shadow-sm"
+              >
+                Checkout →
+              </button>
+            </>
           ) : (
             <div className="text-gray-400 text-sm">Cart is empty</div>
           )}
@@ -111,7 +195,7 @@ export default function KioskScreen({
             <span>All Items</span>
           </button>
 
-          {categories.map((cat) => (
+          {activeCategories.map((cat) => (
             <button
               key={cat._id}
               onClick={() =>
@@ -233,7 +317,7 @@ export default function KioskScreen({
                           </span>
                         ) : qty === 0 ? (
                           <button
-                            onClick={() => addToCart(item)}
+                            onClick={() => handleAddToCart(item)}
                             className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-bold py-1.5 px-2 rounded-xl transition-all"
                           >
                             Add to Cart
@@ -250,7 +334,7 @@ export default function KioskScreen({
                               {qty}
                             </span>
                             <button
-                              onClick={() => increment(item._id)}
+                              onClick={() => handleIncrement(item)}
                               className="w-6 h-6 rounded-lg bg-orange-500 text-white font-bold text-sm flex items-center justify-center hover:bg-orange-600 active:scale-95 transition-all"
                             >
                               +
@@ -266,6 +350,169 @@ export default function KioskScreen({
           )}
         </main>
       </div>
+
+      {/* ── Checkout Modal ─────────────────────────────────────────────────── */}
+      {checkoutOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+
+            {/* ── STEP: Cart Review ───────────────────────────────────────── */}
+            {payStep === "cart" && (
+              <>
+                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+                  <h2 className="text-lg font-bold text-gray-900">🛒 Your Order</h2>
+                  <button onClick={closeCheckout} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">&times;</button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+                  {cartItems.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-800">{item.name}</p>
+                        <p className="text-xs text-gray-400">₹{item.price} × {item.quantity}</p>
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">₹{item.price * item.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-base font-semibold text-gray-600">Total</span>
+                    <span className="text-xl font-extrabold text-gray-900">₹{cartTotal}</span>
+                  </div>
+                  <button
+                    onClick={() => setPayStep("payment")}
+                    className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
+                  >
+                    Proceed to Pay →
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── STEP: Payment Form ─────────────────────────────────────── */}
+            {payStep === "payment" && (
+              <>
+                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+                  <h2 className="text-lg font-bold text-gray-900">💳 Payment Details</h2>
+                  <button onClick={closeCheckout} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">&times;</button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Your Name</label>
+                    <input
+                      type="text"
+                      value={payerName}
+                      onChange={(e) => setPayerName(e.target.value)}
+                      placeholder="e.g. Raj Kumar"
+                      className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">UPI ID</label>
+                    <input
+                      type="text"
+                      value={upiId}
+                      onChange={(e) => setUpiId(e.target.value)}
+                      placeholder="e.g. raj@upi"
+                      className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400">Total to pay: <span className="font-bold text-gray-700">₹{cartTotal}</span></p>
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+                  <button
+                    onClick={() => setPayStep("cart")}
+                    className="flex-1 border border-gray-300 text-gray-600 font-semibold py-3 rounded-2xl hover:bg-gray-50 transition-all text-sm"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={handlePlaceOrder}
+                    disabled={!payerName.trim() || !upiId.trim()}
+                    className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-sm"
+                  >
+                    Place Order
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── STEP: Loading ────────────────────────────────────────────── */}
+            {payStep === "loading" && (
+              <div className="flex flex-col items-center justify-center py-16 px-6 gap-5">
+                <div className="w-14 h-14 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
+                <div className="text-center">
+                  <p className="text-base font-bold text-gray-800">Processing Payment…</p>
+                  <p className="text-sm text-gray-400 mt-1">Please do not close this window</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── STEP: Success ───────────────────────────────────────────── */}
+            {payStep === "success" && orderResult && (
+              <div className="flex flex-col items-center justify-center py-12 px-6 gap-5 text-center">
+                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                  <span className="text-3xl">✅</span>
+                </div>
+                <div>
+                  <p className="text-xl font-extrabold text-gray-900">Order Placed!</p>
+                  <p className="text-3xl font-black text-orange-500 mt-1">#{orderResult.orderNo}</p>
+                  <p className="text-sm text-gray-500 mt-2">Payment: <span className="font-semibold text-green-600">{orderResult.paymentStatus}</span></p>
+                  <p className="text-sm text-gray-500">Amount paid: <span className="font-semibold">₹{orderResult.totalAmount}</span></p>
+                </div>
+                <button
+                  onClick={closeCheckout}
+                  className="mt-2 w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
+                >
+                  New Order
+                </button>
+              </div>
+            )}
+
+            {/* ── STEP: Error ─────────────────────────────────────────────── */}
+            {payStep === "error" && (
+              <div className="flex flex-col items-center justify-center py-12 px-6 gap-5 text-center">
+                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                  <span className="text-3xl">❌</span>
+                </div>
+                <div>
+                  <p className="text-xl font-extrabold text-gray-900">Payment Failed</p>
+                  <p className="text-sm text-red-500 mt-2">{orderError}</p>
+                </div>
+                <div className="w-full flex gap-3">
+                  <button
+                    onClick={() => setPayStep("payment")}
+                    className="flex-1 border border-gray-300 text-gray-600 font-semibold py-3 rounded-2xl hover:bg-gray-50 transition-all text-sm"
+                  >
+                    Try Again
+                  </button>
+                  <button
+                    onClick={closeCheckout}
+                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-2xl transition-all text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast ────────────────────────────────────────────────────────── */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+          <div className="bg-gray-900/90 text-white text-sm font-medium px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-fade-in">
+            <span className="text-base">⚠️</span>
+            {toast}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

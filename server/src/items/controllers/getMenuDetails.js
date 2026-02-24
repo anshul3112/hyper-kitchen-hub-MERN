@@ -34,9 +34,9 @@ export const getMenuDetails = asyncHandler(async (req, res) => {
   // Merge populated data into items
   const itemsWithRelations = itemsData.map(item => {
     const itemObj = item.toObject();
-    itemObj.categories = item.categories
-      .map(catId => categoryMap.get(catId.toString()))
-      .filter(cat => cat !== undefined);
+    itemObj.category = item.category
+      ? (categoryMap.get(item.category.toString()) ?? null)
+      : null;
     itemObj.filters = item.filters
       .map(filterId => filterMap.get(filterId.toString()))
       .filter(filt => filt !== undefined);

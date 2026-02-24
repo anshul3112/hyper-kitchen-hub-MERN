@@ -4,7 +4,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start" : "node index.js",
+    "start": "node index.js",
     "dev": "nodemon index.js",
     "seed:superAdmin": "node src/scripts/seedSuperAdmin.js"
   },
@@ -20,5 +20,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.1.0",
     "mongoose": "^9.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0"
   }
 }

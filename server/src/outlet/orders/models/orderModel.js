@@ -44,6 +44,14 @@ const ordersSchema = new Schema(
       enum: ["Pending", "Processing", "Failed", "Completed"],
       default: "Pending",
     },
+    /**
+     * Arbitrary payment details object (e.g. { name, upiId } for UPI payments).
+     * Using Mixed so the schema can accept any future payment provider's structure.
+     */
+    paymentDetails: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true },
 );

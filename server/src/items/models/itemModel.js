@@ -22,10 +22,11 @@ const itemsSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "Filters"
   }],
-  categories: [{
+  category: {
     type: Schema.Types.ObjectId,
-    ref: "Category"
-  }],
+    ref: "Category",
+    required: true
+  },
   imageUrl: {
     type: String,
     trim: true

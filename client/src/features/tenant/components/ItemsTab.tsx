@@ -173,24 +173,21 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
                     )}
                   </div>
 
-                  {/* Category chips */}
-                  {item.categories.length > 0 && (
+                  {/* Category chip */}
+                  {item.category && (
                     <div className="flex flex-wrap gap-1">
-                      {item.categories.map((cat) => (
-                        <span
-                          key={cat._id}
-                          className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100"
-                        >
-                          {cat.name}
-                        </span>
-                      ))}
+                      <span
+                        className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100"
+                      >
+                        {item.category.name}
+                      </span>
                     </div>
                   )}
 
                   {/* Filter chips */}
-                  {item.filters.length > 0 && (
+                  {item.filters.filter(Boolean).length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {item.filters.map((f) => (
+                      {item.filters.filter(Boolean).map((f) => (
                         <span
                           key={f._id}
                           className="text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full border border-orange-100"
@@ -208,7 +205,7 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
                   <button
                     onClick={() => setModalTarget(item)}
                     className="flex-1 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
-                    title="Edit item (name, price, image, categories, filters)"
+                    title="Edit item (name, price, image, category, filters)"
                   >
                     Edit
                   </button>

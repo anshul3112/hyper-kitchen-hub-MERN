@@ -32,9 +32,9 @@ export default function AddEditItemModal({
   );
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? "");
 
-  // Collect initial category/filter IDs from nested objects
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
-    () => (item?.categories ?? []).map((c) => c._id),
+  // Single required category
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
+    item?.category?._id ?? "",
   );
   const [selectedFilterIds, setSelectedFilterIds] = useState<string[]>(
     () => (item?.filters ?? []).map((f) => f._id),
@@ -44,9 +44,7 @@ export default function AddEditItemModal({
   const [error, setError] = useState("");
 
   const toggleCategory = (id: string) =>
-    setSelectedCategoryIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setSelectedCategoryId((prev) => (prev === id ? "" : id));
 
   const toggleFilter = (id: string) =>
     setSelectedFilterIds((prev) =>
@@ -58,6 +56,7 @@ export default function AddEditItemModal({
     if (!name.trim()) { setError("Item name is required"); return; }
     const amount = parseFloat(defaultAmount);
     if (isNaN(amount) || amount < 0) { setError("A valid non-negative price is required"); return; }
+    if (!selectedCategoryId) { setError("Please select a category"); return; }
 
     setLoading(true);
     setError("");
@@ -67,7 +66,7 @@ export default function AddEditItemModal({
         description: description.trim(),
         defaultAmount: amount,
         imageUrl: imageUrl.trim() || undefined,
-        categories: selectedCategoryIds,
+        category: selectedCategoryId,
         filters: selectedFilterIds,
       };
 
@@ -162,18 +161,24 @@ export default function AddEditItemModal({
               />
             </div>
 
-            {/* Categories multi-select */}
+            {/* Category single-select (required) */}
             {categories.length > 0 && (
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-sm font-medium text-gray-700">Categories</label>
-                  <span className="text-xs text-gray-400">
-                    {selectedCategoryIds.length} selected
-                  </span>
+                  <label className="text-sm font-medium text-gray-700">Category *</label>
+                  {selectedCategoryId && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategoryId("")}
+                      className="text-xs text-gray-400 hover:text-red-500"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {categories.map((cat) => {
-                    const selected = selectedCategoryIds.includes(cat._id);
+                    const selected = selectedCategoryId === cat._id;
                     return (
                       <button
                         key={cat._id}

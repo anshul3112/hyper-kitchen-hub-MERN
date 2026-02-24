@@ -25,7 +25,7 @@ export type MenuItem = {
   defaultAmount: number;
   status: boolean;
   imageUrl?: string;
-  categories: MenuCategory[];
+  category: MenuCategory | null;
   filters: MenuFilter[];
 };
 
@@ -78,6 +78,27 @@ export type KioskSession = {
     tenant: { tenantId: string; tenantName: string };
   };
 };
+
+// ── Order types ───────────────────────────────────────────────────────────────
+
+export type PlaceOrderPayload = {
+  items: CartItem[];
+  totalAmount: number;
+  paymentDetails: {
+    name: string;
+    upiId: string;
+  };
+};
+
+export type OrderResult = {
+  _id: string;
+  orderNo: number;
+  orderStatus: string;
+  paymentStatus: string;
+  totalAmount: number;
+};
+
+// ── API functions ─────────────────────────────────────────────────────────────
 
 async function parseOrThrow<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => null);
@@ -168,4 +189,28 @@ export function mergeMenuWithInventory(
       inStock: stockQuantity > 0,
     };
   });
+}
+
+// ── Place order ───────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/orders
+ * Creates an order from the kiosk cart. The backend calls the mock payment
+ * internally and returns the created order with paymentStatus and orderStatus.
+ */
+export async function placeOrder(payload: PlaceOrderPayload): Promise<OrderResult> {
+  const session = getKioskSession();
+  if (!session) throw new Error("Kiosk session not found. Please log in again.");
+
+  const res = await fetch(`${API_BASE_URL}/api/v1/orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const parsed = await parseOrThrow<{ data: OrderResult }>(res);
+  return parsed.data;
 }

@@ -48,9 +48,9 @@ export const getKioskMenu = asyncHandler(async (req, res) => {
     .filter((item) => !disabledItemIds.has(item._id.toString()))
     .map((item) => {
       const itemObj = item.toObject();
-      itemObj.categories = item.categories
-        .map((catId) => categoryMap.get(catId.toString()))
-        .filter(Boolean);
+      itemObj.category = item.category
+        ? (categoryMap.get(item.category.toString()) ?? null)
+        : null;
       itemObj.filters = item.filters
         .map((filterId) => filterMap.get(filterId.toString()))
         .filter(Boolean);

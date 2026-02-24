@@ -16,8 +16,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
     if (!item.status) return false;
 
     if (selectedCategory !== "all") {
-      const hasCategory = item.categories.some((c) => c._id === selectedCategory);
-      if (!hasCategory) return false;
+      if (item.category?._id !== selectedCategory) return false;
     }
 
     if (selectedFilter !== "all") {

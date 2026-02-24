@@ -8,7 +8,7 @@ import mongoose from "mongoose";
 
 // Add new item
 export const addItem = asyncHandler(async (req, res) => {
-  const { name, description, defaultAmount, categories = [], filters = [], imageUrl } = req.body;
+  const { name, description, defaultAmount, category, filters = [], imageUrl } = req.body;
   const user = req.user;
 
   // Check if user is tenantAdmin
@@ -34,6 +34,10 @@ export const addItem = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Default amount must be non-negative");
   }
 
+  if (!category) {
+    throw new ApiError(400, "category is required");
+  }
+
   // Check if item already exists for this tenant
   const existingItem = await Items.findOne({
     name: name.trim(),
@@ -44,18 +48,10 @@ export const addItem = asyncHandler(async (req, res) => {
     throw new ApiError(409, "Item with this name already exists in your organization");
   }
 
-  // Validate categories if provided
-  let validatedCategories = [];
-  if (categories && categories.length > 0) {
-    validatedCategories = await Promise.all(
-      categories.map(async (catId) => {
-        const category = await Category.findOne({ _id: catId, tenantId });
-        if (!category) {
-          throw new ApiError(404, `Category with ID ${catId} not found`);
-        }
-        return catId;
-      })
-    );
+  // Validate category
+  const validCategory = await Category.findOne({ _id: category, tenantId });
+  if (!validCategory) {
+    throw new ApiError(404, `Category with ID ${category} not found`);
   }
 
   // Validate filters if provided
@@ -76,7 +72,7 @@ export const addItem = asyncHandler(async (req, res) => {
     name: name.trim(),
     description: description?.trim() || "",
     defaultAmount,
-    categories: validatedCategories,
+    category,
     filters: validatedFilters,
     imageUrl: imageUrl?.trim() || null,
     tenantId,
@@ -109,9 +105,9 @@ export const getItems = asyncHandler(async (req, res) => {
   // Get all unique category and filter IDs
   const allCategoryIds = new Set();
   const allFilterIds = new Set();
-  
+
   items.forEach(item => {
-    item.categories.forEach(catId => allCategoryIds.add(catId.toString()));
+    if (item.category) allCategoryIds.add(item.category.toString());
     item.filters.forEach(filterId => allFilterIds.add(filterId.toString()));
   });
 
@@ -128,8 +124,10 @@ export const getItems = asyncHandler(async (req, res) => {
   // Merge populated data into items
   const itemsWithRelations = items.map(item => {
     const itemObj = item.toObject();
-    itemObj.categories = item.categories.map(catId => categoryMap.get(catId.toString()));
-    itemObj.filters = item.filters.map(filterId => filterMap.get(filterId.toString()));
+    itemObj.category = item.category ? categoryMap.get(item.category.toString()) ?? null : null;
+    itemObj.filters = item.filters
+      .map(filterId => filterMap.get(filterId.toString()))
+      .filter(Boolean);
     return itemObj;
   });
 
@@ -141,7 +139,7 @@ export const getItems = asyncHandler(async (req, res) => {
 // Edit item
 export const editItem = asyncHandler(async (req, res) => {
   const { itemId } = req.params;
-  const { name, description, defaultAmount, categories, filters, imageUrl, status } = req.body;
+  const { name, description, defaultAmount, category, filters, imageUrl, status } = req.body;
   const user = req.user;
 
   // Check if user is tenantAdmin
@@ -190,22 +188,16 @@ export const editItem = asyncHandler(async (req, res) => {
     item.defaultAmount = defaultAmount;
   }
 
-  // Update categories if provided
-  if (categories !== undefined && Array.isArray(categories)) {
-    if (categories.length > 0) {
-      const validatedCategories = await Promise.all(
-        categories.map(async (catId) => {
-          const category = await Category.findOne({ _id: catId, tenantId });
-          if (!category) {
-            throw new ApiError(404, `Category with ID ${catId} not found`);
-          }
-          return catId;
-        })
-      );
-      item.categories = validatedCategories;
-    } else {
-      item.categories = [];
+  // Update category if provided
+  if (category !== undefined) {
+    if (!category) {
+      throw new ApiError(400, "category is required and cannot be removed");
     }
+    const validCategory = await Category.findOne({ _id: category, tenantId });
+    if (!validCategory) {
+      throw new ApiError(404, `Category with ID ${category} not found`);
+    }
+    item.category = category;
   }
 
   // Update filters if provided
@@ -236,20 +228,16 @@ export const editItem = asyncHandler(async (req, res) => {
 
   await item.save();
 
-  // Fetch categories and filters separately
-  const [categoriesData, filtersData] = await Promise.all([
-    Category.find({ _id: { $in: item.categories } }).select('_id name status'),
+  // Fetch category and filters separately
+  const [categoryData, filtersData] = await Promise.all([
+    Category.findById(item.category).select('_id name status'),
     Filters.find({ _id: { $in: item.filters } }).select('_id name isActive')
   ]);
 
-  // Create maps for quick lookup
-  const categoryMap = new Map(categoriesData.map(c => [c._id.toString(), c]));
-  const filterMap = new Map(filtersData.map(f => [f._id.toString(), f]));
-
   // Merge populated data
   const itemResponse = item.toObject();
-  itemResponse.categories = item.categories.map(catId => categoryMap.get(catId.toString()));
-  itemResponse.filters = item.filters.map(filterId => filterMap.get(filterId.toString()));
+  itemResponse.category = categoryData ?? null;
+  itemResponse.filters = item.filters.map(filterId => filtersData.find(f => f._id.equals(filterId)) ?? null);
 
   return res.status(200).json(
     new ApiResponse(200, itemResponse, "Item updated successfully")

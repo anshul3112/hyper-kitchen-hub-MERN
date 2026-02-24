@@ -48,7 +48,7 @@ export type MenuItem = {
   status: boolean;
   imageUrl?: string;
   tenantId: string;
-  categories: MenuCategory[];
+  category: MenuCategory | null;
   filters: MenuFilter[];
   createdAt?: string;
   updatedAt?: string;

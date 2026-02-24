@@ -8,6 +8,7 @@ import createUserRouter from "./src/users/routes/createUserRoutes.js";
 import outletRouter from "./src/outlet/core/routes/outletRoutes.js";
 import itemRouter from "./src/items/routes/itemRoutes.js";
 import kioskRouter from "./src/outlet/kiosk/routes/kioskRoutes.js";
+import orderRouter from "./src/outlet/orders/routes/orderRoutes.js";
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use('/api/v1/users', createUserRouter);
 app.use('/api/v1/outlets', outletRouter);
 app.use('/api/v1/items', itemRouter);
 app.use('/api/v1/kiosks', kioskRouter);
+app.use('/api/v1/orders', orderRouter);
 
 // error handling middleware at last :
 app.use((err, req, res, next) => {

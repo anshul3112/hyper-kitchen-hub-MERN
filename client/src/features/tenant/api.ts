@@ -151,7 +151,7 @@ export type MenuItem = {
 	imageUrl?: string | null;
 	status: boolean;
 	tenantId: string;
-	categories: MenuItemCategory[];
+	category: MenuItemCategory | null;
 	filters: MenuItemFilter[];
 	createdAt?: string;
 	updatedAt?: string;
@@ -256,7 +256,7 @@ export type CreateItemInput = {
 	description?: string;
 	defaultAmount: number;
 	imageUrl?: string;
-	categories?: string[];
+	category: string;
 	filters?: string[];
 };
 
