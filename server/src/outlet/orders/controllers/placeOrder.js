@@ -6,7 +6,8 @@ import { Orders } from "../models/orderModel.js";
 import { callMockPayment } from "../../utils/mockPayment.js";
 import { getNextOrderNumber } from "../../core/controllers/getNextOrderNumber.js";
 import { reserveInventoryStock, restoreInventoryStock } from "../../utils/decrementInventory.js";
-import { emitNewOrder, emitOrderStatusUpdate } from "../../../utils/socket.js";
+import { emitNewOrder, emitOrderStatusUpdate, emitInventoryUpdate } from "../../../utils/socket.js";
+import { Inventory } from "../../../items/models/inventoryModel.js";
 
 /**
  * POST /api/v1/orders
@@ -71,6 +72,7 @@ export const placeOrder = asyncHandler(async (req, res) => {
         [
           {
             orderNo,
+            name: paymentDetails.name,
             time: timeStr,
             itemsCart: items.map((it) => ({
               itemId: it.id,
@@ -100,6 +102,19 @@ export const placeOrder = asyncHandler(async (req, res) => {
       // 5a. Payment ok → mark order Completed
       // Notify outlet room: a new successful order has arrived
       emitNewOrder(outletId, order.toObject());
+
+      // Broadcast updated inventory quantities to all kiosks/admin in the outlet
+      const itemIds = items.map((it) => it.id);
+      const updatedInventory = await Inventory.find({ itemId: { $in: itemIds }, outletId });
+      updatedInventory.forEach((rec) => {
+        emitInventoryUpdate(outletId.toString(), {
+          itemId: rec.itemId.toString(),
+          price: rec.price ?? null,
+          quantity: rec.quantity,
+          status: rec.status,
+        });
+      });
+
       order.paymentStatus = "done";
       order.orderStatus = "Completed";
       order.paymentDetails = paymentDetails;

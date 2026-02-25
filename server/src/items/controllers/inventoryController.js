@@ -3,6 +3,7 @@ import { Items } from "../models/itemModel.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { emitInventoryUpdate } from "../../utils/socket.js";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,13 @@ export const upsertInventoryItem = asyncHandler(async (req, res) => {
     { new: true, upsert: true, runValidators: true }
   );
 
+  emitInventoryUpdate(outletId.toString(), {
+    itemId: itemId.toString(),
+    price: record.price ?? null,
+    quantity: record.quantity,
+    status: record.status,
+  });
+
   return res.status(200).json(
     new ApiResponse(200, record, "Inventory updated successfully")
   );
@@ -102,6 +110,13 @@ export const updateInventoryPrice = asyncHandler(async (req, res) => {
     { price: Number(price), editedBy: req.user._id },
     { new: true, upsert: true, runValidators: true }
   );
+
+  emitInventoryUpdate(outletId.toString(), {
+    itemId: itemId.toString(),
+    price: record.price ?? null,
+    quantity: record.quantity,
+    status: record.status,
+  });
 
   return res.status(200).json(
     new ApiResponse(200, record, "Price updated successfully")
@@ -129,6 +144,13 @@ export const updateInventoryQuantity = asyncHandler(async (req, res) => {
     { quantity: Number(quantity), editedBy: req.user._id },
     { new: true, upsert: true, runValidators: true }
   );
+
+  emitInventoryUpdate(outletId.toString(), {
+    itemId: itemId.toString(),
+    price: record.price ?? null,
+    quantity: record.quantity,
+    status: record.status,
+  });
 
   return res.status(200).json(
     new ApiResponse(200, record, "Quantity updated successfully")
@@ -161,6 +183,13 @@ export const toggleInventoryStatus = asyncHandler(async (req, res) => {
     updateFields,
     { new: true, upsert: true, runValidators: true }
   );
+
+  emitInventoryUpdate(outletId.toString(), {
+    itemId: itemId.toString(),
+    price: record.price ?? null,
+    quantity: record.quantity,
+    status: record.status,
+  });
 
   return res.status(200).json(
     new ApiResponse(200, record, `Item ${status ? "enabled" : "disabled"} at outlet level`)

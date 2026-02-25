@@ -86,6 +86,43 @@ export function useCart() {
     update(() => ({}));
   }, [update]);
 
+  /**
+   * Apply inventory patches to the cart in one atomic update.
+   * - status === false  → remove item from cart entirely
+   * - quantity === 0    → remove item from cart entirely
+   * - quantity < cart qty → clamp cart qty down to available stock
+   * - price defined    → update the stored price so totals stay accurate
+   */
+  const patchCart = useCallback(
+    (patches: Record<string, { price?: number; quantity?: number; status?: boolean }>) => {
+      update((prev) => {
+        const next = { ...prev };
+        for (const [id, patch] of Object.entries(patches)) {
+          const entry = next[id];
+          if (!entry) continue;
+
+          // Item disabled or explicitly zeroed out → remove
+          if (patch.status === false || patch.quantity === 0) {
+            delete next[id];
+            continue;
+          }
+
+          const newPrice = patch.price !== undefined ? patch.price : entry.price;
+          const availableQty = patch.quantity !== undefined ? patch.quantity : Infinity;
+          const clampedQty = Math.min(entry.quantity, availableQty);
+
+          if (clampedQty <= 0) {
+            delete next[id];
+          } else {
+            next[id] = { ...entry, quantity: clampedQty, price: newPrice };
+          }
+        }
+        return next;
+      });
+    },
+    [update],
+  );
+
   // ── Derived values ──────────────────────────────────────────────────────────
 
   const cartItems = Object.values(cart);
@@ -107,5 +144,6 @@ export function useCart() {
     decrement,
     removeItem,
     clearCart,
+    patchCart,
   };
 }

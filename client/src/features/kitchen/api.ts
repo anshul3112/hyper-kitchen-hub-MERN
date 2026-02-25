@@ -24,6 +24,7 @@ export type KitchenOrderItem = {
 export type KitchenOrder = {
   _id: string;
   orderNo: number;
+  name?: string;
   time: string;
   itemsCart: KitchenOrderItem[];
   totalAmount: number;

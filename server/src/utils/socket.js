@@ -98,3 +98,9 @@ export function emitNewOrder(outletId, order) {
 export function emitOrderStatusUpdate(outletId, payload) {
   getIO().to(`outlet:${outletId}`).emit("order:status", payload);
 }
+
+// Broadcast an inventory-level update (price / quantity / status) to every
+// connected socket in the outlet room (kiosks + outlet admin screens).
+export function emitInventoryUpdate(outletId, payload) {
+  getIO().to(`outlet:${outletId}`).emit("inventory:update", payload);
+}

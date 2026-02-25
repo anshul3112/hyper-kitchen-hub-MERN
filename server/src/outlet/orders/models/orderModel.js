@@ -6,6 +6,10 @@ const ordersSchema = new Schema(
       type: Number,
       required: true,
     },
+    name: {
+      type: String,
+      required: true,
+    },
     time: {
       type: String,
     },

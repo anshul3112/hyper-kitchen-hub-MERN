@@ -56,7 +56,10 @@ export default function KitchenOrderCard({ order, onAdvanced }: Props) {
           <p className="text-2xl font-extrabold text-gray-900 leading-none">
             #{order.orderNo}
           </p>
-          <p className="text-xs text-gray-400 mt-1">{order.time}</p>
+          {order.name && (
+            <p className="text-sm font-medium text-gray-700 mt-0.5">{order.name}</p>
+          )}
+          <p className="text-xs text-gray-400 mt-0.5">{order.time}</p>
         </div>
         <span
           className={`text-xs font-semibold px-2.5 py-1 rounded-full ${FULFILLMENT_COLORS[order.fulfillmentStatus]}`}

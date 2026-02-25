@@ -22,7 +22,7 @@ export const getDisplayOrders = asyncHandler(async (req, res) => {
     orderStatus: "Completed",
     fulfillmentStatus: { $ne: "served" },
   })
-    .select("orderNo fulfillmentStatus time totalAmount itemsCart createdAt")
+    .select("orderNo name fulfillmentStatus time totalAmount itemsCart createdAt")
     .sort({ createdAt: 1 });
 
   return res.status(200).json(

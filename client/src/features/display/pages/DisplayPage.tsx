@@ -27,6 +27,9 @@ function OrderCard({ order }: { order: DisplayOrder }) {
           {FULFILLMENT_LABELS[order.fulfillmentStatus]}
         </span>
       </div>
+      {order.name && (
+        <p className="text-sm font-medium text-gray-600">{order.name}</p>
+      )}
       <div className="space-y-0.5">
         {order.itemsCart.map((item, i) => (
           <p key={i} className="text-xs text-gray-500">

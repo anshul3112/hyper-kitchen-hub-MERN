@@ -9,6 +9,7 @@ export type FulfillmentStatus = "created" | "received" | "cooking" | "prepared" 
 export type DisplayOrder = {
   _id: string;
   orderNo: number;
+  name?: string;
   fulfillmentStatus: FulfillmentStatus;
   time?: string;
   totalAmount: number;

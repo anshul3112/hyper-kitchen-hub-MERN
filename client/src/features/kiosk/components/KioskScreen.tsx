@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import type { MenuCategory, MenuFilter, EnrichedMenuItem, OrderResult } from "../api";
 import { placeOrder } from "../api";
 import { useCart } from "../hooks/useCart";
+import { getChangedItems, patchItemsInCache, clearChangedItems } from "../db/kioskDB";
 
 type Props = {
   categories: MenuCategory[];
@@ -9,6 +10,8 @@ type Props = {
   items: EnrichedMenuItem[];
   outletName: string;
   kioskNumber: number;
+  /** Called after checkout applies inventory patches so KioskPage can re-render items live. */
+  onItemsPatched: (patches: Record<string, { price?: number; quantity?: number; status?: boolean }>) => void;
 };
 
 export default function KioskScreen({
@@ -16,12 +19,12 @@ export default function KioskScreen({
   filters,
   items,
   outletName,
-  kioskNumber,
+  onItemsPatched,
 }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
 
-  const { cart, cartCount, cartTotal, cartItems, addToCart, increment, decrement, clearCart } = useCart();
+  const { cart, cartCount, cartTotal, cartItems, addToCart, increment, decrement, clearCart, patchCart } = useCart();
 
   // ── Checkout modal state ─────────────────────────────────────────────────────
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -32,16 +35,104 @@ export default function KioskScreen({
   const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
   const [orderError, setOrderError] = useState("");
 
-  const openCheckout = () => {
+  // Notices generated at checkout-open time from pending changed_items
+  const [checkoutNotices, setCheckoutNotices] = useState<string[]>([]);
+  // True while openCheckout is processing IndexedDB — blocks Proceed to Pay
+  const [checkoutInitializing, setCheckoutInitializing] = useState(false);
+
+  const openCheckout = async () => {
     setPayStep("cart");
     setPayerName("");
     setUpiId("");
     setOrderResult(null);
     setOrderError("");
+    setCheckoutNotices([]);
+    setCheckoutInitializing(true);
     setCheckoutOpen(true);
+
+    try {
+      const changes = await getChangedItems();
+      if (changes.length === 0) return;
+
+      // Build a patches map keyed by itemId
+      const patches: Record<string, { price?: number; quantity?: number; status?: boolean }> = {};
+      changes.forEach((c) => {
+        patches[c._id] = { price: c.price, quantity: c.quantity, status: c.status };
+      });
+
+      // Build notices for items that are actually in the cart
+      const notices: string[] = [];
+      for (const cartItem of cartItems) {
+        const patch = patches[cartItem.id];
+        if (!patch) continue;
+
+        if (patch.status === false) {
+          notices.push(`${cartItem.name} is no longer available — removed from cart.`);
+          continue; // no further checks needed; item is gone
+        }
+
+        if (patch.quantity === 0) {
+          notices.push(`${cartItem.name} is out of stock — removed from cart.`);
+          continue;
+        }
+
+        if (patch.quantity !== undefined && patch.quantity < cartItem.quantity) {
+          notices.push(
+            `${cartItem.name}: only ${patch.quantity} available — quantity reduced from ${cartItem.quantity} to ${patch.quantity}.`,
+          );
+        }
+
+        if (patch.price !== undefined && patch.price !== cartItem.price) {
+          notices.push(
+            `Price of ${cartItem.name} updated: \u20b9${cartItem.price} \u2192 \u20b9${patch.price}.`,
+          );
+        }
+      }
+
+      // 1. Clamp / update the cart in-place
+      patchCart(patches);
+
+      // 2. Patch items_cache in IndexedDB
+      await patchItemsInCache(changes);
+
+      // 3. Consume changed_items queue
+      await clearChangedItems();
+
+      // 4. Tell parent to re-render the item grid with fresh prices/stock
+      onItemsPatched(patches);
+
+      setCheckoutNotices(notices);
+    } catch (err) {
+      console.error("Failed to apply inventory changes at checkout:", err);
+    } finally {
+      setCheckoutInitializing(false);
+    }
   };
 
-  const closeCheckout = () => setCheckoutOpen(false);
+  // Silently drain changed_items and sync cart + item grid on close — no notices shown.
+  const applyPatchesSilently = async () => {
+    try {
+      const changes = await getChangedItems();
+      if (changes.length === 0) return;
+
+      const patches: Record<string, { price?: number; quantity?: number; status?: boolean }> = {};
+      changes.forEach((c) => {
+        patches[c._id] = { price: c.price, quantity: c.quantity, status: c.status };
+      });
+
+      patchCart(patches);
+      await patchItemsInCache(changes);
+      await clearChangedItems();
+      onItemsPatched(patches);
+    } catch (err) {
+      console.error("Failed to apply silent inventory patches on close:", err);
+    }
+  };
+
+  const closeCheckout = async () => {
+    await applyPatchesSilently();
+    setCheckoutOpen(false);
+  };
 
   const handlePlaceOrder = async () => {
     if (!payerName.trim() || !upiId.trim()) return;
@@ -112,14 +203,10 @@ export default function KioskScreen({
     <div className="flex flex-col h-screen bg-gray-100 overflow-hidden">
       {/* ── Top Bar ─────────────────────────────────────────────────────── */}
       <header className="bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-6 py-3 flex-shrink-0">
-        {/* Left: Brand / Outlet info */}
+        {/* Left: Brand info */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center">
-            <span className="text-white text-lg font-bold">K</span>
-          </div>
           <div>
             <p className="text-base font-bold text-gray-900 leading-tight">{outletName}</p>
-            <p className="text-xs text-gray-500">Kiosk #{kioskNumber}</p>
           </div>
         </div>
 
@@ -129,8 +216,8 @@ export default function KioskScreen({
             onClick={() => setSelectedFilter("all")}
             className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
               selectedFilter === "all"
-                ? "bg-orange-500 text-white border-orange-500"
-                : "bg-white text-gray-600 border-gray-300 hover:border-orange-400 hover:text-orange-500"
+                ? "bg-blue-500 text-white border-blue-500"
+                : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-500"
             }`}
           >
             All
@@ -143,8 +230,8 @@ export default function KioskScreen({
               }
               className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
                 selectedFilter === f._id
-                  ? "bg-orange-500 text-white border-orange-500"
-                  : "bg-white text-gray-600 border-gray-300 hover:border-orange-400 hover:text-orange-500"
+                  ? "bg-blue-500 text-white border-blue-500"
+                  : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-500"
               }`}
             >
               {f.name}
@@ -187,7 +274,7 @@ export default function KioskScreen({
             onClick={() => setSelectedCategory("all")}
             className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors text-left ${
               selectedCategory === "all"
-                ? "bg-orange-50 text-orange-600 border-r-2 border-orange-500"
+                ? "bg-blue-50 text-blue-600 border-r-2 border-blue-500"
                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
             }`}
           >
@@ -203,7 +290,7 @@ export default function KioskScreen({
               }
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors text-left ${
                 selectedCategory === cat._id
-                  ? "bg-orange-50 text-orange-600 border-r-2 border-orange-500"
+                  ? "bg-blue-50 text-blue-600 border-r-2 border-blue-500"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
@@ -364,6 +451,16 @@ export default function KioskScreen({
                   <button onClick={closeCheckout} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">&times;</button>
                 </div>
 
+                {/* Inventory change notices */}
+                {checkoutNotices.length > 0 && (
+                  <div className="mx-6 mt-4 rounded-xl bg-amber-50 border border-amber-300 px-4 py-3 space-y-1">
+                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">⚠️ Price / Stock Updates</p>
+                    {checkoutNotices.map((msg, i) => (
+                      <p key={i} className="text-xs text-amber-800 leading-snug">{msg}</p>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
                   {cartItems.map((item) => (
                     <div key={item.id} className="flex items-center justify-between gap-3">
@@ -377,16 +474,40 @@ export default function KioskScreen({
                 </div>
 
                 <div className="px-6 py-4 border-t border-gray-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-base font-semibold text-gray-600">Total</span>
-                    <span className="text-xl font-extrabold text-gray-900">₹{cartTotal}</span>
-                  </div>
-                  <button
-                    onClick={() => setPayStep("payment")}
-                    className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
-                  >
-                    Proceed to Pay →
-                  </button>
+                  {checkoutInitializing ? (
+                    /* Still applying inventory patches — block proceed */
+                    <button
+                      disabled
+                      className="w-full flex items-center justify-center gap-2 bg-orange-300 cursor-not-allowed text-white font-bold py-3 rounded-2xl text-base"
+                    >
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Checking stock…
+                    </button>
+                  ) : cartItems.length === 0 ? (
+                    /* All items were removed by inventory patches */
+                    <div className="space-y-3">
+                      <p className="text-center text-sm text-gray-500">Your cart is empty — all items were removed due to stock or availability changes.</p>
+                      <button
+                        onClick={closeCheckout}
+                        className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-2xl transition-all text-base"
+                      >
+                        Back to Menu
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-base font-semibold text-gray-600">Total</span>
+                        <span className="text-xl font-extrabold text-gray-900">₹{cartTotal}</span>
+                      </div>
+                      <button
+                        onClick={() => setPayStep("payment")}
+                        className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
+                      >
+                        Proceed to Pay →
+                      </button>
+                    </>
+                  )}
                 </div>
               </>
             )}
