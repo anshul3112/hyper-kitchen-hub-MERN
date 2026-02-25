@@ -302,3 +302,23 @@ export async function deleteItem(itemId: string): Promise<void> {
 	});
 	await parseOrThrow(res);
 }
+
+/**
+ * Upload an image file for an item.
+ * Sends multipart/form-data with field name "image".
+ * Returns the Cloudinary URL.
+ */
+export async function uploadItemImage(file: File): Promise<string> {
+	const token = localStorage.getItem("accessToken");
+	const form = new FormData();
+	form.append("image", file);
+
+	const res = await fetch(`${API_BASE_URL}/api/v1/items/upload-image`, {
+		method: "POST",
+		credentials: "include",
+		headers: { Authorization: token ? `Bearer ${token}` : "" },
+		body: form,
+	});
+	const parsed = (await parseOrThrow(res)) as ApiResponse<{ imageUrl: string }>;
+	return parsed.data.imageUrl;
+}

@@ -122,12 +122,12 @@ export default function MenuGrid({ categories, filters, items }: Props) {
               className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col"
             >
               {/* Image */}
-              <div className="h-32 bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
+              <div className="h-32 bg-white flex items-center justify-center">
                 {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
                     alt={item.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 ) : (
                   <span className="text-4xl">🍴</span>

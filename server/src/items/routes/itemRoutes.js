@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { verifyJWT } from "../../common/middlewares/authMiddleware.js";
+import { upload } from "../../common/middlewares/multer.js";
 import {
   addItem,
   getItems,
   editItem,
   deleteItem,
+  uploadItemImage,
 } from "../controllers/itemController.js";
 import {
   addFilter,
@@ -48,6 +50,9 @@ router.route("/").post(addItem);
 router.route("/").get(getItems);
 router.route("/:itemId").patch(editItem); // use this to disable item too
 router.route("/:itemId").delete(deleteItem);
+
+// Image upload — must come before /:itemId routes to avoid param conflict
+router.post("/upload-image", upload.single("image"), uploadItemImage);
 
 // Menu details route (get all categories, filters, items together)
 router.route("/menu/all").get(getMenuDetails);

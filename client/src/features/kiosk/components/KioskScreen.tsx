@@ -310,12 +310,6 @@ export default function KioskScreen({
 
         {/* ── Main Content: Item Grid ──────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-500">
-              <span className="font-semibold text-gray-800">{visibleItems.length}</span>{" "}
-              item{visibleItems.length !== 1 ? "s" : ""} available
-            </p>
-          </div>
 
           {visibleItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
@@ -335,12 +329,12 @@ export default function KioskScreen({
                     }`}
                   >
                     {/* Image */}
-                    <div className="relative h-36 bg-gradient-to-br from-orange-50 to-amber-50 flex-shrink-0">
+                    <div className="relative h-36 bg-white flex-shrink-0">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
                           alt={item.name}
-                          className={`w-full h-full object-cover ${!item.inStock ? "grayscale" : ""}`}
+                          className={`w-full h-full object-contain ${!item.inStock ? "grayscale" : ""}`}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">

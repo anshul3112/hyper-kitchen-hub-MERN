@@ -133,12 +133,12 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
                 } border-gray-200`}
               >
                 {/* Image */}
-                <div className="relative h-36 bg-gray-100 flex-shrink-0">
+                <div className="relative h-36 bg-white flex-shrink-0">
                   {item.imageUrl ? (
                     <img
                       src={item.imageUrl}
                       alt={item.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-300 text-4xl">

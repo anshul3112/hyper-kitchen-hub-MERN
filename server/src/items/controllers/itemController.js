@@ -4,6 +4,7 @@ import { Filters } from "../models/filterModel.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { uploadOnCloudinary } from "../../utils/cloudinary.js";
 import mongoose from "mongoose";
 
 // Add new item
@@ -273,3 +274,47 @@ export const deleteItem = asyncHandler(async (req, res) => {
     new ApiResponse(200, null, "Item deleted successfully")
   );
 });
+
+// Upload item image to Cloudinary
+// POST /api/v1/items/upload-image   (multipart/form-data, field: "image")
+export const uploadItemImage = asyncHandler(async (req, res) => {
+  if (req.user.role !== "tenantAdmin") {
+    throw new ApiError(403, "Only tenant admins can upload item images");
+  }
+
+  const localFilePath = req.file?.path;
+  if (!localFilePath) {
+    throw new ApiError(400, "Image file is required");
+  }
+
+  const result = await uploadOnCloudinary(localFilePath);
+  if (!result?.url) {
+    throw new ApiError(500, "Failed to upload image to Cloudinary");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, { imageUrl: result.url }, "Image uploaded successfully")
+  );
+});
+
+// // Upload item image to Cloudinary
+// // POST /api/v1/items/upload-image   (multipart/form-data, field: "image")
+// export const uploadItemImage = asyncHandler(async (req, res) => {
+//   if (req.user.role !== "tenantAdmin") {
+//     throw new ApiError(403, "Only tenant admins can upload item images");
+//   }
+
+//   const localFilePath = req.file?.path;
+//   if (!localFilePath) {
+//     throw new ApiError(400, "Image file is required");
+//   }
+
+//   const result = await uploadOnCloudinary(localFilePath);
+//   if (!result?.url) {
+//     throw new ApiError(500, "Failed to upload image to Cloudinary");
+//   }
+
+//   return res.status(200).json(
+//     new ApiResponse(200, { imageUrl: result.url }, "Image uploaded successfully")
+//   );
+// });
