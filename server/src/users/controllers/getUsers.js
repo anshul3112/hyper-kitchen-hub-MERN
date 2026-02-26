@@ -8,12 +8,8 @@ export const getSuperAdmins = asyncHandler(async (req, res) => {
     if (user.role !== "superAdmin") {
         throw new ApiError(403, "Only superAdmins can view super admins");
     }
-    try {
-        const superAdmins = await User.find({ role: "superAdmin" }).select("-password").sort({ createdAt: -1 });
-        return res.status(200).json(new ApiResponse(200, superAdmins, "Super Admins fetched successfully"));
-    } catch (error) {
-        throw new ApiError(500, "Failed to fetch super admins");
-    }
+    const superAdmins = await User.find({ role: "superAdmin" }).select("-password").sort({ createdAt: -1 });
+    return res.status(200).json(new ApiResponse(200, superAdmins, "Super Admins fetched successfully"));
 });
 
 export const getTenantAdmins = asyncHandler(async (req, res) => {
@@ -24,12 +20,8 @@ export const getTenantAdmins = asyncHandler(async (req, res) => {
 
     const tenantId = user.tenant.tenantId;
 
-    try {
-        const tenantAdmins = await User.find({ role: "tenantAdmin", "tenant.tenantId": tenantId }).select("-password").sort({ createdAt: -1 });
-        return res.status(200).json(new ApiResponse(200, tenantAdmins, "Tenant Admins fetched successfully"));
-    } catch (error) {
-        throw new ApiError(500, "Failed to fetch tenant admins");
-    }
+    const tenantAdmins = await User.find({ role: "tenantAdmin", "tenant.tenantId": tenantId }).select("-password").sort({ createdAt: -1 });
+    return res.status(200).json(new ApiResponse(200, tenantAdmins, "Tenant Admins fetched successfully"));
 });
 
 export const getOutletAdmins = asyncHandler(async (req, res) => {
@@ -38,12 +30,9 @@ export const getOutletAdmins = asyncHandler(async (req, res) => {
         throw new ApiError(403, "Only tenantAdmins can view outlet admins");
     }
     const tenantId = user.tenant.tenantId;
-    try {
-        const outletAdmins = await User.find({ role: "outletAdmin", "tenant.tenantId": tenantId }).select("-password").sort({ createdAt: -1 });
-        return res.status(200).json(new ApiResponse(200, outletAdmins, "Outlet Admins fetched successfully"));
-    } catch (error) {
-        throw new ApiError(500, "Failed to fetch outlet admins");
-    }   
+
+    const outletAdmins = await User.find({ role: "outletAdmin", "tenant.tenantId": tenantId }).select("-password").sort({ createdAt: -1 });
+    return res.status(200).json(new ApiResponse(200, outletAdmins, "Outlet Admins fetched successfully"));
 });
 
 /**
@@ -59,14 +48,10 @@ export const getOutletStaff = asyncHandler(async (req, res) => {
     if (!outletId) {
         throw new ApiError(403, "No outlet associated with this user");
     }
-    try {
-        const staff = await User
-            .find({ role: { $in: ["kitchenStaff", "billingStaff"] }, "outlet.outletId": outletId })
-            .select("-password")
-            .sort({ createdAt: -1 });
-        return res.status(200).json(new ApiResponse(200, staff, "Outlet staff fetched successfully"));
-    } catch (error) {
-        throw new ApiError(500, "Failed to fetch outlet staff");
-    }
+    const staff = await User
+        .find({ role: { $in: ["kitchenStaff", "billingStaff"] }, "outlet.outletId": outletId })
+        .select("-password")
+        .sort({ createdAt: -1 });
+    return res.status(200).json(new ApiResponse(200, staff, "Outlet staff fetched successfully"));
 });
 

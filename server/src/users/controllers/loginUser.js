@@ -5,7 +5,6 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { validateLogin } from "../services/loginValidation.js";
 
 export const loginUser = asyncHandler(async (req, res) => {
-  try {
     const { email, password } = req.body;
 
     validateLogin(req.body);
@@ -27,8 +26,4 @@ export const loginUser = asyncHandler(async (req, res) => {
     res
       .status(200)
       .json(new ApiResponse(200, { accessToken,  user: safeUser }, "Login successful"));
-  } catch (err) {
-    console.error("Error logging in user:", err);
-    throw new ApiError(500, err.message || "Internal Server Error");
-  }
 });

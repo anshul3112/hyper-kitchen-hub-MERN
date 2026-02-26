@@ -16,16 +16,12 @@ export const createTenant = asyncHandler(async (req, res) => {
 
     await ensureUniqueTenantFields(name, contacts);
 
-    try {
-      const tenant = new Tenant({
-        name,
-        contacts,
-        address,
-        location
-      });
-      await tenant.save();
-      return res.status(201).json(new ApiResponse(201, tenant, "Tenant created successfully"));
-    } catch (error) {
-      throw new ApiError(500, "Failed to create tenant");
-    }
+    const tenant = new Tenant({
+      name,
+      contacts,
+      address,
+      location
+    });
+    await tenant.save();
+    return res.status(201).json(new ApiResponse(201, tenant, "Tenant created successfully"));
 });

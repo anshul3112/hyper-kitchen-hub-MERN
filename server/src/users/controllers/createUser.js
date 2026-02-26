@@ -57,7 +57,6 @@ export const createTenantAdmin = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only superAdmins can create tenant admins");
   }
 
-  try {
     const { name, email, password, tenant, phoneNumber } = req.body; 
 
     validateCreateTenantAdmin(req.body);
@@ -82,10 +81,6 @@ export const createTenantAdmin = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(201, tenantAdminData, "Tenant Admin created successfully"),
       );
-  } catch (err) {
-    console.error("Error creating user:", err);
-    throw new ApiError(500, err.message || "Internal Server Error");
-  }
 });
 
 export const createOutletAdmin = asyncHandler(async (req, res) => {
@@ -94,32 +89,27 @@ export const createOutletAdmin = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only tenantAdmins can create outlet admins");
   }
 
-  try {
-    const { name, email, password, tenant, outlet, phoneNumber } = req.body;
+  const { name, email, password, tenant, outlet, phoneNumber } = req.body;
 
-    validateCreateOutletAdmin(req.body);
-    await ensureUniqueEmailAndPhone(email, phoneNumber);
-    const outletAdmin = new User({
-      name,
-      email,
-      password,
-      role: "outletAdmin",
-      tenant,
-      outlet,
-      phoneNumber,
-    });
+  validateCreateOutletAdmin(req.body);
+  await ensureUniqueEmailAndPhone(email, phoneNumber);
+  const outletAdmin = new User({
+    name,
+    email,
+    password,
+    role: "outletAdmin",
+    tenant,
+    outlet,
+    phoneNumber,
+  });
 
-    await outletAdmin.save();
-    const {password: _, ...outletAdminData} = outletAdmin.toObject();
-    res
-      .status(201)
-      .json(
-        new ApiResponse(201, outletAdminData, "Outlet Admin created successfully"),
-      );
-  } catch (err) {
-    console.error("Error creating user:", err);
-    throw new ApiError(500, err.message || "Internal Server Error");
-  }
+  await outletAdmin.save();
+  const {password: _, ...outletAdminData} = outletAdmin.toObject();
+  res
+    .status(201)
+    .json(
+      new ApiResponse(201, outletAdminData, "Outlet Admin created successfully"),
+    );
 });
 
 export const createSuperAdmin = asyncHandler(async (req, res) => {

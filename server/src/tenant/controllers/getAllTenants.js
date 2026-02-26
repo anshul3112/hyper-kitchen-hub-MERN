@@ -10,13 +10,9 @@ export const getAllTenants = asyncHandler(async (req, res) => {
         throw new ApiError(403, "Only superAdmins can view all tenants");
     }
 
-    try {
-        const tenants = await Tenant.find({}).sort({ createdAt: -1 });
-        
-        return res.status(200).json(
-            new ApiResponse(200, tenants, "Tenants fetched successfully")
-        );
-    } catch (error) {
-        throw new ApiError(500, "Failed to fetch tenants");
-    }
+    const tenants = await Tenant.find({}).sort({ createdAt: -1 });
+
+    return res.status(200).json(
+        new ApiResponse(200, tenants, "Tenants fetched successfully")
+    );
 });

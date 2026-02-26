@@ -15,30 +15,23 @@ export const createOutlet = asyncHandler(async (req, res) => {
     req.body;
 
   req.body.tenant = user.tenant;
-  console.log("req.body: " , req.body)
 
   validateCreateOutlet(req.body);
   await ensureUniqueOutletFields(name, req.body.tenant, contacts);
 
+  const outlet = new Outlet({
+    name,
+    contacts,
+    imageUrl,
+    location,
+    timings,
+    tenant: req.body.tenant,
+    owner,
+    address
+  });
 
-  try {
-    const outlet = new Outlet({
-      name,
-      contacts,
-      imageUrl,
-      location,
-      timings,
-      tenant: req.body.tenant,
-      owner,
-      address
-    });
-
-    await outlet.save();
-    return res
-      .status(201)
-      .json(new ApiResponse(201, outlet, "Outlet created successfully"));
-  } catch (error) {
-    console.log("Errorrrrr heree : " , error)
-    throw new ApiError(500, "Failed to create outlet");
-  }
+  await outlet.save();
+  return res
+    .status(201)
+    .json(new ApiResponse(201, outlet, "Outlet created successfully"));
 });

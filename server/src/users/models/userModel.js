@@ -47,7 +47,8 @@ const userSchema = new Schema({
   },
   phoneNumber: {
     type: String,
-    trim: true
+    trim: true,
+    required: true 
   }
 }, { timestamps: true });
 
@@ -74,6 +75,7 @@ userSchema.methods.generateAccessToken = function() {
 };
 
 userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ phoneNumber : 1 }, { unique: true });
 // role filter (role-based queries)
 userSchema.index({ role: 1 });
 // tenant lookup (getUsersByTenant)
