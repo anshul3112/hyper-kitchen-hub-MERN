@@ -29,6 +29,7 @@ export const createOutletStaff = asyncHandler(async (req, res) => {
     throw new ApiError(400, `role must be one of: ${OUTLET_STAFF_ROLES.join(", ")}`);
   }
 
+  
   validateCreateOutletStaff(req.body);
   await ensureUniqueEmailAndPhone(email, phoneNumber);
 
@@ -127,7 +128,6 @@ export const createSuperAdmin = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only superAdmins can create super admins");
   }
 
-  try {
     const { name, email, password, phoneNumber } = req.body;
     validateCreateSuperAdmin(req.body);
     await ensureUniqueEmailAndPhone(email, phoneNumber);
@@ -142,13 +142,9 @@ export const createSuperAdmin = asyncHandler(async (req, res) => {
 
     const {password: _, ...superAdminData} = superAdmin.toObject();
 
-    res
-      .status(201)
+    res.status(201)
       .json(
         new ApiResponse(201, superAdminData, "Super Admin created successfully"),
       );
-  } catch (err) {
-    console.error("Error creating user:", err);
-    throw new ApiError(500, err.message || "Internal Server Error");
-  }
+  
 });

@@ -13,6 +13,7 @@ import kioskRouter from "./src/outlet/kiosk/routes/kioskRoutes.js";
 import orderRouter from "./src/outlet/orders/routes/orderRoutes.js";
 import kitchenRouter from "./src/outlet/kitchen/routes/kitchenRoutes.js";
 import displayRouter from "./src/outlet/display/routes/displayRoutes.js";
+import analyticsRouter from "./src/outlet/analytics/routes/analyticsRoutes.js";
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use('/api/v1/kiosks', kioskRouter);
 app.use('/api/v1/orders', orderRouter);
 app.use('/api/v1/kitchen', kitchenRouter);
 app.use('/api/v1/displays', displayRouter);
+app.use('/api/v1/analytics', analyticsRouter);
 
 // error handling middleware at last :
 app.use((err, req, res, next) => {
