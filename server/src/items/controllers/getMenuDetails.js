@@ -4,6 +4,7 @@ import { Filters } from "../models/filterModel.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { withPresignedUrl, withPresignedUrls } from "../../utils/s3.js";
 
 // Get complete menu details (categories, filters, items)
 export const getMenuDetails = asyncHandler(async (req, res) => {
@@ -23,8 +24,8 @@ export const getMenuDetails = asyncHandler(async (req, res) => {
   const tenantId = user.tenant.tenantId;
 
   const [categoriesData, filtersData, itemsData] = await Promise.all([
-    Category.find({ tenantId }).select('_id name status imageUrl createdAt').sort({ createdAt: -1 }),
-    Filters.find({ tenantId }).select('_id name isActive imageUrl createdAt').sort({ createdAt: -1 }),
+    Category.find({ tenantId }).select('_id name status imageKey createdAt').sort({ createdAt: -1 }),
+    Filters.find({ tenantId }).select('_id name isActive imageKey createdAt').sort({ createdAt: -1 }),
     Items.find({ tenantId }).select('-__v').sort({ createdAt: -1 })
   ]);
 
@@ -32,7 +33,7 @@ export const getMenuDetails = asyncHandler(async (req, res) => {
   const filterMap = new Map(filtersData.map(f => [f._id.toString(), f]));
 
   // Merge populated data into items
-  const itemsWithRelations = itemsData.map(item => {
+  const rawItemsWithRelations = itemsData.map(item => {
     const itemObj = item.toObject();
     itemObj.category = item.category
       ? (categoryMap.get(item.category.toString()) ?? null)
@@ -43,9 +44,16 @@ export const getMenuDetails = asyncHandler(async (req, res) => {
     return itemObj;
   });
 
+  // Inject presigned URLs for all images
+  const [categoriesWithUrls, filtersWithUrls, itemsWithRelations] = await Promise.all([
+    withPresignedUrls(categoriesData.map(c => c.toObject ? c.toObject() : c)),
+    withPresignedUrls(filtersData.map(f => f.toObject ? f.toObject() : f)),
+    withPresignedUrls(rawItemsWithRelations),
+  ]);
+
   const menuDetails = {
-    categories: categoriesData,
-    filters: filtersData,
+    categories: categoriesWithUrls,
+    filters: filtersWithUrls,
     items: itemsWithRelations,
     summary: {
       totalCategories: categoriesData.length,

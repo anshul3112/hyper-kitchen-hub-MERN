@@ -2,6 +2,7 @@ import { Category } from "../models/categoryModel.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
 
 // Add new category
 export const addCategory = asyncHandler(async (req, res) => {
@@ -35,15 +36,16 @@ export const addCategory = asyncHandler(async (req, res) => {
 
   const category = new Category({
     name: name.trim(),
-    imageUrl: imageUrl?.trim() || null,
+    imageKey: imageUrl?.trim() || null, // frontend sends imageUrl, stored as S3 key
     tenantId,
     createdBy: user._id
   });
 
   await category.save();
 
+  const categoryWithUrl = await withPresignedUrl(category.toObject());
   return res.status(201).json(
-    new ApiResponse(201, category, "Category created successfully")
+    new ApiResponse(201, categoryWithUrl, "Category created successfully")
   );
 });
 
@@ -61,7 +63,8 @@ export const getCategories = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Tenant ID is required");
   }
 
-  const categories = await Category.find({ tenantId }).select("-__v");
+  const categoriesRaw = await Category.find({ tenantId }).select("-__v").lean();
+  const categories = await withPresignedUrls(categoriesRaw);
 
   return res.status(200).json(
     new ApiResponse(200, categories, "Categories retrieved successfully")
@@ -106,7 +109,7 @@ export const updateCategory = asyncHandler(async (req, res) => {
   }
 
   if (imageUrl !== undefined) {
-    category.imageUrl = imageUrl?.trim() || null;
+    category.imageKey = imageUrl?.trim() || null; // frontend sends imageUrl, we store as imageKey
   }
 
   if (status !== undefined) {
@@ -115,8 +118,9 @@ export const updateCategory = asyncHandler(async (req, res) => {
 
   await category.save();
 
+  const updatedCategory = await withPresignedUrl(category.toObject());
   return res.status(200).json(
-    new ApiResponse(200, category, "Category updated successfully")
+    new ApiResponse(200, updatedCategory, "Category updated successfully")
   );
 });
 

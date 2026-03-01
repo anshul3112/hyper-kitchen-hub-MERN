@@ -16,7 +16,8 @@ const outletSchema = new Schema({
       trim: true
     }
   },
-  imageUrl: {
+  // imageUrl: { type: String, trim: true }, // Cloudinary URL — replaced by S3 key
+  imageKey: {
     type: String,
     trim: true
   },

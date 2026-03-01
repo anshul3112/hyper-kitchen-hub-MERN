@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken";
 import { Kiosk } from "../../outlet/kiosk/models/kioskModel.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { asyncHandler } from "../../utils/asyncHandler.js";
 
 /**
  * Verifies the kiosk JWT (issued by loginKiosk) and attaches req.kiosk.

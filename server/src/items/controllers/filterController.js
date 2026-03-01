@@ -2,6 +2,7 @@ import { Filters } from "../models/filterModel.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
 
 // Add new filter
 export const addFilter = asyncHandler(async (req, res) => {
@@ -35,15 +36,16 @@ export const addFilter = asyncHandler(async (req, res) => {
 
   const filter = new Filters({
     name: name.trim(),
-    imageUrl: imageUrl?.trim() || null,
+    imageKey: imageUrl?.trim() || null, // frontend sends imageUrl, stored as S3 key
     tenantId,
     createdBy: user._id
   });
 
   await filter.save();
 
+  const filterWithUrl = await withPresignedUrl(filter.toObject());
   return res.status(201).json(
-    new ApiResponse(201, filter, "Filter created successfully")
+    new ApiResponse(201, filterWithUrl, "Filter created successfully")
   );
 });
 
@@ -61,7 +63,8 @@ export const getFilters = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Tenant ID is required");
   }
 
-  const filters = await Filters.find({ tenantId }).select("-__v");
+  const filtersRaw = await Filters.find({ tenantId }).select("-__v").lean();
+  const filters = await withPresignedUrls(filtersRaw);
 
   return res.status(200).json(
     new ApiResponse(200, filters, "Filters retrieved successfully")
@@ -106,7 +109,7 @@ export const updateFilter = asyncHandler(async (req, res) => {
   }
 
   if (imageUrl !== undefined) {
-    filter.imageUrl = imageUrl?.trim() || null;
+    filter.imageKey = imageUrl?.trim() || null; // frontend sends imageUrl, we store as imageKey
   }
 
   if (isActive !== undefined) {
@@ -115,8 +118,9 @@ export const updateFilter = asyncHandler(async (req, res) => {
 
   await filter.save();
 
+  const updatedFilter = await withPresignedUrl(filter.toObject());
   return res.status(200).json(
-    new ApiResponse(200, filter, "Filter updated successfully")
+    new ApiResponse(200, updatedFilter, "Filter updated successfully")
   );
 });
 

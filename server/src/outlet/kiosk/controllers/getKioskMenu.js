@@ -5,6 +5,7 @@ import { Inventory } from "../../../items/models/inventoryModel.js";
 import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { ApiError } from "../../../utils/ApiError.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
+import { withPresignedUrls } from "../../../utils/s3.js";
 
 /**
  * GET /api/v1/kiosks/menu
@@ -23,10 +24,10 @@ export const getKioskMenu = asyncHandler(async (req, res) => {
 
   const [categoriesData, filtersData, itemsData, inventoryData] = await Promise.all([
     Category.find({ tenantId })
-      .select("_id name status imageUrl createdAt")
+      .select("_id name status imageKey createdAt")
       .sort({ createdAt: -1 }),
     Filters.find({ tenantId })
-      .select("_id name isActive imageUrl createdAt")
+      .select("_id name isActive imageKey createdAt")
       .sort({ createdAt: -1 }),
     Items.find({ tenantId, status: true })
       .select("-__v")
@@ -57,13 +58,23 @@ export const getKioskMenu = asyncHandler(async (req, res) => {
       return itemObj;
     });
 
+  // Inject presigned URLs for all images
+  const activeCats = categoriesData.filter((c) => c.status).map(c => c.toObject ? c.toObject() : c);
+  const activeFils = filtersData.filter((f) => f.isActive).map(f => f.toObject ? f.toObject() : f);
+
+  const [categoriesWithUrls, filtersWithUrls, itemsWithUrls] = await Promise.all([
+    withPresignedUrls(activeCats),
+    withPresignedUrls(activeFils),
+    withPresignedUrls(itemsWithRelations),
+  ]);
+
   return res.status(200).json(
     new ApiResponse(
       200,
       {
-        categories: categoriesData.filter((c) => c.status),
-        filters: filtersData.filter((f) => f.isActive),
-        items: itemsWithRelations,
+        categories: categoriesWithUrls,
+        filters: filtersWithUrls,
+        items: itemsWithUrls,
       },
       "Kiosk menu fetched successfully"
     )

@@ -3,6 +3,7 @@ import {
   createItem,
   updateItem,
   uploadItemImage,
+  compressImage,
   type MenuItem,
   type MenuCategory,
   type MenuFilter,
@@ -35,6 +36,7 @@ export default function AddEditItemModal({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(item?.imageUrl ?? "");
   const [imageUploading, setImageUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(""); // "Compressing…" | "Uploading…"
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Single required category
@@ -66,13 +68,23 @@ export default function AddEditItemModal({
     setLoading(true);
     setError("");
     try {
-      // If a new file was picked, upload it first to get the URL
+      // If a new file was picked, compress then upload it
       let finalImageUrl = imageUrl;
       if (imageFile) {
         setImageUploading(true);
-        finalImageUrl = await uploadItemImage(imageFile);
-        setImageUrl(finalImageUrl);
-        setImageUploading(false);
+        try {
+          // Phase 1: compress client-side to ≤ 300 KB
+          setUploadStatus("Compressing…");
+          const compressed = await compressImage(imageFile);
+
+          // Phase 2: presigned URL → PUT straight to S3
+          setUploadStatus("Uploading…");
+          finalImageUrl = await uploadItemImage(compressed);
+          setImageUrl(finalImageUrl);
+        } finally {
+          setImageUploading(false);
+          setUploadStatus("");
+        }
       }
 
       const payload: CreateItemInput = {
@@ -187,6 +199,13 @@ export default function AddEditItemModal({
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (!f) return;
+                  // 10 MB client-side guard
+                  if (f.size > 10 * 1024 * 1024) {
+                    setError("Image must be 10 MB or smaller");
+                    e.target.value = "";
+                    return;
+                  }
+                  setError("");
                   setImageFile(f);
                   setImagePreview(URL.createObjectURL(f));
                 }}
@@ -287,7 +306,7 @@ export default function AddEditItemModal({
             disabled={loading || imageUploading}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
           >
-            {imageUploading ? "Uploading image…" : loading ? "Saving..." : isEdit ? "Save Changes" : "Add Item"}
+            {imageUploading ? (uploadStatus || "Processing…") : loading ? "Saving..." : isEdit ? "Save Changes" : "Add Item"}
           </button>
         </div>
       </div>

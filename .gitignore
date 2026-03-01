@@ -1,0 +1,22 @@
+# OS files
+desktop.ini
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Env
+.env
+.env.*
+
+# Node
+node_modules/
+
+# Build
+dist/
+build/
+
+# Editor
+.vscode/
+.idea/

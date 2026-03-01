@@ -22,7 +22,7 @@ export const createOutlet = asyncHandler(async (req, res) => {
   const outlet = new Outlet({
     name,
     contacts,
-    imageUrl,
+    imageKey: imageUrl, // frontend sends imageUrl, stored as S3 key
     location,
     timings,
     tenant: req.body.tenant,

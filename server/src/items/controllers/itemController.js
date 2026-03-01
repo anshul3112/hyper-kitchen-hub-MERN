@@ -4,7 +4,9 @@ import { Filters } from "../models/filterModel.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { uploadOnCloudinary } from "../../utils/cloudinary.js";
+// import { uploadOnCloudinary } from "../../utils/cloudinary.js"; // Cloudinary — kept for re-enable
+// import { uploadToS3 } from "../../utils/s3.js"; // server-side S3 upload — replaced by presigned URL
+import { getPresignedUploadUrl, withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
 import mongoose from "mongoose";
 
 // Add new item
@@ -75,15 +77,16 @@ export const addItem = asyncHandler(async (req, res) => {
     defaultAmount,
     category,
     filters: validatedFilters,
-    imageUrl: imageUrl?.trim() || null,
+    imageKey: imageUrl?.trim() || null, // stored as S3 key; frontend still sends field as imageUrl
     tenantId,
     status: true
   });
 
   await item.save();
 
+  const itemWithUrl = await withPresignedUrl(item.toObject());
   return res.status(201).json(
-    new ApiResponse(201, item, "Item created successfully")
+    new ApiResponse(201, itemWithUrl, "Item created successfully")
   );
 });
 
@@ -123,7 +126,7 @@ export const getItems = asyncHandler(async (req, res) => {
   const filterMap = new Map(filtersData.map(f => [f._id.toString(), f]));
 
   // Merge populated data into items
-  const itemsWithRelations = items.map(item => {
+  const rawItems = items.map(item => {
     const itemObj = item.toObject();
     itemObj.category = item.category ? categoryMap.get(item.category.toString()) ?? null : null;
     itemObj.filters = item.filters
@@ -131,6 +134,8 @@ export const getItems = asyncHandler(async (req, res) => {
       .filter(Boolean);
     return itemObj;
   });
+
+  const itemsWithRelations = await withPresignedUrls(rawItems);
 
   return res.status(200).json(
     new ApiResponse(200, itemsWithRelations, "Items retrieved successfully")
@@ -220,7 +225,7 @@ export const editItem = asyncHandler(async (req, res) => {
   }
 
   if (imageUrl !== undefined) {
-    item.imageUrl = imageUrl?.trim() || null;
+    item.imageKey = imageUrl?.trim() || null; // frontend sends imageUrl, we store as imageKey
   }
 
   if (status !== undefined) {
@@ -235,10 +240,11 @@ export const editItem = asyncHandler(async (req, res) => {
     Filters.find({ _id: { $in: item.filters } }).select('_id name isActive')
   ]);
 
-  // Merge populated data
-  const itemResponse = item.toObject();
-  itemResponse.category = categoryData ?? null;
-  itemResponse.filters = item.filters.map(filterId => filtersData.find(f => f._id.equals(filterId)) ?? null);
+  // Merge populated data and inject presigned URL
+  const rawItemResponse = item.toObject();
+  rawItemResponse.category = categoryData ?? null;
+  rawItemResponse.filters = item.filters.map(filterId => filtersData.find(f => f._id.equals(filterId)) ?? null);
+  const itemResponse = await withPresignedUrl(rawItemResponse);
 
   return res.status(200).json(
     new ApiResponse(200, itemResponse, "Item updated successfully")
@@ -275,46 +281,48 @@ export const deleteItem = asyncHandler(async (req, res) => {
   );
 });
 
-// Upload item image to Cloudinary
-// POST /api/v1/items/upload-image   (multipart/form-data, field: "image")
+// // Upload item image to Cloudinary (commented out — S3 presigned URL is active below)
+// export const uploadItemImage_cloudinary = asyncHandler(async (req, res) => {
+//   if (req.user.role !== "tenantAdmin") {
+//     throw new ApiError(403, "Only tenant admins can upload item images");
+//   }
+//   const localFilePath = req.file?.path;
+//   if (!localFilePath) {
+//     throw new ApiError(400, "Image file is required");
+//   }
+//   const result = await uploadOnCloudinary(localFilePath);
+//   if (!result?.url) {
+//     throw new ApiError(500, "Failed to upload image to Cloudinary");
+//   }
+//   return res.status(200).json(
+//     new ApiResponse(200, { imageUrl: result.url }, "Image uploaded successfully")
+//   );
+// });
+
+// Get a presigned PUT URL so the frontend can upload directly to S3
+// GET /api/v1/items/upload-url?mimetype=image/jpeg[&folder=items]
 export const uploadItemImage = asyncHandler(async (req, res) => {
   if (req.user.role !== "tenantAdmin") {
     throw new ApiError(403, "Only tenant admins can upload item images");
   }
 
-  const localFilePath = req.file?.path;
-  if (!localFilePath) {
-    throw new ApiError(400, "Image file is required");
+  const { mimetype, folder = "items" } = req.query;
+  if (!mimetype) {
+    throw new ApiError(400, "mimetype query parameter is required (e.g. image/jpeg)");
   }
 
-  const result = await uploadOnCloudinary(localFilePath);
-  if (!result?.url) {
-    throw new ApiError(500, "Failed to upload image to Cloudinary");
+  const allowedMimetypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  if (!allowedMimetypes.includes(mimetype)) {
+    throw new ApiError(400, `Unsupported mimetype. Allowed: ${allowedMimetypes.join(", ")}`);
   }
 
+  // Returns a 60-second presigned PUT URL + the key that will be the object's address
+  const { uploadUrl, imageKey } = await getPresignedUploadUrl(mimetype, folder);
+
+  // Return imageUrl (= the key) so the frontend interface stays unchanged
   return res.status(200).json(
-    new ApiResponse(200, { imageUrl: result.url }, "Image uploaded successfully")
+    new ApiResponse(200, { uploadUrl, imageUrl: imageKey }, "Presigned upload URL generated — PUT your file to uploadUrl, then save imageUrl")
   );
 });
 
-// // Upload item image to Cloudinary
-// // POST /api/v1/items/upload-image   (multipart/form-data, field: "image")
-// export const uploadItemImage = asyncHandler(async (req, res) => {
-//   if (req.user.role !== "tenantAdmin") {
-//     throw new ApiError(403, "Only tenant admins can upload item images");
-//   }
 
-//   const localFilePath = req.file?.path;
-//   if (!localFilePath) {
-//     throw new ApiError(400, "Image file is required");
-//   }
-
-//   const result = await uploadOnCloudinary(localFilePath);
-//   if (!result?.url) {
-//     throw new ApiError(500, "Failed to upload image to Cloudinary");
-//   }
-
-//   return res.status(200).json(
-//     new ApiResponse(200, { imageUrl: result.url }, "Image uploaded successfully")
-//   );
-// });

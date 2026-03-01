@@ -1,3 +1,7 @@
+import { compressImage } from "../../common/utils/compressImage";
+
+// re-export so components can import compressImage from a single place
+export { compressImage };
 
 export type ApiResponse<T> = {
 	data: T;
@@ -304,21 +308,43 @@ export async function deleteItem(itemId: string): Promise<void> {
 }
 
 /**
- * Upload an image file for an item.
- * Sends multipart/form-data with field name "image".
- * Returns the Cloudinary URL.
+ * Upload a pre-compressed image file using the presigned S3 URL flow.
+ *
+ * The file itself never touches the backend server:
+ *   1. Tell the backend the mimetype → backend returns a short-lived (60 s)
+ *      presigned PUT URL and the S3 key.
+ *   2. PUT the file bytes straight to S3 using that URL.
+ *   3. Return the S3 key (imageUrl) so the caller can save it with the item.
+ *
+ * Compression must be done by the caller before invoking this function
+ * (use compressImage() from common/utils/compressImage).
  */
 export async function uploadItemImage(file: File): Promise<string> {
-	const token = localStorage.getItem("accessToken");
-	const form = new FormData();
-	form.append("image", file);
-
-	const res = await fetch(`${API_BASE_URL}/api/v1/items/upload-image`, {
-		method: "POST",
-		credentials: "include",
-		headers: { Authorization: token ? `Bearer ${token}` : "" },
-		body: form,
+	// Step 1 — ask backend for a presigned PUT URL (send only metadata, not the file)
+	const params = new URLSearchParams({
+		mimetype: file.type,
+		folder: "items",
+		filename: file.name,
+		size: String(file.size),
 	});
-	const parsed = (await parseOrThrow(res)) as ApiResponse<{ imageUrl: string }>;
-	return parsed.data.imageUrl;
+	const res = await fetch(`${API_BASE_URL}/api/v1/items/upload-url?${params}`, {
+		method: "GET",
+		credentials: "include",
+		headers: getAuthHeaders(),
+	});
+	const parsed = (await parseOrThrow(res)) as ApiResponse<{ uploadUrl: string; imageUrl: string }>;
+	const { uploadUrl, imageUrl } = parsed.data;
+
+	// Step 2 — PUT the file bytes directly to S3 (no auth header — URL is already signed)
+	const s3Res = await fetch(uploadUrl, {
+		method: "PUT",
+		headers: { "Content-Type": file.type },
+		body: file,
+	});
+	if (!s3Res.ok) {
+		throw new Error(`S3 upload failed: ${s3Res.status} ${s3Res.statusText}`);
+	}
+
+	// Step 3 — return the S3 key; caller saves it as imageUrl on the item
+	return imageUrl;
 }

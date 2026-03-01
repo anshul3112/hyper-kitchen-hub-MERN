@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { verifyJWT } from "../../common/middlewares/authMiddleware.js";
-import { upload } from "../../common/middlewares/multer.js";
+// import { upload } from "../../common/middlewares/multer.js"; // multer no longer needed — presigned URL upload
 import {
   addItem,
   getItems,
@@ -51,8 +51,9 @@ router.route("/").get(getItems);
 router.route("/:itemId").patch(editItem); // use this to disable item too
 router.route("/:itemId").delete(deleteItem);
 
-// Image upload — must come before /:itemId routes to avoid param conflict
-router.post("/upload-image", upload.single("image"), uploadItemImage);
+// Image upload-url — GET, returns presigned PUT URL for direct-to-S3 upload
+// Frontend flow: GET /upload-url?mimetype=image/jpeg → PUT file to uploadUrl → save imageUrl
+router.get("/upload-url", uploadItemImage);
 
 // Menu details route (get all categories, filters, items together)
 router.route("/menu/all").get(getMenuDetails);

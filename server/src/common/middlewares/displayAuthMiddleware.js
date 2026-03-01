@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken";
 import { OrderDisplay } from "../../outlet/display/models/displayModel.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { asyncHandler } from "../../utils/asyncHandler.js";
 
 /**
  * Verifies the Display JWT (issued by loginDisplay) and attaches req.display.
