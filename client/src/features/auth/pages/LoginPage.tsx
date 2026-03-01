@@ -1,66 +1,60 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+function Spinner() {
+  return (
+    <svg
+      className="animate-spin h-4 w-4 text-white"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+    </svg>
+  );
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
-      const response = await fetch(
-        "http://localhost:8000/api/v1/users/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
-          credentials: "include",
-        }
-      );
+      const response = await fetch("http://localhost:8000/api/v1/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      });
 
       if (response.ok) {
         const data = await response.json();
-        console.log("Login response:", data);
-        
-        if (data.data?.accessToken) {
+        if (data.data?.accessToken)
           localStorage.setItem("accessToken", data.data.accessToken);
-        }
-        
-        if (data.data?.user?.role) {
+        if (data.data?.user?.role)
           localStorage.setItem("userRole", data.data.user.role);
-        }
-        // Store outletId for outlet-scoped pages (kitchen, outlet admin)
-        if (data.data?.user?.outlet?.outletId) {
+        if (data.data?.user?.name)
+          localStorage.setItem("userName", data.data.user.name);
+        if (data.data?.user?.outlet?.outletId)
           localStorage.setItem("outletId", data.data.user.outlet.outletId);
-        }
 
         const userRole = data.data?.user?.role;
-        if (userRole === "superAdmin") {
-          navigate("/superAdmin");
-        } else if (userRole === "tenantAdmin") {
-          navigate("/tenantAdmin");
-        } else if (userRole === "outletAdmin") {
-          navigate("/outletAdmin");
-        } else if (userRole === "kitchenStaff") {
-          navigate("/kitchen");
-        } else {
-          navigate("/errorPage");
-        }
+        if (userRole === "superAdmin") navigate("/superAdmin");
+        else if (userRole === "tenantAdmin") navigate("/tenantAdmin");
+        else if (userRole === "outletAdmin") navigate("/outletAdmin");
+        else if (userRole === "kitchenStaff") navigate("/kitchen");
+        else navigate("/errorPage");
       } else {
         setError("Invalid email or password. Please try again.");
       }
-    } catch (err) {
+    } catch {
       setError("Unable to connect. Please try again later.");
     } finally {
       setLoading(false);
@@ -73,33 +67,23 @@ export default function LoginPage() {
       <div className="absolute bottom-0 right-0 w-72 h-72 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 pointer-events-none" />
 
       <div className="relative w-full max-w-md">
-        {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl shadow-blue-100 border border-gray-100 px-8 py-10">
-
-          {/* Logo / brand mark */}
           <div className="flex justify-center mb-6">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-200">
               <span className="text-3xl">🍽️</span>
             </div>
           </div>
 
-          {/* Title */}
           <div className="text-center mb-8">
             <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
               Hyper Kitchen Hub
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Sign in to your dashboard
-            </p>
+            <p className="text-sm text-gray-500 mt-1">Sign in to your dashboard</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
-            {/* Email */}
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Email address
               </label>
               <input
@@ -107,9 +91,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 autoComplete="email"
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setEmail(e.target.value)
-                }
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-gray-400 disabled:opacity-60"
                 required
@@ -117,12 +99,8 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Password */}
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Password
               </label>
               <input
@@ -130,9 +108,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 autoComplete="current-password"
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setPassword(e.target.value)
-                }
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder-gray-400 disabled:opacity-60"
                 required
@@ -140,15 +116,13 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* Error */}
             {error && (
               <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-                <span className="mt-px">⚠️</span>
+                <span>⚠️</span>
                 <span>{error}</span>
               </div>
             )}
 
-            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
@@ -156,27 +130,7 @@ export default function LoginPage() {
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8H4z"
-                    />
-                  </svg>
-                  Signing in...
+                  <Spinner /> Signing in…
                 </span>
               ) : (
                 "Sign in"
@@ -184,7 +138,6 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-
       </div>
     </div>
   );

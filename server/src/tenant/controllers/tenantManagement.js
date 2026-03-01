@@ -37,7 +37,15 @@ const toggleTenantStatus = asyncHandler(async (req, res) => {
  * Full details for a single tenant: contacts, users list, order stats.
  */
 const getTenantDetails = asyncHandler(async (req, res) => {
-  if (req.user.role !== "superAdmin") throw new ApiError(403, "Forbidden");
+  const { role } = req.user;
+
+  // tenantAdmin/Owner may only see their own tenant
+  if (["tenantAdmin", "tenantOwner"].includes(role)) {
+    if (req.user.tenant?.tenantId?.toString() !== req.params.tenantId)
+      throw new ApiError(403, "Forbidden");
+  } else if (role !== "superAdmin") {
+    throw new ApiError(403, "Forbidden");
+  }
 
   const { tenantId } = req.params;
   if (!mongoose.Types.ObjectId.isValid(tenantId))
