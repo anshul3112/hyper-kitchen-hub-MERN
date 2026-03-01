@@ -16,6 +16,7 @@ import MenuGrid from "../components/MenuGrid";
 import InventoryTab from "../components/InventoryTab";
 import OutletUsersTab from "../components/OutletUsersTab";
 import DisplaysTab from "../components/DisplaysTab";
+import OutletOrderHistoryTab from "../components/OutletOrderHistoryTab";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -24,6 +25,7 @@ const TABS = [
   { key: "kiosks", label: "Kiosks" },
   { key: "displays", label: "Displays" },
   { key: "users", label: "Users" },
+  { key: "orders", label: "Orders" },
 ];
 
 export default function OutletAdminPage() {
@@ -234,6 +236,9 @@ export default function OutletAdminPage() {
 
         {/* ── Users ── */}
         {activeSection === "users" && <OutletUsersTab />}
+
+        {/* ── Orders ── */}
+        {activeSection === "orders" && <OutletOrderHistoryTab />}
       </main>
 
       {isKioskModalOpen && (

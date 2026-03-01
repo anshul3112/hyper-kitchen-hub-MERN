@@ -323,4 +323,65 @@ export async function toggleDisplay(id: string): Promise<DisplayDevice> {
   return parsed.data;
 }
 
+// ── Order History types & API ─────────────────────────────────────────────────
+
+export type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+export type OrderHistoryItem = {
+  _id: string;
+  orderNo: number;
+  name: string;
+  totalAmount: number;
+  orderStatus: string;
+  fulfillmentStatus: string;
+  paymentStatus: string;
+  date: string;
+  outletId: string;
+};
+
+export type HourlyPoint = {
+  hour: number;
+  orders: number;
+  revenue: number;
+  completed: number;
+};
+
+/** GET /api/v1/analytics/outlet-orders */
+export async function fetchOutletOrderHistory(params: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<{ orders: OrderHistoryItem[]; pagination: Pagination }> {
+  const q = new URLSearchParams();
+  if (params.page) q.set("page", String(params.page));
+  if (params.limit) q.set("limit", String(params.limit));
+  if (params.status) q.set("status", params.status);
+  if (params.startDate) q.set("startDate", params.startDate);
+  if (params.endDate) q.set("endDate", params.endDate);
+  const res = await fetch(`${API_BASE_URL}/api/v1/analytics/outlet-orders?${q}`, {
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const parsed = await parseOrThrow(res);
+  return parsed.data;
+}
+
+/** GET /api/v1/analytics/hourly */
+export async function fetchOutletHourlyHistory(date?: string): Promise<{ date: string; hourly: HourlyPoint[] }> {
+  const q = new URLSearchParams();
+  if (date) q.set("date", date);
+  const res = await fetch(`${API_BASE_URL}/api/v1/analytics/hourly?${q}`, {
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const parsed = await parseOrThrow(res);
+  return parsed.data;
+}
 
