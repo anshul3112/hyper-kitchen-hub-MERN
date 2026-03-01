@@ -199,6 +199,12 @@ export default function KioskScreen({
   );
   const activeCategories = categories.filter((cat) => populatedCategoryIds.has(cat._id));
 
+  // Only show filters that are used by at least one item
+  const populatedFilterIds = new Set(
+    items.flatMap((item) => item.filters.map((f) => f._id))
+  );
+  const activeFilters = filters.filter((f) => populatedFilterIds.has(f._id));
+
   return (
     <div className="flex flex-col h-screen bg-gray-100 overflow-hidden">
       {/* ── Top Bar ─────────────────────────────────────────────────────── */}
@@ -222,7 +228,7 @@ export default function KioskScreen({
           >
             All
           </button>
-          {filters.map((f) => (
+          {activeFilters.map((f) => (
             <button
               key={f._id}
               onClick={() =>

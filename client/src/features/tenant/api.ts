@@ -319,11 +319,11 @@ export async function deleteItem(itemId: string): Promise<void> {
  * Compression must be done by the caller before invoking this function
  * (use compressImage() from common/utils/compressImage).
  */
-export async function uploadItemImage(file: File): Promise<string> {
+export async function uploadItemImage(file: File, folder = "items"): Promise<string> {
 	// Step 1 — ask backend for a presigned PUT URL (send only metadata, not the file)
 	const params = new URLSearchParams({
 		mimetype: file.type,
-		folder: "items",
+		folder,
 		filename: file.name,
 		size: String(file.size),
 	});

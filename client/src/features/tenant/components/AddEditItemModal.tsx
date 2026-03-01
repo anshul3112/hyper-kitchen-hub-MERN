@@ -35,6 +35,7 @@ export default function AddEditItemModal({
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(item?.imageUrl ?? "");
+  const [imageRemoved, setImageRemoved] = useState(false); // tracks explicit removal
   const [imageUploading, setImageUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(""); // "Compressing…" | "Uploading…"
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +80,7 @@ export default function AddEditItemModal({
 
           // Phase 2: presigned URL → PUT straight to S3
           setUploadStatus("Uploading…");
-          finalImageUrl = await uploadItemImage(compressed);
+          finalImageUrl = await uploadItemImage(compressed, "items");
           setImageUrl(finalImageUrl);
         } finally {
           setImageUploading(false);
@@ -91,7 +92,14 @@ export default function AddEditItemModal({
         name: name.trim(),
         description: description.trim(),
         defaultAmount: amount,
-        imageUrl: finalImageUrl.trim() || undefined,
+        // If a new file was uploaded → use its key.
+        // If image was explicitly removed → send "" so backend clears imageKey.
+        // Otherwise → send undefined (leave unchanged).
+        imageUrl: imageFile
+          ? finalImageUrl.trim() || undefined
+          : imageRemoved
+          ? ""
+          : undefined,
         category: selectedCategoryId,
         filters: selectedFilterIds,
       };
@@ -183,7 +191,7 @@ export default function AddEditItemModal({
                   <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
                   <button
                     type="button"
-                    onClick={() => { setImagePreview(""); setImageUrl(""); setImageFile(null); }}
+                    onClick={() => { setImagePreview(""); setImageUrl(""); setImageFile(null); setImageRemoved(true); }}
                     className="absolute top-1 right-1 bg-white/80 hover:bg-white text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow"
                   >
                     ✕
@@ -208,6 +216,7 @@ export default function AddEditItemModal({
                   setError("");
                   setImageFile(f);
                   setImagePreview(URL.createObjectURL(f));
+                  setImageRemoved(false);
                 }}
               />
               <button

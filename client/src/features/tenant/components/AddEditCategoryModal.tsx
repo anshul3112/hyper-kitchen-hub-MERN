@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { createCategory, updateCategory, type MenuCategory } from "../api";
+import { useRef, useState } from "react";
+import {
+  createCategory,
+  updateCategory,
+  uploadItemImage,
+  compressImage,
+  type MenuCategory,
+} from "../api";
 
 interface Props {
   category?: MenuCategory | null; // null = create, MenuCategory = edit
@@ -9,9 +15,19 @@ interface Props {
 
 export default function AddEditCategoryModal({ category, onClose, onSuccess }: Props) {
   const isEdit = Boolean(category);
+
   const [name, setName] = useState(category?.name ?? "");
-  const [imageUrl, setImageUrl] = useState(category?.imageUrl ?? "");
   const [status, setStatus] = useState(category?.status ?? true);
+
+  // Image state – mirrors AddEditItemModal pattern
+  const [imageUrl, setImageUrl] = useState(category?.imageUrl ?? "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>(category?.imageUrl ?? "");
+  const [imageRemoved, setImageRemoved] = useState(false); // tracks explicit removal
+  const [imageUploading, setImageUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(""); // "Compressing…" | "Uploading…"
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,15 +37,44 @@ export default function AddEditCategoryModal({ category, onClose, onSuccess }: P
     setLoading(true);
     setError("");
     try {
+      // Upload new image if picked
+      let finalImageUrl = imageUrl;
+      if (imageFile) {
+        setImageUploading(true);
+        try {
+          setUploadStatus("Compressing…");
+          const compressed = await compressImage(imageFile);
+          setUploadStatus("Uploading…");
+          finalImageUrl = await uploadItemImage(compressed, "categories");
+          setImageUrl(finalImageUrl);
+        } finally {
+          setImageUploading(false);
+          setUploadStatus("");
+        }
+      }
+
+      // image logic:
+      // - new file uploaded  → use new key
+      // - explicitly removed → send "" so backend clears imageKey
+      // - unchanged          → send undefined (don't touch)
+      const resolvedImageUrl = imageFile
+        ? finalImageUrl.trim() || undefined
+        : imageRemoved
+        ? ""
+        : undefined;
+
       let saved: MenuCategory;
       if (isEdit && category) {
         saved = await updateCategory(category._id, {
           name: name.trim(),
-          imageUrl: imageUrl.trim() || undefined,
+          ...(resolvedImageUrl !== undefined && { imageUrl: resolvedImageUrl }),
           status,
         });
       } else {
-        saved = await createCategory({ name: name.trim(), imageUrl: imageUrl.trim() || undefined });
+        saved = await createCategory({
+          name: name.trim(),
+          ...(resolvedImageUrl !== undefined && { imageUrl: resolvedImageUrl }),
+        });
       }
       onSuccess(saved);
     } catch (err: unknown) {
@@ -66,15 +111,62 @@ export default function AddEditCategoryModal({ category, onClose, onSuccess }: P
                 autoFocus
               />
             </div>
+            {/* Image upload */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+
+              {/* Upload status indicator */}
+              {imageUploading && (
+                <p className="mb-2 text-xs text-blue-600 font-medium">{uploadStatus}</p>
+              )}
+
+              {/* Preview + remove button */}
+              {imagePreview && !imageUploading && (
+                <div className="mb-2 relative w-full h-36 rounded overflow-hidden border border-gray-200 bg-gray-50">
+                  <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImagePreview("");
+                      setImageUrl("");
+                      setImageFile(null);
+                      setImageRemoved(true);
+                    }}
+                    className="absolute top-1 right-1 bg-white/80 hover:bg-white text-gray-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow"
+                    title="Remove image"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
               <input
-                type="url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-                placeholder="https://..."
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  if (f.size > 10 * 1024 * 1024) {
+                    setError("Image must be 10 MB or smaller");
+                    e.target.value = "";
+                    return;
+                  }
+                  setError("");
+                  setImageFile(f);
+                  setImagePreview(URL.createObjectURL(f));
+                  setImageRemoved(false);
+                }}
               />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={imageUploading}
+                className="w-full border border-dashed border-gray-300 rounded px-3 py-2 text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50"
+              >
+                {imagePreview ? "Change image" : "Choose image"}
+              </button>
             </div>
             {isEdit && (
               <div className="flex items-center gap-2 pt-1">
@@ -100,10 +192,16 @@ export default function AddEditCategoryModal({ category, onClose, onSuccess }: P
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || imageUploading}
                 className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               >
-                {loading ? "Saving..." : isEdit ? "Save Changes" : "Add Category"}
+                {loading || imageUploading
+                  ? imageUploading
+                    ? uploadStatus || "Uploading…"
+                    : "Saving…"
+                  : isEdit
+                  ? "Save Changes"
+                  : "Add Category"}
               </button>
             </div>
           </form>
