@@ -14,6 +14,7 @@ import orderRouter from "./src/outlet/orders/routes/orderRoutes.js";
 import kitchenRouter from "./src/outlet/kitchen/routes/kitchenRoutes.js";
 import displayRouter from "./src/outlet/display/routes/displayRoutes.js";
 import analyticsRouter from "./src/outlet/analytics/routes/analyticsRoutes.js";
+import { apiLimiter } from "./src/common/middlewares/rateLimiter.js";
 
 dotenv.config();
 
@@ -29,7 +30,8 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json()); 
+app.use(express.json());
+app.use(apiLimiter);
 
 
 app.use('/api/v1/users' ,userRouter );
