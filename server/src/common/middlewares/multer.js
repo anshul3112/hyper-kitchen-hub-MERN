@@ -16,11 +16,3 @@ import multer from "multer";
 // ── Memory storage (S3 workflow) ─────────────────────────────────────────────
 // Files are buffered in RAM (req.file.buffer) so we can stream them straight
 // to S3 without writing a temp file to disk first.
-const memoryStorage = multer.memoryStorage();
-
-export const upload = multer({
-  storage: memoryStorage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB maximum
-  },
-});

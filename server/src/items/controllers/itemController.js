@@ -281,24 +281,6 @@ export const deleteItem = asyncHandler(async (req, res) => {
   );
 });
 
-// // Upload item image to Cloudinary (commented out — S3 presigned URL is active below)
-// export const uploadItemImage_cloudinary = asyncHandler(async (req, res) => {
-//   if (req.user.role !== "tenantAdmin") {
-//     throw new ApiError(403, "Only tenant admins can upload item images");
-//   }
-//   const localFilePath = req.file?.path;
-//   if (!localFilePath) {
-//     throw new ApiError(400, "Image file is required");
-//   }
-//   const result = await uploadOnCloudinary(localFilePath);
-//   if (!result?.url) {
-//     throw new ApiError(500, "Failed to upload image to Cloudinary");
-//   }
-//   return res.status(200).json(
-//     new ApiResponse(200, { imageUrl: result.url }, "Image uploaded successfully")
-//   );
-// });
-
 // Get a presigned PUT URL so the frontend can upload directly to S3
 // GET /api/v1/items/upload-url?mimetype=image/jpeg[&folder=items]
 export const uploadItemImage = asyncHandler(async (req, res) => {
