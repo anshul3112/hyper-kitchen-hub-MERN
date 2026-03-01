@@ -3,8 +3,12 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
+import { parseDuplicateKeyError } from "../../utils/mongoError.js";
 
-// Add new category
+/**
+ * POST /api/v1/items/categories
+ * Create a new category for the calling tenantAdmin's tenant.
+ */
 export const addCategory = asyncHandler(async (req, res) => {
   const { name, imageUrl } = req.body;
   const user = req.user;
@@ -24,24 +28,18 @@ export const addCategory = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Category name is required");
   }
 
-  // Check if category already exists for this tenant
-  const existingCategory = await Category.findOne({
-    name: name.trim(),
-    tenantId
-  });
-
-  if (existingCategory) {
-    throw new ApiError(409, "Category with this name already exists for your organization");
-  }
-
   const category = new Category({
     name: name.trim(),
-    imageKey: imageUrl?.trim() || null, // frontend sends imageUrl, stored as S3 key
+    imageKey: imageUrl?.trim() || null,
     tenantId,
     createdBy: user._id
   });
 
-  await category.save();
+  try {
+    await category.save();
+  } catch (err) {
+    throw parseDuplicateKeyError(err, { name: "Category with this name already exists for your organization" }) ?? err;
+  }
 
   const categoryWithUrl = await withPresignedUrl(category.toObject());
   return res.status(201).json(
@@ -49,7 +47,10 @@ export const addCategory = asyncHandler(async (req, res) => {
   );
 });
 
-// Get all categories for a tenant
+/**
+ * GET /api/v1/items/categories
+ * List all categories for the calling tenantAdmin's tenant.
+ */
 export const getCategories = asyncHandler(async (req, res) => {
   const user = req.user;
 
@@ -71,7 +72,10 @@ export const getCategories = asyncHandler(async (req, res) => {
   );
 });
 
-// Update category
+/**
+ * PATCH /api/v1/items/categories/:categoryId
+ * Update a category's name, image, or status.
+ */
 export const updateCategory = asyncHandler(async (req, res) => {
   const { categoryId } = req.params;
   const { name, imageUrl, status } = req.body;
@@ -93,30 +97,24 @@ export const updateCategory = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Category not found");
   }
 
-  // Check for duplicate name
+  // Update name — let the unique index catch conflicts
   if (name && name !== category.name) {
-    const existingCategory = await Category.findOne({
-      name: name.trim(),
-      tenantId,
-      _id: { $ne: categoryId }
-    });
-
-    if (existingCategory) {
-      throw new ApiError(409, "Category with this name already exists");
-    }
-
     category.name = name.trim();
   }
 
   if (imageUrl !== undefined) {
-    category.imageKey = imageUrl?.trim() || null; // frontend sends imageUrl, we store as imageKey
+    category.imageKey = imageUrl?.trim() || null;
   }
 
   if (status !== undefined) {
     category.status = status;
   }
 
-  await category.save();
+  try {
+    await category.save();
+  } catch (err) {
+    throw parseDuplicateKeyError(err, { name: "Category with this name already exists" }) ?? err;
+  }
 
   const updatedCategory = await withPresignedUrl(category.toObject());
   return res.status(200).json(
@@ -124,7 +122,10 @@ export const updateCategory = asyncHandler(async (req, res) => {
   );
 });
 
-// Delete category
+/**
+ * DELETE /api/v1/items/categories/:categoryId
+ * Permanently delete a category.
+ */
 export const deleteCategory = asyncHandler(async (req, res) => {
   const { categoryId } = req.params;
   const user = req.user;

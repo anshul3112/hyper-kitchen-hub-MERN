@@ -7,9 +7,13 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 // import { uploadOnCloudinary } from "../../utils/cloudinary.js"; // Cloudinary — kept for re-enable
 // import { uploadToS3 } from "../../utils/s3.js"; // server-side S3 upload — replaced by presigned URL
 import { getPresignedUploadUrl, withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
+import { parseDuplicateKeyError } from "../../utils/mongoError.js";
 import mongoose from "mongoose";
 
-// Add new item
+/**
+ * POST /api/v1/items
+ * Create a new menu item for the calling tenantAdmin's tenant.
+ */
 export const addItem = asyncHandler(async (req, res) => {
   const { name, description, defaultAmount, category, filters = [], imageUrl } = req.body;
   const user = req.user;
@@ -41,34 +45,22 @@ export const addItem = asyncHandler(async (req, res) => {
     throw new ApiError(400, "category is required");
   }
 
-  // Check if item already exists for this tenant
-  const existingItem = await Items.findOne({
-    name: name.trim(),
-    tenantId
-  });
+  // Validate category + all filters in a single parallel round-trip
+  const [validCategory, foundFilters] = await Promise.all([
+    Category.findOne({ _id: category, tenantId }).lean(),
+    filters.length > 0
+      ? Filters.find({ _id: { $in: filters }, tenantId }).select("_id").lean()
+      : Promise.resolve([]),
+  ]);
 
-  if (existingItem) {
-    throw new ApiError(409, "Item with this name already exists in your organization");
-  }
-
-  // Validate category
-  const validCategory = await Category.findOne({ _id: category, tenantId });
   if (!validCategory) {
     throw new ApiError(404, `Category with ID ${category} not found`);
   }
 
-  // Validate filters if provided
-  let validatedFilters = [];
-  if (filters && filters.length > 0) {
-    validatedFilters = await Promise.all(
-      filters.map(async (filterId) => {
-        const filter = await Filters.findOne({ _id: filterId, tenantId });
-        if (!filter) {
-          throw new ApiError(404, `Filter with ID ${filterId} not found`);
-        }
-        return filterId;
-      })
-    );
+  if (foundFilters.length !== filters.length) {
+    const foundIds = new Set(foundFilters.map((f) => f._id.toString()));
+    const missing = filters.find((id) => !foundIds.has(id.toString()));
+    throw new ApiError(404, `Filter with ID ${missing} not found`);
   }
 
   const item = new Items({
@@ -76,13 +68,17 @@ export const addItem = asyncHandler(async (req, res) => {
     description: description?.trim() || "",
     defaultAmount,
     category,
-    filters: validatedFilters,
-    imageKey: imageUrl?.trim() || null, // stored as S3 key; frontend still sends field as imageUrl
+    filters,
+    imageKey: imageUrl?.trim() || null,
     tenantId,
     status: true
   });
 
-  await item.save();
+  try {
+    await item.save();
+  } catch (err) {
+    throw parseDuplicateKeyError(err, { name: "Item with this name already exists in your organization" }) ?? err;
+  }
 
   const itemWithUrl = await withPresignedUrl(item.toObject());
   return res.status(201).json(
@@ -142,7 +138,10 @@ export const getItems = asyncHandler(async (req, res) => {
   );
 });
 
-// Edit item
+/**
+ * PATCH /api/v1/items/:itemId
+ * Update a menu item. Use this to toggle its status too.
+ */
 export const editItem = asyncHandler(async (req, res) => {
   const { itemId } = req.params;
   const { name, description, defaultAmount, category, filters, imageUrl, status } = req.body;
@@ -168,18 +167,8 @@ export const editItem = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Item not found");
   }
 
-  // Check for duplicate name if changing it
+  // Update name — let the unique index catch conflicts on save
   if (name && name !== item.name) {
-    const existingItem = await Items.findOne({
-      name: name.trim(),
-      tenantId,
-      _id: { $ne: itemId }
-    });
-
-    if (existingItem) {
-      throw new ApiError(409, "Item with this name already exists");
-    }
-
     item.name = name.trim();
   }
 
@@ -206,35 +195,36 @@ export const editItem = asyncHandler(async (req, res) => {
     item.category = category;
   }
 
-  // Update filters if provided
+  // Update filters if provided — single $in query replaces N sequential findOnes
   if (filters !== undefined && Array.isArray(filters)) {
     if (filters.length > 0) {
-      const validatedFilters = await Promise.all(
-        filters.map(async (filterId) => {
-          const filter = await Filters.findOne({ _id: filterId, tenantId });
-          if (!filter) {
-            throw new ApiError(404, `Filter with ID ${filterId} not found`);
-          }
-          return filterId;
-        })
-      );
-      item.filters = validatedFilters;
+      const foundFilters = await Filters.find({ _id: { $in: filters }, tenantId }).select("_id").lean();
+      if (foundFilters.length !== filters.length) {
+        const foundIds = new Set(foundFilters.map((f) => f._id.toString()));
+        const missing = filters.find((id) => !foundIds.has(id.toString()));
+        throw new ApiError(404, `Filter with ID ${missing} not found`);
+      }
+      item.filters = filters;
     } else {
       item.filters = [];
     }
   }
 
   if (imageUrl !== undefined) {
-    item.imageKey = imageUrl?.trim() || null; // frontend sends imageUrl, we store as imageKey
+    item.imageKey = imageUrl?.trim() || null;
   }
 
   if (status !== undefined) {
     item.status = status;
   }
 
-  await item.save();
+  try {
+    await item.save();
+  } catch (err) {
+    throw parseDuplicateKeyError(err, { name: "Item with this name already exists" }) ?? err;
+  }
 
-  // Fetch category and filters separately
+  // Fetch category and filters in parallel
   const [categoryData, filtersData] = await Promise.all([
     Category.findById(item.category).select('_id name status'),
     Filters.find({ _id: { $in: item.filters } }).select('_id name isActive')
@@ -251,7 +241,10 @@ export const editItem = asyncHandler(async (req, res) => {
   );
 });
 
-// Delete item
+/**
+ * DELETE /api/v1/items/:itemId
+ * Permanently delete a menu item.
+ */
 export const deleteItem = asyncHandler(async (req, res) => {
   const { itemId } = req.params;
   const user = req.user;
@@ -281,8 +274,11 @@ export const deleteItem = asyncHandler(async (req, res) => {
   );
 });
 
-// Get a presigned PUT URL so the frontend can upload directly to S3
-// GET /api/v1/items/upload-url?mimetype=image/jpeg[&folder=items]
+/**
+ * GET /api/v1/items/upload-url?mimetype=image/jpeg[&folder=items]
+ * Returns a short-lived presigned S3 PUT URL. Frontend uploads the file directly,
+ * then saves the returned imageUrl (S3 key) on the item/category/filter.
+ */
 export const uploadItemImage = asyncHandler(async (req, res) => {
   if (req.user.role !== "tenantAdmin") {
     throw new ApiError(403, "Only tenant admins can upload item images");

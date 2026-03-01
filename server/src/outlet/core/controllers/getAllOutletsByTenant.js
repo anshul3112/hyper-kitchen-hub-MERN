@@ -3,6 +3,10 @@ import { ApiError } from "../../../utils/ApiError.js";
 import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 
+/**
+ * GET /api/v1/outlets
+ * List all outlets belonging to the calling tenantAdmin's tenant.
+ */
 export const getAllOutletsByTenant = asyncHandler(async (req, res) => {
   const user = req.user;
   

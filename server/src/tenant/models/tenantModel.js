@@ -34,4 +34,8 @@ const tenantSchema = new Schema({
   }
 }, { timestamps: true });
 
+tenantSchema.index({ name: 1 }, { unique: true });
+tenantSchema.index({ "contacts.email": 1 }, { unique: true, sparse: true });
+tenantSchema.index({ "contacts.phoneNumber": 1 }, { unique: true, sparse: true });
+
 export const Tenant = mongoose.model("Tenant", tenantSchema);

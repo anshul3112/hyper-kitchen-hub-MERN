@@ -3,6 +3,10 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 
+/**
+ * GET /api/v1/tenants
+ * List all tenants, sorted newest first. Only superAdmins can call this.
+ */
 export const getAllTenants = asyncHandler(async (req, res) => {
     const user = req.user;
     

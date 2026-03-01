@@ -6,7 +6,11 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { withPresignedUrl, withPresignedUrls } from "../../utils/s3.js";
 
-// Get complete menu details (categories, filters, items)
+/**
+ * GET /api/v1/items/menu/all
+ * Return all categories, filters, and items for the caller's tenant in one response.
+ * Allowed roles: kiosk, outletAdmin, tenantAdmin.
+ */
 export const getMenuDetails = asyncHandler(async (req, res) => {
   const user = req.user;
 

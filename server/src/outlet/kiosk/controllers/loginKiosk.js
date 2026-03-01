@@ -4,8 +4,10 @@ import { ApiError } from "../../../utils/ApiError.js";
 import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 
-// POST /api/v1/kiosks/login
-// Body: { loginCode }
+/**
+ * POST /api/v1/kiosks/login
+ * Authenticate a kiosk device by its 6-digit login code and return a kiosk JWT.
+ */
 export const loginKiosk = asyncHandler(async (req, res) => {
   const { loginCode } = req.body;
 

@@ -20,6 +20,10 @@ export async function getNextOrderNumber(outletId, session = null) {
   return outlet.orderNumber;
 }
 
+/**
+ * POST /api/v1/outlets/:outletId/order-number/next
+ * Atomically increment and return the next order number for an outlet.
+ */
 export const getNextOrderNumberHandler = asyncHandler(async (req, res) => {
   const { outletId } = req.params;
   const nextNo = await getNextOrderNumber(outletId);

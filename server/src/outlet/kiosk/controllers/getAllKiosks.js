@@ -3,7 +3,10 @@ import { ApiError } from "../../../utils/ApiError.js";
 import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 
-// Get all kiosks for an outlet
+/**
+ * GET /api/v1/kiosks
+ * List all kiosk devices for the calling outletAdmin's outlet.
+ */
 export const getAllKiosks = asyncHandler(async (req, res) => {
   const user = req.user;
 

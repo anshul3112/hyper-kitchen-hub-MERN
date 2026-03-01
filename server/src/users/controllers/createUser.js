@@ -2,7 +2,7 @@ import { User } from "../models/userModel.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { ensureUniqueEmailAndPhone } from "../services/ensureUnique.js";
+import { parseDuplicateKeyError } from "../../utils/mongoError.js";
 import {
   validateCreateTenantAdmin,
   validateCreateOutletAdmin,
@@ -31,7 +31,6 @@ export const createOutletStaff = asyncHandler(async (req, res) => {
 
   
   validateCreateOutletStaff(req.body);
-  await ensureUniqueEmailAndPhone(email, phoneNumber);
 
   const staffUser = new User({
     name,
@@ -43,7 +42,11 @@ export const createOutletStaff = asyncHandler(async (req, res) => {
     tenant: creator.tenant,
   });
 
-  await staffUser.save();
+  try {
+    await staffUser.save();
+  } catch (err) {
+    throw parseDuplicateKeyError(err) ?? err;
+  }
 
   const { password: _, ...staffData } = staffUser.toObject();
   return res
@@ -51,6 +54,10 @@ export const createOutletStaff = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, staffData, `${role} created successfully`));
 });
 
+/**
+ * POST /api/v1/users/create-tenant-admin
+ * Create a tenantAdmin user. Only superAdmins can call this.
+ */
 export const createTenantAdmin = asyncHandler(async (req, res) => {
   const user = req.user;
   if (user.role !== "superAdmin") {
@@ -61,8 +68,6 @@ export const createTenantAdmin = asyncHandler(async (req, res) => {
 
     validateCreateTenantAdmin(req.body);
 
-    await ensureUniqueEmailAndPhone(email, phoneNumber);
-
     const tenantAdmin = new User({
       name,
       email,
@@ -72,7 +77,11 @@ export const createTenantAdmin = asyncHandler(async (req, res) => {
       phoneNumber,
     });
 
-    await tenantAdmin.save();
+    try {
+      await tenantAdmin.save();
+    } catch (err) {
+      throw parseDuplicateKeyError(err) ?? err;
+    }
 
     const {password: _, ...tenantAdminData} = tenantAdmin.toObject();
 
@@ -83,6 +92,10 @@ export const createTenantAdmin = asyncHandler(async (req, res) => {
       );
 });
 
+/**
+ * POST /api/v1/users/create-outlet-admin
+ * Create an outletAdmin user. Only tenantAdmins can call this.
+ */
 export const createOutletAdmin = asyncHandler(async (req, res) => {
   const user = req.user;
   if (user.role !== "tenantAdmin") {
@@ -92,7 +105,6 @@ export const createOutletAdmin = asyncHandler(async (req, res) => {
   const { name, email, password, tenant, outlet, phoneNumber } = req.body;
 
   validateCreateOutletAdmin(req.body);
-  await ensureUniqueEmailAndPhone(email, phoneNumber);
   const outletAdmin = new User({
     name,
     email,
@@ -103,7 +115,11 @@ export const createOutletAdmin = asyncHandler(async (req, res) => {
     phoneNumber,
   });
 
-  await outletAdmin.save();
+  try {
+    await outletAdmin.save();
+  } catch (err) {
+    throw parseDuplicateKeyError(err) ?? err;
+  }
   const {password: _, ...outletAdminData} = outletAdmin.toObject();
   res
     .status(201)
@@ -112,6 +128,10 @@ export const createOutletAdmin = asyncHandler(async (req, res) => {
     );
 });
 
+/**
+ * POST /api/v1/users/create-super-admin
+ * Create an additional superAdmin account. Only superAdmins can call this.
+ */
 export const createSuperAdmin = asyncHandler(async (req, res) => {
   const user = req.user;
   if (user.role !== "superAdmin") {
@@ -120,7 +140,6 @@ export const createSuperAdmin = asyncHandler(async (req, res) => {
 
     const { name, email, password, phoneNumber } = req.body;
     validateCreateSuperAdmin(req.body);
-    await ensureUniqueEmailAndPhone(email, phoneNumber);
     const superAdmin = new User({
       name,
       email,
@@ -128,7 +147,11 @@ export const createSuperAdmin = asyncHandler(async (req, res) => {
       role: "superAdmin",
       phoneNumber,
     });
-    await superAdmin.save();
+    try {
+      await superAdmin.save();
+    } catch (err) {
+      throw parseDuplicateKeyError(err) ?? err;
+    }
 
     const {password: _, ...superAdminData} = superAdmin.toObject();
 

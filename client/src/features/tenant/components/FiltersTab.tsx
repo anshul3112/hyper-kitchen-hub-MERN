@@ -99,10 +99,10 @@ export default function FiltersTab({ filters, loading, onFiltersChange }: Props)
                   <img
                     src={filter.imageUrl}
                     alt={filter.name}
-                    className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-gray-100"
+                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-100"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
                     <span className="text-gray-400 text-xs">🏷</span>
                   </div>
                 )}

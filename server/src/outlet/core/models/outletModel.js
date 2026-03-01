@@ -63,5 +63,10 @@ const outletSchema = new Schema({
 
 // tenant lookup (getAllOutletsByTenant, toggleOutletStatus)
 outletSchema.index({ "tenant.tenantId": 1 });
+// unique name within a tenant
+outletSchema.index({ name: 1, "tenant.tenantId": 1 }, { unique: true });    
+// unique contact fields (sparse so null/missing values are excluded)
+outletSchema.index({ "contacts.email": 1 }, { unique: true, sparse: true });
+outletSchema.index({ "contacts.phoneNumber": 1 }, { unique: true, sparse: true });
 
 export const Outlet = mongoose.model("Outlet", outletSchema);

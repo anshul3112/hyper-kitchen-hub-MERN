@@ -3,8 +3,12 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
+import { parseDuplicateKeyError } from "../../utils/mongoError.js";
 
-// Add new filter
+/**
+ * POST /api/v1/items/filters
+ * Create a new filter tag for the calling tenantAdmin's tenant.
+ */
 export const addFilter = asyncHandler(async (req, res) => {
   const { name, imageUrl } = req.body;
   const user = req.user;
@@ -24,24 +28,18 @@ export const addFilter = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Filter name is required");
   }
 
-  // Check if filter already exists for this tenant
-  const existingFilter = await Filters.findOne({
-    name: name.trim(),
-    tenantId
-  });
-
-  if (existingFilter) {
-    throw new ApiError(409, "Filter with this name already exists for your organization");
-  }
-
   const filter = new Filters({
     name: name.trim(),
-    imageKey: imageUrl?.trim() || null, // frontend sends imageUrl, stored as S3 key
+    imageKey: imageUrl?.trim() || null,
     tenantId,
     createdBy: user._id
   });
 
-  await filter.save();
+  try {
+    await filter.save();
+  } catch (err) {
+    throw parseDuplicateKeyError(err, { name: "Filter with this name already exists for your organization" }) ?? err;
+  }
 
   const filterWithUrl = await withPresignedUrl(filter.toObject());
   return res.status(201).json(
@@ -49,7 +47,10 @@ export const addFilter = asyncHandler(async (req, res) => {
   );
 });
 
-// Get all filters for a tenant
+/**
+ * GET /api/v1/items/filters
+ * List all filters for the calling tenantAdmin's tenant.
+ */
 export const getFilters = asyncHandler(async (req, res) => {
   const user = req.user;
 
@@ -71,7 +72,10 @@ export const getFilters = asyncHandler(async (req, res) => {
   );
 });
 
-// Update filter
+/**
+ * PATCH /api/v1/items/filters/:filterId
+ * Update a filter's name, image, or active status.
+ */
 export const updateFilter = asyncHandler(async (req, res) => {
   const { filterId } = req.params;
   const { name, imageUrl, isActive } = req.body;
@@ -93,30 +97,24 @@ export const updateFilter = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Filter not found");
   }
 
-  // Check for duplicate name
+  // Update name — let the unique index catch conflicts
   if (name && name !== filter.name) {
-    const existingFilter = await Filters.findOne({
-      name: name.trim(),
-      tenantId,
-      _id: { $ne: filterId }
-    });
-
-    if (existingFilter) {
-      throw new ApiError(409, "Filter with this name already exists");
-    }
-
     filter.name = name.trim();
   }
 
   if (imageUrl !== undefined) {
-    filter.imageKey = imageUrl?.trim() || null; // frontend sends imageUrl, we store as imageKey
+    filter.imageKey = imageUrl?.trim() || null;
   }
 
   if (isActive !== undefined) {
     filter.isActive = isActive;
   }
 
-  await filter.save();
+  try {
+    await filter.save();
+  } catch (err) {
+    throw parseDuplicateKeyError(err, { name: "Filter with this name already exists" }) ?? err;
+  }
 
   const updatedFilter = await withPresignedUrl(filter.toObject());
   return res.status(200).json(
@@ -124,7 +122,10 @@ export const updateFilter = asyncHandler(async (req, res) => {
   );
 });
 
-// Delete filter
+/**
+ * DELETE /api/v1/items/filters/:filterId
+ * Permanently delete a filter tag.
+ */
 export const deleteFilter = asyncHandler(async (req, res) => {
   const { filterId } = req.params;
   const user = req.user;

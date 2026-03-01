@@ -90,7 +90,7 @@ export async function createTenant(payload: CreateTenantInput): Promise<Tenant> 
 			name: payload.name,
 			contacts: {
 				email: payload.email,
-				mobile: payload.phone,
+				phoneNumber: payload.phone,
 			},
 			address: payload.address,
 		}),

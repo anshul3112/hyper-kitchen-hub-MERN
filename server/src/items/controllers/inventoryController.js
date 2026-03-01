@@ -42,9 +42,11 @@ const validateItem = async (itemId, tenantId) => {
   return item;
 };
 
-// ─── GET /api/v1/items/inventory ─────────────────────────────────────────────
-// Returns all inventory records for the caller's outlet.
-// Accessible by outletAdmin (verifyJWT) and kiosk device (verifyKioskJWT).
+/**
+ * GET /api/v1/items/inventory
+ * Returns all inventory records for the caller's outlet.
+ * Accessible by outletAdmin (verifyJWT) and kiosk device (verifyKioskJWT).
+ */
 export const getOutletInventory = asyncHandler(async (req, res) => {
   const outletId = resolveOutletForRead(req);
 
@@ -55,9 +57,11 @@ export const getOutletInventory = asyncHandler(async (req, res) => {
   );
 });
 
-// ─── PUT /api/v1/items/inventory/:itemId ─────────────────────────────────────
-// Upsert: create or fully replace the inventory record for an item at this outlet
-// Body: { price, quantity }
+/**
+ * PUT /api/v1/items/inventory/:itemId
+ * Upsert: create or fully replace the inventory record for an item at this outlet.
+ * Body: { price, quantity }
+ */
 export const upsertInventoryItem = asyncHandler(async (req, res) => {
   requireOutletAdmin(req.user);
   const outletId = resolveOutlet(req.user);
@@ -91,8 +95,11 @@ export const upsertInventoryItem = asyncHandler(async (req, res) => {
 });
 
 // ─── PATCH /api/v1/items/inventory/:itemId/price ─────────────────────────────
-// Change price only for an item at this outlet
-// Body: { price }
+/**
+ * PATCH /api/v1/items/inventory/:itemId/price
+ * Change price only for an item at this outlet.
+ * Body: { price }
+ */
 export const updateInventoryPrice = asyncHandler(async (req, res) => {
   requireOutletAdmin(req.user);
   const outletId = resolveOutlet(req.user);
@@ -123,10 +130,11 @@ export const updateInventoryPrice = asyncHandler(async (req, res) => {
   );
 });
 
-// ─── PATCH /api/v1/items/inventory/:itemId/quantity ────────────────────────────────
-// Change quantity only for an item at this outlet.
-// If no inventory record exists yet, upserts one using the item's defaultAmount as price.
-// Body: { quantity }
+/**
+ * PATCH /api/v1/items/inventory/:itemId/quantity
+ * Change quantity only for an item at this outlet.
+ * Body: { quantity }
+ */
 export const updateInventoryQuantity = asyncHandler(async (req, res) => {
   requireOutletAdmin(req.user);
   const outletId = resolveOutlet(req.user);
@@ -157,10 +165,11 @@ export const updateInventoryQuantity = asyncHandler(async (req, res) => {
   );
 });
 
-// ─── PATCH /api/v1/items/inventory/:itemId/status ──────────────────────────────
-// Toggle the outlet-level status (enabled/disabled) for an item.
-// If no record exists yet, creates one with qty 0 and no price (price shown as default on kiosk).
-// Body: { status: boolean }
+/**
+ * PATCH /api/v1/items/inventory/:itemId/status
+ * Toggle the outlet-level status (enabled/disabled) for an item.
+ * Body: { status: boolean }
+ */
 export const toggleInventoryStatus = asyncHandler(async (req, res) => {
   requireOutletAdmin(req.user);
   const outletId = resolveOutlet(req.user);

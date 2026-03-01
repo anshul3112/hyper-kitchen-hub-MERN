@@ -17,7 +17,11 @@ const generateLoginCode = async () => {
   return code;
 };
 
-// Create new kiosk
+/**
+ * POST /api/v1/kiosks/create
+ * Create a new kiosk device for the calling outletAdmin's outlet.
+ * Generates a 6-digit login code valid for 24 hours.
+ */
 export const createKiosk = asyncHandler(async (req, res) => {
   const user = req.user;
 

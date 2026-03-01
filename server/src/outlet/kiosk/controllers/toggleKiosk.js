@@ -18,8 +18,10 @@ const generateLoginCode = async () => {
   return code;
 };
 
-// Toggle kiosk active/disabled state
-// PATCH /api/v1/kiosks/:id/toggle
+/**
+ * PATCH /api/v1/kiosks/:id/toggle
+ * Toggle a kiosk active/inactive and rotate its login code when re-activating.
+ */
 export const toggleKiosk = asyncHandler(async (req, res) => {
   const user = req.user;
 

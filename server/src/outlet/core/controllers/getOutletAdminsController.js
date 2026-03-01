@@ -4,6 +4,10 @@ import { ApiError } from "../../../utils/ApiError.js";
 import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 
+/**
+ * GET /api/v1/outlets/admins/:outletId
+ * List all outletAdmin users for a given outlet. Only tenantAdmins can call this.
+ */
 export const getOutletAdminsByOutlet = asyncHandler(async (req, res) => {
   const user = req.user;
 

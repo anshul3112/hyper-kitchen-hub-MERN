@@ -3,9 +3,10 @@ import { ApiError } from "../../../utils/ApiError.js";
 import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 
-// PATCH /api/v1/outlets/:outletId/toggle
-// Flips the status (active ↔ inactive) of an outlet.
-// Only the tenantAdmin who owns the outlet can do this.
+/**
+ * PATCH /api/v1/outlets/:outletId/toggle
+ * Flip the active/inactive status of an outlet. Only tenantAdmins can call this.
+ */
 export const toggleOutletStatus = asyncHandler(async (req, res) => {
   const user = req.user;
 

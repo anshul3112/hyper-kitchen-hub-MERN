@@ -3,6 +3,10 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 
+/**
+ * GET /api/v1/users/super-admins
+ * List all superAdmin users. Only superAdmins can call this.
+ */
 export const getSuperAdmins = asyncHandler(async (req, res) => {
     const user = req.user;
     if (user.role !== "superAdmin") {
@@ -12,6 +16,10 @@ export const getSuperAdmins = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, superAdmins, "Super Admins fetched successfully"));
 });
 
+/**
+ * GET /api/v1/users/tenant-admins
+ * List all tenantAdmin users for the calling user's tenant.
+ */
 export const getTenantAdmins = asyncHandler(async (req, res) => {
     const user = req.user;
     if (user.role !== "tenantAdmin") {
@@ -24,6 +32,10 @@ export const getTenantAdmins = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, tenantAdmins, "Tenant Admins fetched successfully"));
 });
 
+/**
+ * GET /api/v1/users/outlet-admins
+ * List all outletAdmin users for the calling tenantAdmin's tenant.
+ */
 export const getOutletAdmins = asyncHandler(async (req, res) => {
     const user = req.user;
     if (user.role !== "tenantAdmin") {

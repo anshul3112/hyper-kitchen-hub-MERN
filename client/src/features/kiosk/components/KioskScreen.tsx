@@ -234,12 +234,19 @@ export default function KioskScreen({
               onClick={() =>
                 setSelectedFilter(f._id === selectedFilter ? "all" : f._id)
               }
-              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
                 selectedFilter === f._id
                   ? "bg-blue-500 text-white border-blue-500"
                   : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-500"
               }`}
             >
+              {f.imageUrl && (
+                <img
+                  src={f.imageUrl}
+                  alt=""
+                  className="w-4 h-4 rounded object-cover flex-shrink-0"
+                />
+              )}
               {f.name}
             </button>
           ))}
@@ -271,7 +278,7 @@ export default function KioskScreen({
       {/* ── Body ────────────────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
         {/* ── Left Sidebar: Categories ─────────────────────────────────── */}
-        <aside className="w-44 bg-white border-r border-gray-200 flex flex-col overflow-y-auto flex-shrink-0 py-3">
+        <aside className="w-52 bg-white border-r border-gray-200 flex flex-col overflow-y-auto flex-shrink-0 py-3">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
             Categories
           </p>
@@ -294,22 +301,25 @@ export default function KioskScreen({
               onClick={() =>
                 setSelectedCategory(cat._id === selectedCategory ? "all" : cat._id)
               }
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors text-left ${
+              className={`flex flex-col w-full text-left overflow-hidden transition-colors flex-shrink-0 ${
                 selectedCategory === cat._id
                   ? "bg-blue-50 text-blue-600 border-r-2 border-blue-500"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
-              {cat.imageUrl ? (
-                <img
-                  src={cat.imageUrl}
-                  alt={cat.name}
-                  className="w-5 h-5 rounded object-cover flex-shrink-0"
-                />
-              ) : (
-                <span className="text-base">🍴</span>
+              {cat.imageUrl && (
+                <div className="w-full h-[138px] bg-gray-50 flex items-center justify-center flex-shrink-0">
+                  <img
+                    src={cat.imageUrl}
+                    alt={cat.name}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
               )}
-              <span className="line-clamp-2 leading-tight">{cat.name}</span>
+              <div className={`flex items-center gap-2 px-4 text-sm font-medium ${cat.imageUrl ? "py-2" : "py-3"}`}>
+                {!cat.imageUrl && <span className="text-base flex-shrink-0">🍴</span>}
+                <span className="line-clamp-2 leading-tight">{cat.name}</span>
+              </div>
             </button>
           ))}
         </aside>
@@ -335,7 +345,7 @@ export default function KioskScreen({
                     }`}
                   >
                     {/* Image */}
-                    <div className="relative h-36 bg-white flex-shrink-0">
+                    <div className="relative h-[173px] bg-white flex-shrink-0">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
@@ -344,7 +354,7 @@ export default function KioskScreen({
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-5xl">{item.inStock ? "🍴" : "🚫"}</span>
+                          <span className="text-6xl">{item.inStock ? "🍴" : "🚫"}</span>
                         </div>
                       )}
 
@@ -382,30 +392,30 @@ export default function KioskScreen({
                     </div>
 
                     {/* Details */}
-                    <div className="p-3 flex flex-col gap-1 flex-1">
-                      <p className="text-sm font-bold text-gray-900 leading-tight line-clamp-2">
+                    <div className="p-4 flex flex-col gap-1 flex-1">
+                      <p className="text-base font-bold text-gray-900 leading-tight line-clamp-2">
                         {item.name}
                       </p>
                       {item.description && (
-                        <p className="text-xs text-gray-400 line-clamp-2 leading-snug">
+                        <p className="text-sm text-gray-400 line-clamp-2 leading-snug">
                           {item.description}
                         </p>
                       )}
 
                       <div className="mt-auto pt-2 flex items-center justify-between gap-2">
-                        <span className="text-base font-extrabold text-gray-900">
+                        <span className="text-lg font-extrabold text-gray-900">
                           ₹{item.displayPrice}
                         </span>
 
                         {/* Add to Cart / Quantity Control */}
                         {!item.inStock ? (
-                          <span className="flex-1 text-center text-xs font-semibold text-gray-400 bg-gray-100 py-1.5 px-2 rounded-xl">
+                          <span className="flex-1 text-center text-sm font-semibold text-gray-400 bg-gray-100 py-2 px-2 rounded-xl">
                             Unavailable
                           </span>
                         ) : qty === 0 ? (
                           <button
                             onClick={() => handleAddToCart(item)}
-                            className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-bold py-1.5 px-2 rounded-xl transition-all"
+                            className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-sm font-bold py-2 px-3 rounded-xl transition-all"
                           >
                             Add to Cart
                           </button>
@@ -413,16 +423,16 @@ export default function KioskScreen({
                           <div className="flex items-center gap-1 bg-orange-50 border border-orange-200 rounded-xl px-1 py-0.5">
                             <button
                               onClick={() => decrement(item._id)}
-                              className="w-6 h-6 rounded-lg bg-orange-500 text-white font-bold text-sm flex items-center justify-center hover:bg-orange-600 active:scale-95 transition-all"
+                              className="w-7 h-7 rounded-lg bg-orange-500 text-white font-bold text-base flex items-center justify-center hover:bg-orange-600 active:scale-95 transition-all"
                             >
                               −
                             </button>
-                            <span className="w-5 text-center text-sm font-bold text-orange-700">
+                            <span className="w-6 text-center text-base font-bold text-orange-700">
                               {qty}
                             </span>
                             <button
                               onClick={() => handleIncrement(item)}
-                              className="w-6 h-6 rounded-lg bg-orange-500 text-white font-bold text-sm flex items-center justify-center hover:bg-orange-600 active:scale-95 transition-all"
+                              className="w-7 h-7 rounded-lg bg-orange-500 text-white font-bold text-base flex items-center justify-center hover:bg-orange-600 active:scale-95 transition-all"
                             >
                               +
                             </button>

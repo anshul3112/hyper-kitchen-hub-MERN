@@ -4,6 +4,10 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { validateLogin } from "../services/loginValidation.js";
 
+/**
+ * POST /api/v1/users/login
+ * Authenticate a user and return a JWT access token.
+ */
 export const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
