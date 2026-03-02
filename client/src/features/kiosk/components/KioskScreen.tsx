@@ -10,16 +10,21 @@ type Props = {
   items: EnrichedMenuItem[];
   outletName: string;
   kioskNumber: number;
+  /** The order type selected by the customer on the pre-menu screen */
+  orderType: "dineIn" | "takeAway";
   /** Called after checkout applies inventory patches so KioskPage can re-render items live. */
-  onItemsPatched: (patches: Record<string, { price?: number; quantity?: number; status?: boolean }>) => void;
+  onItemsPatched: (patches: Record<string, { price?: number; quantity?: number; status?: boolean; orderType?: "dineIn" | "takeAway" | "both" }>) => void;
+  /** Called when customer clicks "New Order" after a successful checkout — resets to welcome screen. */
+  onNewOrder?: () => void;
 };
 
 export default function KioskScreen({
   categories,
   filters,
   items,
-  outletName,
+  orderType,
   onItemsPatched,
+  onNewOrder,
 }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
@@ -55,9 +60,9 @@ export default function KioskScreen({
       if (changes.length === 0) return;
 
       // Build a patches map keyed by itemId
-      const patches: Record<string, { price?: number; quantity?: number; status?: boolean }> = {};
+      const patches: Record<string, { price?: number; quantity?: number; status?: boolean; orderType?: "dineIn" | "takeAway" | "both" }> = {};
       changes.forEach((c) => {
-        patches[c._id] = { price: c.price, quantity: c.quantity, status: c.status };
+        patches[c._id] = { price: c.price, quantity: c.quantity, status: c.status, orderType: c.orderType };
       });
 
       // Build notices for items that are actually in the cart
@@ -115,9 +120,9 @@ export default function KioskScreen({
       const changes = await getChangedItems();
       if (changes.length === 0) return;
 
-      const patches: Record<string, { price?: number; quantity?: number; status?: boolean }> = {};
+      const patches: Record<string, { price?: number; quantity?: number; status?: boolean; orderType?: "dineIn" | "takeAway" | "both" }> = {};
       changes.forEach((c) => {
-        patches[c._id] = { price: c.price, quantity: c.quantity, status: c.status };
+        patches[c._id] = { price: c.price, quantity: c.quantity, status: c.status, orderType: c.orderType };
       });
 
       patchCart(patches);
@@ -184,6 +189,11 @@ export default function KioskScreen({
   };
 
   const visibleItems = items.filter((item) => {
+    // Filter by order type: show items tagged 'both' or matching the selected type
+    const matchesOrderType =
+      item.orderType === "both" || item.orderType === orderType;
+    if (!matchesOrderType) return false;
+
     if (selectedCategory !== "all") {
       if (item.category?._id !== selectedCategory) return false;
     }
@@ -193,27 +203,42 @@ export default function KioskScreen({
     return true;
   });
 
-  // Only show categories that have at least one item assigned to them
+  // Only show categories that have at least one item assigned to them (respecting orderType)
   const populatedCategoryIds = new Set(
-    items.map((item) => item.category?._id).filter(Boolean)
+    items
+      .filter((item) => item.orderType === "both" || item.orderType === orderType)
+      .map((item) => item.category?._id)
+      .filter(Boolean)
   );
   const activeCategories = categories.filter((cat) => populatedCategoryIds.has(cat._id));
 
-  // Only show filters that are used by at least one item
+  // Only show filters that are used by at least one item (respecting orderType)
   const populatedFilterIds = new Set(
-    items.flatMap((item) => item.filters.map((f) => f._id))
+    items
+      .filter((item) => item.orderType === "both" || item.orderType === orderType)
+      .flatMap((item) => item.filters.map((f) => f._id))
   );
   const activeFilters = filters.filter((f) => populatedFilterIds.has(f._id));
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 overflow-hidden">
+    <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
       {/* ── Top Bar ─────────────────────────────────────────────────────── */}
       <header className="bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-6 py-3 flex-shrink-0">
-        {/* Left: Brand info */}
+        {/* Left: Order type badge + Start Over */}
         <div className="flex items-center gap-3">
-          <div>
-            <p className="text-base font-bold text-gray-900 leading-tight">{outletName}</p>
-          </div>
+          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
+            orderType === "dineIn"
+              ? "bg-green-100 text-green-700"
+              : "bg-purple-100 text-purple-700"
+          }`}>
+            {orderType === "dineIn" ? "🍽️ Dine In" : "🛍️ Take Away"}
+          </span>
+          <button
+            onClick={() => { clearCart(); onNewOrder?.(); }}
+            className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 bg-white px-3 py-1.5 rounded-full transition-colors"
+          >
+            ↺ Start Over
+          </button>
         </div>
 
         {/* Center: Filter chips */}
@@ -222,8 +247,8 @@ export default function KioskScreen({
             onClick={() => setSelectedFilter("all")}
             className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
               selectedFilter === "all"
-                ? "bg-blue-500 text-white border-blue-500"
-                : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-500"
+                ? "bg-purple-600 text-white border-purple-600"
+                : "bg-white text-gray-600 border-gray-300 hover:border-purple-400 hover:text-purple-600"
             }`}
           >
             All
@@ -236,8 +261,8 @@ export default function KioskScreen({
               }
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
                 selectedFilter === f._id
-                  ? "bg-blue-500 text-white border-blue-500"
-                  : "bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-500"
+                  ? "bg-purple-600 text-white border-purple-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:border-purple-400 hover:text-purple-600"
               }`}
             >
               {f.imageUrl && (
@@ -256,15 +281,15 @@ export default function KioskScreen({
         <div className="flex items-center gap-3">
           {cartCount > 0 ? (
             <>
-              <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-4 py-2">
-                <span className="text-orange-600 text-sm font-bold">
+              <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2">
+                <span className="text-purple-700 text-sm font-bold">
                   🛒 {cartCount} item{cartCount > 1 ? "s" : ""}
                 </span>
-                <span className="text-orange-700 font-bold text-sm">— ₹{cartTotal}</span>
+                <span className="text-purple-700 font-bold text-sm">— ₹{cartTotal}</span>
               </div>
               <button
                 onClick={openCheckout}
-                className="bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-bold text-sm px-5 py-2 rounded-xl transition-all shadow-sm"
+                className="bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold text-sm px-5 py-2 rounded-xl transition-all shadow-sm"
               >
                 Checkout →
               </button>
@@ -287,7 +312,7 @@ export default function KioskScreen({
             onClick={() => setSelectedCategory("all")}
             className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors text-left ${
               selectedCategory === "all"
-                ? "bg-blue-50 text-blue-600 border-r-2 border-blue-500"
+                ? "bg-purple-50 text-purple-700 border-r-2 border-purple-600"
                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
             }`}
           >
@@ -303,7 +328,7 @@ export default function KioskScreen({
               }
               className={`flex flex-col w-full text-left overflow-hidden transition-colors flex-shrink-0 ${
                 selectedCategory === cat._id
-                  ? "bg-blue-50 text-blue-600 border-r-2 border-blue-500"
+                  ? "bg-purple-50 text-purple-700 border-r-2 border-purple-600"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               }`}
             >
@@ -373,7 +398,7 @@ export default function KioskScreen({
                           {item.filters.slice(0, 2).map((f) => (
                             <span
                               key={f._id}
-                              className="bg-white/90 text-orange-600 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm"
+                              className="bg-white/90 text-purple-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm"
                             >
                               {f.name}
                             </span>
@@ -415,24 +440,24 @@ export default function KioskScreen({
                         ) : qty === 0 ? (
                           <button
                             onClick={() => handleAddToCart(item)}
-                            className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-sm font-bold py-2 px-3 rounded-xl transition-all"
+                            className="flex-1 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-sm font-bold py-2 px-3 rounded-xl transition-all"
                           >
                             Add to Cart
                           </button>
                         ) : (
-                          <div className="flex items-center gap-1 bg-orange-50 border border-orange-200 rounded-xl px-1 py-0.5">
+                          <div className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded-xl px-1 py-0.5">
                             <button
                               onClick={() => decrement(item._id)}
-                              className="w-7 h-7 rounded-lg bg-orange-500 text-white font-bold text-base flex items-center justify-center hover:bg-orange-600 active:scale-95 transition-all"
+                              className="w-7 h-7 rounded-lg bg-purple-600 text-white font-bold text-base flex items-center justify-center hover:bg-purple-700 active:scale-95 transition-all"
                             >
                               −
                             </button>
-                            <span className="w-6 text-center text-base font-bold text-orange-700">
+                            <span className="w-6 text-center text-base font-bold text-purple-700">
                               {qty}
                             </span>
                             <button
                               onClick={() => handleIncrement(item)}
-                              className="w-7 h-7 rounded-lg bg-orange-500 text-white font-bold text-base flex items-center justify-center hover:bg-orange-600 active:scale-95 transition-all"
+                              className="w-7 h-7 rounded-lg bg-purple-600 text-white font-bold text-base flex items-center justify-center hover:bg-purple-700 active:scale-95 transition-all"
                             >
                               +
                             </button>
@@ -488,7 +513,7 @@ export default function KioskScreen({
                     /* Still applying inventory patches — block proceed */
                     <button
                       disabled
-                      className="w-full flex items-center justify-center gap-2 bg-orange-300 cursor-not-allowed text-white font-bold py-3 rounded-2xl text-base"
+                      className="w-full flex items-center justify-center gap-2 bg-purple-300 cursor-not-allowed text-white font-bold py-3 rounded-2xl text-base"
                     >
                       <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Checking stock…
@@ -512,7 +537,7 @@ export default function KioskScreen({
                       </div>
                       <button
                         onClick={() => setPayStep("payment")}
-                        className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
+                        className="w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
                       >
                         Proceed to Pay →
                       </button>
@@ -538,7 +563,7 @@ export default function KioskScreen({
                       value={payerName}
                       onChange={(e) => setPayerName(e.target.value)}
                       placeholder="e.g. Raj Kumar"
-                      className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                     />
                   </div>
                   <div>
@@ -548,7 +573,7 @@ export default function KioskScreen({
                       value={upiId}
                       onChange={(e) => setUpiId(e.target.value)}
                       placeholder="e.g. raj@upi"
-                      className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                     />
                   </div>
                   <p className="text-xs text-gray-400">Total to pay: <span className="font-bold text-gray-700">₹{cartTotal}</span></p>
@@ -564,7 +589,7 @@ export default function KioskScreen({
                   <button
                     onClick={handlePlaceOrder}
                     disabled={!payerName.trim() || !upiId.trim()}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-sm"
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-sm"
                   >
                     Place Order
                   </button>
@@ -575,7 +600,7 @@ export default function KioskScreen({
             {/* ── STEP: Loading ────────────────────────────────────────────── */}
             {payStep === "loading" && (
               <div className="flex flex-col items-center justify-center py-16 px-6 gap-5">
-                <div className="w-14 h-14 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
+                <div className="w-14 h-14 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
                 <div className="text-center">
                   <p className="text-base font-bold text-gray-800">Processing Payment…</p>
                   <p className="text-sm text-gray-400 mt-1">Please do not close this window</p>
@@ -591,13 +616,13 @@ export default function KioskScreen({
                 </div>
                 <div>
                   <p className="text-xl font-extrabold text-gray-900">Order Placed!</p>
-                  <p className="text-3xl font-black text-orange-500 mt-1">#{orderResult.orderNo}</p>
+                  <p className="text-3xl font-black text-purple-600 mt-1">#{orderResult.orderNo}</p>
                   <p className="text-sm text-gray-500 mt-2">Payment: <span className="font-semibold text-green-600">{orderResult.paymentStatus}</span></p>
                   <p className="text-sm text-gray-500">Amount paid: <span className="font-semibold">₹{orderResult.totalAmount}</span></p>
                 </div>
                 <button
-                  onClick={closeCheckout}
-                  className="mt-2 w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
+                  onClick={() => { closeCheckout(); onNewOrder?.(); }}
+                  className="mt-2 w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
                 >
                   New Order
                 </button>

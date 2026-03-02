@@ -25,6 +25,7 @@ export interface ChangedItem {
   price?: number; // outlet-level price override (falls back to CachedItem.defaultAmount if absent)
   quantity?: number; // current stock quantity
   status?: boolean; // outlet-level enable/disable for this item
+  orderType?: 'dineIn' | 'takeAway' | 'both'; // controls which order type this item is shown for
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────

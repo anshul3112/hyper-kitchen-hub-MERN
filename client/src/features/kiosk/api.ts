@@ -43,6 +43,8 @@ export type InventoryItem = {
   price: number;
   quantity: number;
   outletId: string;
+  /** Controls which order-type this item is available for; defaults to 'both' */
+  orderType: 'dineIn' | 'takeAway' | 'both';
 };
 
 /**
@@ -55,6 +57,8 @@ export type EnrichedMenuItem = MenuItem & {
   displayPrice: number;
   stockQuantity: number;
   inStock: boolean;
+  /** Controls which order-type this item is available for; defaults to 'both' */
+  orderType: 'dineIn' | 'takeAway' | 'both';
 };
 
 /**
@@ -182,11 +186,13 @@ export function mergeMenuWithInventory(
     const rec = invMap.get(item._id);
     const displayPrice = rec && rec.price != null ? rec.price : item.defaultAmount;
     const stockQuantity = rec ? rec.quantity : 0;
+    const orderType: 'dineIn' | 'takeAway' | 'both' = rec?.orderType ?? 'both';
     return {
       ...item,
       displayPrice,
       stockQuantity,
       inStock: stockQuantity > 0,
+      orderType,
     };
   });
 }

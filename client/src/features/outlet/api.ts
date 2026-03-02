@@ -131,6 +131,8 @@ export type InventoryRecord = {
   quantity: number;
   /** outlet-level enable/disable flag — defaults to true */
   status: boolean;
+  /** Controls which order-type this item is available for; defaults to 'both' */
+  orderType: 'dineIn' | 'takeAway' | 'both';
   editedBy: string;
   createdAt?: string;
   updatedAt?: string;
@@ -205,6 +207,21 @@ export async function toggleInventoryStatus(
     credentials: "include",
     headers: getAuthHeaders(),
     body: JSON.stringify({ status }),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
+  return parsed.data;
+}
+
+/** PATCH: set order type (dineIn / takeAway / both) for an item at this outlet */
+export async function updateInventoryOrderType(
+  itemId: string,
+  orderType: 'dineIn' | 'takeAway' | 'both'
+): Promise<InventoryRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}/orderType`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ orderType }),
   });
   const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
   return parsed.data;
@@ -369,7 +386,7 @@ export async function fetchOutletOrderHistory(params: {
     credentials: "include",
     headers: getAuthHeaders(),
   });
-  const parsed = await parseOrThrow(res);
+  const parsed = await parseOrThrow<ApiResponse<{ orders: OrderHistoryItem[]; pagination: Pagination }>>(res);
   return parsed.data;
 }
 
@@ -381,7 +398,7 @@ export async function fetchOutletHourlyHistory(date?: string): Promise<{ date: s
     credentials: "include",
     headers: getAuthHeaders(),
   });
-  const parsed = await parseOrThrow(res);
+  const parsed = await parseOrThrow<ApiResponse<{ date: string; hourly: HourlyPoint[] }>>(res);
   return parsed.data;
 }
 

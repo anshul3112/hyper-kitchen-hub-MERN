@@ -6,6 +6,7 @@ import {
   updateInventoryPrice,
   updateInventoryQuantity,
   toggleInventoryStatus,
+  updateInventoryOrderType,
   type InventoryRecord,
   type MenuItem,
 } from "../api";
@@ -21,12 +22,23 @@ type RowState = {
   saving: boolean;
   toggling: boolean;
   error: string;
+  orderTypeUpdating: boolean;
+  orderTypeError: string;
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function emptyRow(): RowState {
-  return { editMode: null, priceInput: "", quantityInput: "", saving: false, toggling: false, error: "" };
+  return {
+    editMode: null,
+    priceInput: "",
+    quantityInput: "",
+    saving: false,
+    toggling: false,
+    error: "",
+    orderTypeUpdating: false,
+    orderTypeError: "",
+  };
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -86,6 +98,20 @@ export default function InventoryTab() {
       setRow(itemId, { toggling: false });
     } catch (err: unknown) {
       setRow(itemId, { toggling: false, error: err instanceof Error ? err.message : "Failed to toggle" });
+    }
+  };
+
+  const changeOrderType = async (itemId: string, orderType: 'dineIn' | 'takeAway' | 'both') => {
+    setRow(itemId, { orderTypeUpdating: true, orderTypeError: "" });
+    try {
+      const updated = await updateInventoryOrderType(itemId, orderType);
+      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
+      setRow(itemId, { orderTypeUpdating: false });
+    } catch (err: unknown) {
+      setRow(itemId, {
+        orderTypeUpdating: false,
+        orderTypeError: err instanceof Error ? err.message : "Failed to update order type",
+      });
     }
   };
 
@@ -163,6 +189,7 @@ export default function InventoryTab() {
               <th className="text-left px-5 py-3 font-medium text-gray-600">Outlet Price</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Quantity</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Kiosk Visible</th>
+              <th className="text-left px-5 py-3 font-medium text-gray-600">Order Type</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Actions</th>
             </tr>
           </thead>
@@ -263,6 +290,33 @@ export default function InventoryTab() {
                     {row.error && !row.editMode && (
                       <p className="text-xs text-red-500 mt-1">{row.error}</p>
                     )}
+                  </td>
+
+                  {/* Order Type dropdown */}
+                  <td className="px-5 py-3">
+                    <div className="flex flex-col gap-1">
+                      <select
+                        value={inv?.orderType ?? 'both'}
+                        disabled={row.orderTypeUpdating}
+                        onChange={(e) =>
+                          changeOrderType(
+                            item._id,
+                            e.target.value as 'dineIn' | 'takeAway' | 'both'
+                          )
+                        }
+                        className="text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="both">🍽️🛍️ Both</option>
+                        <option value="dineIn">🍽️ Dine In</option>
+                        <option value="takeAway">🛍️ Take Away</option>
+                      </select>
+                      {row.orderTypeUpdating && (
+                        <p className="text-xs text-blue-500">Saving…</p>
+                      )}
+                      {row.orderTypeError && (
+                        <p className="text-xs text-red-500">{row.orderTypeError}</p>
+                      )}
+                    </div>
                   </td>
 
                   {/* Actions */}

@@ -30,7 +30,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
   const [users, total] = await Promise.all([
     User.find(matchStage)
       .select("name email role status phoneNumber tenant outlet createdAt")
-      .sort({ createdAt: -1 })
+      .sort({ _id: -1 })
       .skip(skip)
       .limit(Number(limit))
       .lean(),

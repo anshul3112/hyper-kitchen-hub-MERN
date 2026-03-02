@@ -6,6 +6,8 @@ import SuperAdminPage from "./features/superAdmin/pages/SuperAdminPage"
 import TenantAdminPage from "./features/tenant/pages/TenantAdminPage"
 import OutletAdminPage from "./features/outlet/pages/OutletAdminPage"
 import KioskLoginPage from "./features/kiosk/pages/KioskLoginPage"
+import KioskStartPage from "./features/kiosk/pages/KioskStartPage"
+import KioskOrderTypePage from "./features/kiosk/pages/KioskOrderTypePage"
 import KioskScreenPage from "./features/kiosk/pages/KioskPage"
 import KitchenPage from "./features/kitchen/pages/KitchenPage"
 import ProfilePage from "./features/auth/pages/ProfilePage"
@@ -23,6 +25,8 @@ function App() {
         <Route path="/tenantAdmin" element={<TenantAdminPage />} />
         <Route path="/outletAdmin" element={<OutletAdminPage />} />
         <Route path="/kiosk/login" element={<KioskLoginPage />} />
+        <Route path="/kiosk/start" element={<KioskStartPage />} />
+        <Route path="/kiosk/order-type" element={<KioskOrderTypePage />} />
         <Route path="/kiosk/dashboard" element={<KioskScreenPage />} />
         <Route path="/kitchen" element={<KitchenPage />} />
         <Route path="/profile" element={<ProfilePage />} />

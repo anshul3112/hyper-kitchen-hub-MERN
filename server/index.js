@@ -16,6 +16,7 @@ import kitchenRouter from "./src/outlet/kitchen/routes/kitchenRoutes.js";
 import displayRouter from "./src/outlet/display/routes/displayRoutes.js";
 import analyticsRouter from "./src/outlet/analytics/routes/analyticsRoutes.js";
 import { apiLimiter } from "./src/common/middlewares/rateLimiter.js";
+import morgan from "morgan";
 
 dotenv.config();
 
@@ -34,6 +35,8 @@ app.use(cors({
 
 app.use(express.json());
 app.use(apiLimiter);
+
+app.use(morgan("dev")); 
 
 
 app.use('/api/v1/users' ,userRouter );

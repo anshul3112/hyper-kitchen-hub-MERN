@@ -63,7 +63,7 @@ export default function KioskLoginPage() {
     try {
       const session = await kioskLogin(code);
       saveKioskSession(session);
-      navigate("/kiosk/dashboard");
+      navigate("/kiosk/start");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
       setDigits(Array(CODE_LENGTH).fill(""));
@@ -80,15 +80,15 @@ export default function KioskLoginPage() {
   const filled = digits.every((d) => d !== "");
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center border border-purple-100">
         {/* Icon */}
-        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-5">
+        <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-5">
           <span className="text-3xl">📟</span>
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-800 mb-1">Kiosk Login</h1>
-        <p className="text-sm text-gray-500 mb-8">
+        <h1 className="text-2xl font-bold text-purple-700 mb-1">Kiosk Login</h1>
+        <p className="text-sm text-gray-400 mb-8">
           Enter the 6-digit code shown in the outlet admin panel.
         </p>
 
@@ -106,8 +106,8 @@ export default function KioskLoginPage() {
               onKeyDown={(e) => handleKeyDown(i, e)}
               disabled={loading}
               className={`w-12 h-14 text-center text-2xl font-mono font-bold border-2 rounded-lg outline-none transition-colors
-                ${digit ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-800"}
-                focus:border-blue-500
+                ${digit ? "border-purple-500 bg-purple-50 text-purple-700" : "border-gray-300 text-gray-800"}
+                focus:border-purple-500
                 disabled:opacity-50`}
             />
           ))}
@@ -124,7 +124,7 @@ export default function KioskLoginPage() {
         <button
           onClick={handleSubmitBtn}
           disabled={!filled || loading}
-          className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-blue-300 transition-colors"
+          className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-purple-300 transition-colors"
         >
           {loading ? "Verifying..." : "Login"}
         </button>

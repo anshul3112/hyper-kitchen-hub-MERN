@@ -67,18 +67,24 @@ export const upsertInventoryItem = asyncHandler(async (req, res) => {
   const outletId = resolveOutlet(req.user);
   const tenantId = req.user.tenant?.tenantId;
   const { itemId } = req.params;
-  const { price, quantity } = req.body;
+  const { price, quantity, orderType } = req.body;
 
   if (price === undefined || price === null) throw new ApiError(400, "price is required");
   if (quantity === undefined || quantity === null) throw new ApiError(400, "quantity is required");
   if (Number(price) < 0) throw new ApiError(400, "price must be non-negative");
   if (Number(quantity) < 0) throw new ApiError(400, "quantity must be non-negative");
+  if (orderType !== undefined && !['dineIn', 'takeAway', 'both'].includes(orderType)) {
+    throw new ApiError(400, "orderType must be one of: dineIn, takeAway, both");
+  }
 
   await validateItem(itemId, tenantId);
 
+  const updateFields = { price: Number(price), quantity: Number(quantity), editedBy: req.user._id };
+  if (orderType !== undefined) updateFields.orderType = orderType;
+
   const record = await Inventory.findOneAndUpdate(
     { itemId, outletId },
-    { price: Number(price), quantity: Number(quantity), editedBy: req.user._id },
+    updateFields,
     { new: true, upsert: true, runValidators: true }
   );
 
@@ -87,6 +93,7 @@ export const upsertInventoryItem = asyncHandler(async (req, res) => {
     price: record.price ?? null,
     quantity: record.quantity,
     status: record.status,
+    orderType: record.orderType,
   });
 
   return res.status(200).json(
@@ -123,6 +130,7 @@ export const updateInventoryPrice = asyncHandler(async (req, res) => {
     price: record.price ?? null,
     quantity: record.quantity,
     status: record.status,
+    orderType: record.orderType,
   });
 
   return res.status(200).json(
@@ -158,6 +166,7 @@ export const updateInventoryQuantity = asyncHandler(async (req, res) => {
     price: record.price ?? null,
     quantity: record.quantity,
     status: record.status,
+    orderType: record.orderType,
   });
 
   return res.status(200).json(
@@ -198,9 +207,53 @@ export const toggleInventoryStatus = asyncHandler(async (req, res) => {
     price: record.price ?? null,
     quantity: record.quantity,
     status: record.status,
+    orderType: record.orderType,
   });
 
   return res.status(200).json(
     new ApiResponse(200, record, `Item ${status ? "enabled" : "disabled"} at outlet level`)
+  );
+});
+
+/**
+ * PATCH /api/v1/items/inventory/:itemId/orderType
+ * Change the order-type availability (dineIn / takeAway / both) for an item at this outlet.
+ * Body: { orderType: 'dineIn' | 'takeAway' | 'both' }
+ */
+export const updateInventoryOrderType = asyncHandler(async (req, res) => {
+  requireOutletAdmin(req.user);
+  const outletId = resolveOutlet(req.user);
+  const tenantId = req.user.tenant?.tenantId;
+  const { itemId } = req.params;
+  const { orderType } = req.body;
+
+  if (!orderType) throw new ApiError(400, "orderType is required");
+  if (!['dineIn', 'takeAway', 'both'].includes(orderType)) {
+    throw new ApiError(400, "orderType must be one of: dineIn, takeAway, both");
+  }
+
+  await validateItem(itemId, tenantId);
+
+  const existing = await Inventory.findOne({ itemId, outletId });
+  const updateFields = { orderType, editedBy: req.user._id };
+  // preserve existing quantity so upsert doesn't reset it to 0
+  if (!existing) updateFields.quantity = 0;
+
+  const record = await Inventory.findOneAndUpdate(
+    { itemId, outletId },
+    updateFields,
+    { new: true, upsert: true, runValidators: true }
+  );
+
+  emitInventoryUpdate(outletId.toString(), {
+    itemId: itemId.toString(),
+    price: record.price ?? null,
+    quantity: record.quantity,
+    status: record.status,
+    orderType: record.orderType,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, record, "Order type updated successfully")
   );
 });

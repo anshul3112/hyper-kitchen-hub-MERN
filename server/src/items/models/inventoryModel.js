@@ -29,6 +29,12 @@ const inventorySchema = new Schema({
   status: {
     type: Boolean,
     default: true
+  },
+  // controls which order-type this item is available for at this outlet
+  orderType: {
+    type: String,
+    enum: ['dineIn', 'takeAway', 'both'],
+    default: 'both'
   }
 }, { timestamps: true });
 

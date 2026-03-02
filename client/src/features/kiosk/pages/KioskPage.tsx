@@ -44,8 +44,6 @@ export default function KioskPage() {
   useEffect(() => {
     if (!session) return;
 
-    // Init DB first, then set up the socket so the DB is guaranteed ready
-    // before any inventory:update events can arrive.
     initKioskDB()
       .then(() => {
         const socket = io(API_BASE_URL, { auth: { token: session.token } });
@@ -54,21 +52,25 @@ export default function KioskPage() {
           socket.emit("join:outlet", { outletId: session.kiosk.outlet.outletId });
         });
 
-        // When outlet admin updates price / quantity / status of any item,
-        // persist the latest values in changed_items so checkout can apply them.
         socket.on(
           "inventory:update",
-          (data: { itemId: string; price?: number | null; quantity?: number; status?: boolean }) => {
+          (data: {
+            itemId: string;
+            price?: number | null;
+            quantity?: number;
+            status?: boolean;
+            orderType?: "dineIn" | "takeAway" | "both";
+          }) => {
             upsertChangedItem({
               _id: data.itemId,
               price: data.price ?? undefined,
               quantity: data.quantity,
               status: data.status,
+              orderType: data.orderType,
             }).catch(console.error);
           },
         );
 
-        // Store socket ref for cleanup
         socketRef.current = socket;
       })
       .catch(console.error);
@@ -83,7 +85,6 @@ export default function KioskPage() {
     setLoading(true);
     setError("");
     try {
-      // Fetch menu and inventory in parallel
       const [menu, inventory] = await Promise.all([
         fetchKioskMenu(),
         fetchKioskInventory(),
@@ -127,10 +128,10 @@ export default function KioskPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
+      <div className="flex h-screen items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-600 font-medium">Loading menu…</p>
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-purple-600 font-medium">Loading menu…</p>
         </div>
       </div>
     );
@@ -138,14 +139,14 @@ export default function KioskPage() {
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
-        <div className="bg-white rounded-2xl shadow-md p-8 max-w-sm w-full text-center">
+      <div className="flex h-screen items-center justify-center bg-white">
+        <div className="bg-white rounded-2xl shadow-md border border-purple-100 p-8 max-w-sm w-full text-center">
           <p className="text-4xl mb-4">⚠️</p>
-          <p className="text-gray-700 font-semibold mb-1">Failed to load menu</p>
+          <p className="text-gray-800 font-semibold mb-1">Failed to load menu</p>
           <p className="text-sm text-gray-500 mb-6">{error}</p>
           <button
             onClick={loadAll}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-xl transition-colors"
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl transition-colors"
           >
             Retry
           </button>
@@ -156,11 +157,16 @@ export default function KioskPage() {
 
   if (!data || !session) return null;
 
-  /** Called by KioskScreen after checkout patches the IndexedDB cache.
-   *  Updates the live item grid so prices, stock counts, and availability
-   *  reflect the admin's latest inventory changes without a full reload. */
+  // Read orderType set on /kiosk/order-type; redirect there if missing (e.g. direct refresh)
+  const orderType = sessionStorage.getItem("kioskOrderType") as "dineIn" | "takeAway" | null;
+  if (!orderType) {
+    navigate("/kiosk/order-type", { replace: true });
+    return null;
+  }
+
+  /** Called by KioskScreen after checkout patches the IndexedDB cache. */
   const handleItemsPatched = (
-    patches: Record<string, { price?: number; quantity?: number; status?: boolean }>,
+    patches: Record<string, { price?: number; quantity?: number; status?: boolean; orderType?: "dineIn" | "takeAway" | "both" }>,
   ) => {
     setData((prev) => {
       if (!prev) return prev;
@@ -170,11 +176,18 @@ export default function KioskPage() {
         const displayPrice = patch.price !== undefined ? patch.price : item.displayPrice;
         const stockQuantity = patch.quantity !== undefined ? patch.quantity : item.stockQuantity;
         const status = patch.status !== undefined ? patch.status : item.status;
+        const orderType = patch.orderType !== undefined ? patch.orderType : item.orderType;
         const inStock = status !== false && stockQuantity > 0;
-        return { ...item, displayPrice, stockQuantity, inStock, status };
+        return { ...item, displayPrice, stockQuantity, inStock, status, orderType };
       });
       return { ...prev, items: updatedItems };
     });
+  };
+
+  /** Go back to start screen for a new order */
+  const handleNewOrder = () => {
+    sessionStorage.removeItem("kioskOrderType");
+    navigate("/kiosk/start");
   };
 
   return (
@@ -184,7 +197,10 @@ export default function KioskPage() {
       items={data.items}
       outletName={session.kiosk.outlet.outletName}
       kioskNumber={session.kiosk.number}
+      orderType={orderType}
       onItemsPatched={handleItemsPatched}
+      onNewOrder={handleNewOrder}
     />
   );
 }
+
