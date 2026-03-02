@@ -8,6 +8,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 // import { uploadToS3 } from "../../utils/s3.js"; // server-side S3 upload — replaced by presigned URL
 import { getPresignedUploadUrl, withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
 import { parseDuplicateKeyError } from "../../utils/mongoError.js";
+import { invalidateMenuCache } from "../../utils/cache.js";
 import mongoose from "mongoose";
 
 /**
@@ -81,6 +82,10 @@ export const addItem = asyncHandler(async (req, res) => {
   }
 
   const itemWithUrl = await withPresignedUrl(item.toObject());
+
+  // Invalidate menu cache so next GET /menu/all reflects the new item
+  await invalidateMenuCache(tenantId);
+
   return res.status(201).json(
     new ApiResponse(201, itemWithUrl, "Item created successfully")
   );
@@ -236,6 +241,9 @@ export const editItem = asyncHandler(async (req, res) => {
   rawItemResponse.filters = item.filters.map(filterId => filtersData.find(f => f._id.equals(filterId)) ?? null);
   const itemResponse = await withPresignedUrl(rawItemResponse);
 
+  // Invalidate menu cache so next GET /menu/all reflects the updated item
+  await invalidateMenuCache(tenantId);
+
   return res.status(200).json(
     new ApiResponse(200, itemResponse, "Item updated successfully")
   );
@@ -268,6 +276,9 @@ export const deleteItem = asyncHandler(async (req, res) => {
   if (!item) {
     throw new ApiError(404, "Item not found");
   }
+
+  // Invalidate menu cache so next GET /menu/all reflects the deletion
+  await invalidateMenuCache(tenantId);
 
   return res.status(200).json(
     new ApiResponse(200, null, "Item deleted successfully")

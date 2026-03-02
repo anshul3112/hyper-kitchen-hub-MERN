@@ -3,6 +3,7 @@ import { createServer } from "http";
 import dotenv from "dotenv";
 import cors from 'cors' 
 import connectDB from "./src/utils/db.js";
+import { connectToRedis } from "./src/utils/redis.js";
 import { initSocket } from "./src/utils/socket.js";
 import userRouter from "./src/users/routes/userLoginRoutes.js";
 import tenantRouter from "./src/tenant/routes/tenantRoutes.js";
@@ -23,6 +24,7 @@ const httpServer = createServer(app);
 const PORT = process.env.PORT || 8000; 
 
 await connectDB();
+await connectToRedis();
 initSocket(httpServer);
 
 app.use(cors({

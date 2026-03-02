@@ -4,6 +4,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
 import { parseDuplicateKeyError } from "../../utils/mongoError.js";
+import { invalidateMenuCache } from "../../utils/cache.js";
 
 /**
  * POST /api/v1/items/filters
@@ -42,6 +43,10 @@ export const addFilter = asyncHandler(async (req, res) => {
   }
 
   const filterWithUrl = await withPresignedUrl(filter.toObject());
+
+  // Invalidate menu cache so next GET /menu/all reflects the new filter
+  await invalidateMenuCache(tenantId);
+
   return res.status(201).json(
     new ApiResponse(201, filterWithUrl, "Filter created successfully")
   );
@@ -117,6 +122,10 @@ export const updateFilter = asyncHandler(async (req, res) => {
   }
 
   const updatedFilter = await withPresignedUrl(filter.toObject());
+
+  // Invalidate menu cache so next GET /menu/all reflects the updated filter
+  await invalidateMenuCache(tenantId);
+
   return res.status(200).json(
     new ApiResponse(200, updatedFilter, "Filter updated successfully")
   );
@@ -145,6 +154,9 @@ export const deleteFilter = asyncHandler(async (req, res) => {
   if (!filter) {
     throw new ApiError(404, "Filter not found");
   }
+
+  // Invalidate menu cache so next GET /menu/all reflects the deletion
+  await invalidateMenuCache(tenantId);
 
   return res.status(200).json(
     new ApiResponse(200, null, "Filter deleted successfully")

@@ -4,6 +4,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
 import { parseDuplicateKeyError } from "../../utils/mongoError.js";
+import { invalidateMenuCache } from "../../utils/cache.js";
 
 /**
  * POST /api/v1/items/categories
@@ -42,6 +43,10 @@ export const addCategory = asyncHandler(async (req, res) => {
   }
 
   const categoryWithUrl = await withPresignedUrl(category.toObject());
+
+  // Invalidate menu cache so next GET /menu/all reflects the new category
+  await invalidateMenuCache(tenantId);
+
   return res.status(201).json(
     new ApiResponse(201, categoryWithUrl, "Category created successfully")
   );
@@ -117,6 +122,10 @@ export const updateCategory = asyncHandler(async (req, res) => {
   }
 
   const updatedCategory = await withPresignedUrl(category.toObject());
+
+  // Invalidate menu cache so next GET /menu/all reflects the updated category
+  await invalidateMenuCache(tenantId);
+
   return res.status(200).json(
     new ApiResponse(200, updatedCategory, "Category updated successfully")
   );
@@ -145,6 +154,9 @@ export const deleteCategory = asyncHandler(async (req, res) => {
   if (!category) {
     throw new ApiError(404, "Category not found");
   }
+
+  // Invalidate menu cache so next GET /menu/all reflects the deletion
+  await invalidateMenuCache(tenantId);
 
   return res.status(200).json(
     new ApiResponse(200, null, "Category deleted successfully")

@@ -9,7 +9,7 @@ export const authLimiter = rateLimit({
   message: {
     success: false,
     message: "Too many login attempts. Please try again later.",
-    data: { code: "RATE_LIMITED" },
+    data: { code: "RATE_LIMITED" }, 
   },
 });
 

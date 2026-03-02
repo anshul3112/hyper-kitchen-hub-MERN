@@ -5,6 +5,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { withPresignedUrl, withPresignedUrls } from "../../utils/s3.js";
+import { getMenuCache, setMenuCache } from "../../utils/cache.js";
 
 /**
  * GET /api/v1/items/menu/all
@@ -26,6 +27,14 @@ export const getMenuDetails = asyncHandler(async (req, res) => {
   }
 
   const tenantId = user.tenant.tenantId;
+
+  // ── Cache read ────────────────────────────────────────────────────────────
+  const cached = await getMenuCache(tenantId);
+  if (cached) {
+    return res.status(200).json(
+      new ApiResponse(200, cached, "Menu details fetched successfully (cached)")
+    );
+  }
 
   const [categoriesData, filtersData, itemsData] = await Promise.all([
     Category.find({ tenantId }).select('_id name status imageKey createdAt').sort({ createdAt: -1 }),
@@ -67,6 +76,9 @@ export const getMenuDetails = asyncHandler(async (req, res) => {
       inactiveItems: itemsWithRelations.filter(item => item.status === false).length
     }
   };
+
+  // ── Cache write ───────────────────────────────────────────────────────────
+  await setMenuCache(tenantId, menuDetails);
 
   return res.status(200).json(
     new ApiResponse(200, menuDetails, "Menu details fetched successfully")

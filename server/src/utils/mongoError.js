@@ -22,7 +22,7 @@ export function parseDuplicateKeyError(err, fieldMessages = {}) {
     phoneNumber: "Phone number is already in use",
     name: "Name already exists",
     "contacts.email": "Email is already in use",
-    "contacts.phoneNumber": "Phone number is already in use",
+    "contacts.phoneNumber": "Phone number is already in use", 
   };
 
   const message =
