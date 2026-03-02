@@ -9,7 +9,8 @@ export async function getJSON(key) {
     if (raw === null) return null;
     return JSON.parse(raw);
   } catch (err) {
-    console.error("[Cache] getJSON error:", err.message);
+    // console.error("[Cache] getJSON error:", err.message);
+    // dont show error as using local cache and not opening docker forever as it consumes RAM
     return null;
   }
 }
@@ -18,7 +19,8 @@ export async function setJSON(key, value, ttlSeconds = 60) {
   try {
     await getRedisClient().set(key, JSON.stringify(value), "EX", ttlSeconds);
   } catch (err) {
-    console.error("[Cache] setJSON error:", err.message);
+    // console.error("[Cache] setJSON error:", err.message);
+    // dont show error as using local cache and not opening docker forever as it consumes RAM
   }
 }
 
@@ -26,7 +28,8 @@ export async function del(...keys) {
   try {
     if (keys.length > 0) await getRedisClient().del(...keys);
   } catch (err) {
-    console.error("[Cache] del error:", err.message);
+    // console.error("[Cache] del error:", err.message);
+    // dont show error as using local cache and not opening docker forever as it consumes RAM
   } 
 }
 
