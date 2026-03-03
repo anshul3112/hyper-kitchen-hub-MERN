@@ -3,8 +3,22 @@ import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { ApiError } from "../../../utils/ApiError.js";
 import { Orders } from "../../orders/models/orderModel.js";
 import { Tenant } from "../../../tenant/models/tenantModel.js";
+import { Outlet } from "../../core/models/outletModel.js";
 import { User } from "../../../users/models/userModel.js";
 import mongoose from "mongoose";
+
+// ── Cursor helpers (sorted by _id desc) ──────────────────────────────────────
+function encodeCursor(id) {
+  return Buffer.from(id.toString()).toString("base64url");
+}
+
+function decodeCursor(str) {
+  try {
+    return new mongoose.Types.ObjectId(Buffer.from(str, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
 
 /**
  * GET /api/v1/analytics/overview
@@ -134,89 +148,86 @@ const getAnalyticsOverview = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/v1/analytics/orders
- * Paginated order history with optional tenant / status / date filters.
- * Query: page, limit, tenantId, status, startDate, endDate
+ * Cursor-based paginated order history with optional tenant / status / date filters.
+ * Query: cursor, prevCursor, perPage (default 10), tenantId, status, startDate, endDate
  */
 const getOrderHistory = asyncHandler(async (req, res) => {
   if (req.user.role !== "superAdmin") throw new ApiError(403, "Forbidden");
 
-  const { page = 1, limit = 20, tenantId, status, startDate, endDate } = req.query;
+  const { cursor, prevCursor, perPage = 10, tenantId, status, startDate, endDate } = req.query;
+  const limit = Math.min(Number(perPage), 100);
+  const isNext = !!cursor;
+  const isPrev = !!prevCursor;
 
-  const matchStage = {};
+  const baseMatch = {};
   if (tenantId && mongoose.Types.ObjectId.isValid(tenantId)) {
-    matchStage.tenantId = new mongoose.Types.ObjectId(tenantId);
+    baseMatch.tenantId = new mongoose.Types.ObjectId(tenantId);
   }
-  if (status) matchStage.orderStatus = status;
+  if (status) baseMatch.orderStatus = status;
   if (startDate || endDate) {
-    matchStage.date = {};
-    if (startDate) matchStage.date.$gte = new Date(startDate);
+    baseMatch.date = {};
+    if (startDate) baseMatch.date.$gte = new Date(startDate);
     if (endDate) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      matchStage.date.$lte = end;
+      baseMatch.date.$lte = end;
     }
   }
 
-  const skip = (Number(page) - 1) * Number(limit);
+  let cursorFilter = {};
+  if (isNext) {
+    const id = decodeCursor(cursor);
+    if (id) cursorFilter = { _id: { $lt: id } };
+  } else if (isPrev) {
+    const id = decodeCursor(prevCursor);
+    if (id) cursorFilter = { _id: { $gt: id } };
+  }
 
-  const [orders, total] = await Promise.all([
-    Orders.aggregate([
-      { $match: matchStage },
-      { $sort: { date: -1 } },
-      { $skip: skip },
-      { $limit: Number(limit) },
-      {
-        $lookup: {
-          from: "tenants",
-          localField: "tenantId",
-          foreignField: "_id",
-          as: "tenant",
-        },
-      },
-      { $unwind: { path: "$tenant", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "outlets",
-          localField: "outletId",
-          foreignField: "_id",
-          as: "outlet",
-        },
-      },
-      { $unwind: { path: "$outlet", preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          orderNo: 1,
-          name: 1,
-          totalAmount: 1,
-          orderStatus: 1,
-          fulfillmentStatus: 1,
-          paymentStatus: 1,
-          date: 1,
-          itemsCart: 1,
-          tenantId: 1,
-          tenantName: { $ifNull: ["$tenant.name", "Unknown"] },
-          outletId: 1,
-          outletName: { $ifNull: ["$outlet.name", "Unknown"] },
-        },
-      },
-    ]),
-    Orders.countDocuments(matchStage),
+  const sortStage = isPrev ? { _id: 1 } : { _id: -1 };
+  const fullMatch = { ...baseMatch, ...cursorFilter };
+
+  const [rawDocs, total] = await Promise.all([
+    Orders.find(fullMatch).sort(sortStage).limit(limit + 1).lean(),
+    Orders.countDocuments(baseMatch),
   ]);
 
+  // Application-level join for tenant and outlet names
+  const tenantIds = [...new Set(rawDocs.map((o) => o.tenantId.toString()))];
+  const outletIds = [...new Set(rawDocs.map((o) => o.outletId.toString()))];
+  const [tenants, outlets] = await Promise.all([
+    Tenant.find({ _id: { $in: tenantIds } }).select("name").lean(),
+    Outlet.find({ _id: { $in: outletIds } }).select("name").lean(),
+  ]);
+  const tenantMap = new Map(tenants.map((t) => [t._id.toString(), t]));
+  const outletMap = new Map(outlets.map((o) => [o._id.toString(), o]));
+  rawDocs.forEach((order) => {
+    order.tenantName = tenantMap.get(order.tenantId.toString())?.name ?? "Unknown";
+    order.outletName = outletMap.get(order.outletId.toString())?.name ?? "Unknown";
+  });
+
+  let result = rawDocs;
+  const hasMore = result.length > limit;
+  if (hasMore) result = result.slice(0, limit);
+  if (isPrev) result.reverse();
+
+  const nextCursor = (hasMore || isPrev) && result.length > 0
+    ? encodeCursor(result[result.length - 1]._id) : null;
+  const newPrevCursor = (isNext || (isPrev && hasMore)) && result.length > 0
+    ? encodeCursor(result[0]._id) : null;
+
   return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        orders,
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total,
-          totalPages: Math.ceil(total / Number(limit)),
-        },
+    new ApiResponse(200, {
+      orders: result,
+      pagination: {
+        nextCursor,
+        prevCursor: newPrevCursor,
+        perPage: limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: !!(hasMore || isPrev),
+        hasPrevPage: !!(isNext || (isPrev && hasMore)),
       },
-      "Order history fetched"
-    )
+    }, "Order history fetched")
   );
 });
 
@@ -262,8 +273,8 @@ const getRevenueTrends = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/v1/analytics/tenant-orders
- * Paginated orders scoped to the calling tenantAdmin/Owner's tenant.
- * Query: page, limit, outletId, status, startDate, endDate
+ * Cursor-based paginated orders scoped to the calling tenantAdmin/Owner's tenant.
+ * Query: cursor, prevCursor, perPage (default 20), outletId, status, startDate, endDate
  */
 const getTenantOrderHistory = asyncHandler(async (req, res) => {
   const { role } = req.user;
@@ -283,54 +294,71 @@ const getTenantOrderHistory = asyncHandler(async (req, res) => {
     tenantObjId = new mongoose.Types.ObjectId(tid);
   }
 
-  const { page = 1, limit = 20, outletId, status, startDate, endDate } = req.query;
+  const { cursor, prevCursor, perPage = 10, outletId, status, startDate, endDate } = req.query;
+  const limit = Math.min(Number(perPage), 100);
+  const isNext = !!cursor;
+  const isPrev = !!prevCursor;
 
-  const matchStage = { tenantId: tenantObjId };
+  const baseMatch = { tenantId: tenantObjId };
   if (outletId && mongoose.Types.ObjectId.isValid(outletId))
-    matchStage.outletId = new mongoose.Types.ObjectId(outletId);
-  if (status) matchStage.orderStatus = status;
+    baseMatch.outletId = new mongoose.Types.ObjectId(outletId);
+  if (status) baseMatch.orderStatus = status;
   if (startDate || endDate) {
-    matchStage.date = {};
-    if (startDate) matchStage.date.$gte = new Date(startDate);
+    baseMatch.date = {};
+    if (startDate) baseMatch.date.$gte = new Date(startDate);
     if (endDate) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      matchStage.date.$lte = end;
+      baseMatch.date.$lte = end;
     }
   }
 
-  const skip = (Number(page) - 1) * Number(limit);
+  let cursorFilter = {};
+  if (isNext) {
+    const id = decodeCursor(cursor);
+    if (id) cursorFilter = { _id: { $lt: id } };
+  } else if (isPrev) {
+    const id = decodeCursor(prevCursor);
+    if (id) cursorFilter = { _id: { $gt: id } };
+  }
 
-  const [orders, total] = await Promise.all([
-    Orders.aggregate([
-      { $match: matchStage },
-      { $sort: { date: -1 } },
-      { $skip: skip },
-      { $limit: Number(limit) },
-      {
-        $lookup: {
-          from: "outlets", localField: "outletId", foreignField: "_id", as: "outlet",
-        },
-      },
-      { $unwind: { path: "$outlet", preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          orderNo: 1, name: 1, totalAmount: 1, orderStatus: 1,
-          fulfillmentStatus: 1, paymentStatus: 1, date: 1, itemsCart: 1,
-          tenantId: 1, outletId: 1,
-          outletName: { $ifNull: ["$outlet.name", "Unknown"] },
-        },
-      },
-    ]),
-    Orders.countDocuments(matchStage),
+  const sortStage = isPrev ? { _id: 1 } : { _id: -1 };
+  const fullMatch = { ...baseMatch, ...cursorFilter };
+
+  const [rawDocs, total] = await Promise.all([
+    Orders.find(fullMatch).sort(sortStage).limit(limit + 1).lean(),
+    Orders.countDocuments(baseMatch),
   ]);
+
+  // Application-level join for outlet names
+  const outletIds = [...new Set(rawDocs.map((o) => o.outletId.toString()))];
+  const outlets = await Outlet.find({ _id: { $in: outletIds } }).select("name").lean();
+  const outletMap = new Map(outlets.map((o) => [o._id.toString(), o]));
+  rawDocs.forEach((order) => {
+    order.outletName = outletMap.get(order.outletId.toString())?.name ?? "Unknown";
+  });
+
+  let result = rawDocs;
+  const hasMore = result.length > limit;
+  if (hasMore) result = result.slice(0, limit);
+  if (isPrev) result.reverse();
+
+  const nextCursor = (hasMore || isPrev) && result.length > 0
+    ? encodeCursor(result[result.length - 1]._id) : null;
+  const newPrevCursor = (isNext || (isPrev && hasMore)) && result.length > 0
+    ? encodeCursor(result[0]._id) : null;
 
   return res.status(200).json(
     new ApiResponse(200, {
-      orders,
+      orders: result,
       pagination: {
-        page: Number(page), limit: Number(limit), total,
-        totalPages: Math.ceil(total / Number(limit)),
+        nextCursor,
+        prevCursor: newPrevCursor,
+        perPage: limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: !!(hasMore || isPrev),
+        hasPrevPage: !!(isNext || (isPrev && hasMore)),
       },
     }, "Tenant order history fetched")
   );
@@ -338,8 +366,8 @@ const getTenantOrderHistory = asyncHandler(async (req, res) => {
 
 /**
  * GET /api/v1/analytics/outlet-orders
- * Paginated orders scoped to the calling outletAdmin/Owner's outlet.
- * Query: page, limit, status, startDate, endDate
+ * Cursor-based paginated orders scoped to the calling outletAdmin/Owner's outlet.
+ * Query: cursor, prevCursor, perPage (default 20), status, startDate, endDate
  */
 const getOutletOrderHistory = asyncHandler(async (req, res) => {
   const { role } = req.user;
@@ -358,45 +386,64 @@ const getOutletOrderHistory = asyncHandler(async (req, res) => {
     outletObjId = new mongoose.Types.ObjectId(outletId);
   }
 
-  const { page = 1, limit = 20, status, startDate, endDate } = req.query;
+  const { cursor, prevCursor, perPage = 10, status, startDate, endDate } = req.query;
+  const limit = Math.min(Number(perPage), 100);
+  const isNext = !!cursor;
+  const isPrev = !!prevCursor;
 
-  const matchStage = { outletId: outletObjId };
-  if (status) matchStage.orderStatus = status;
+  const baseMatch = { outletId: outletObjId };
+  if (status) baseMatch.orderStatus = status;
   if (startDate || endDate) {
-    matchStage.date = {};
-    if (startDate) matchStage.date.$gte = new Date(startDate);
+    baseMatch.date = {};
+    if (startDate) baseMatch.date.$gte = new Date(startDate);
     if (endDate) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      matchStage.date.$lte = end;
+      baseMatch.date.$lte = end;
     }
   }
 
-  const skip = (Number(page) - 1) * Number(limit);
+  let cursorFilter = {};
+  if (isNext) {
+    const id = decodeCursor(cursor);
+    if (id) cursorFilter = { _id: { $lt: id } };
+  } else if (isPrev) {
+    const id = decodeCursor(prevCursor);
+    if (id) cursorFilter = { _id: { $gt: id } };
+  }
 
-  const [orders, total] = await Promise.all([
-    Orders.aggregate([
-      { $match: matchStage },
-      { $sort: { date: -1 } },
-      { $skip: skip },
-      { $limit: Number(limit) },
-      {
-        $project: {
-          orderNo: 1, name: 1, totalAmount: 1, orderStatus: 1,
-          fulfillmentStatus: 1, paymentStatus: 1, date: 1, itemsCart: 1,
-          outletId: 1, tenantId: 1,
-        },
-      },
-    ]),
-    Orders.countDocuments(matchStage),
+  const sortStage = isPrev ? { _id: 1 } : { _id: -1 };
+  const fullMatch = { ...baseMatch, ...cursorFilter };
+
+  const [rawDocs, total, outlet] = await Promise.all([
+    Orders.find(fullMatch).sort(sortStage).limit(limit + 1).lean(),
+    Orders.countDocuments(baseMatch),
+    Outlet.findById(outletObjId).select("name").lean(),
   ]);
+  const outletName = outlet?.name ?? "Unknown";
+  rawDocs.forEach((order) => { order.outletName = outletName; });
+
+  let result = rawDocs;
+  const hasMore = result.length > limit;
+  if (hasMore) result = result.slice(0, limit);
+  if (isPrev) result.reverse();
+
+  const nextCursor = (hasMore || isPrev) && result.length > 0
+    ? encodeCursor(result[result.length - 1]._id) : null;
+  const newPrevCursor = (isNext || (isPrev && hasMore)) && result.length > 0
+    ? encodeCursor(result[0]._id) : null;
 
   return res.status(200).json(
     new ApiResponse(200, {
-      orders,
+      orders: result,
       pagination: {
-        page: Number(page), limit: Number(limit), total,
-        totalPages: Math.ceil(total / Number(limit)),
+        nextCursor,
+        prevCursor: newPrevCursor,
+        perPage: limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: !!(hasMore || isPrev),
+        hasPrevPage: !!(isNext || (isPrev && hasMore)),
       },
     }, "Outlet order history fetched")
   );

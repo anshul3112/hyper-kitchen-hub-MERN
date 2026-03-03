@@ -8,7 +8,12 @@ export default function KioskStartPage() {
 
   useEffect(() => {
     if (!session) {
-      navigate("/kiosk/login", { replace: true });
+      navigate("/kiosk/login");
+      return;
+    }
+    // If an order flow is already in progress, go straight to the dashboard
+    if (sessionStorage.getItem("kioskOrderType")) {
+      navigate("/kiosk/dashboard");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

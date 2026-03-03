@@ -351,11 +351,14 @@ export async function uploadItemImage(file: File, folder = "items"): Promise<str
 
 // ── Order History types & API ─────────────────────────────────────────────────
 
-export type Pagination = {
-	page: number;
-	limit: number;
+export type CursorPagination = {
+	nextCursor: string | null;
+	prevCursor: string | null;
+	perPage: number;
 	total: number;
 	totalPages: number;
+	hasNextPage: boolean;
+	hasPrevPage: boolean;
 };
 
 export type OrderHistoryItem = {
@@ -380,16 +383,18 @@ export type HourlyPoint = {
 
 /** GET /api/v1/analytics/tenant-orders */
 export async function fetchTenantOrderHistory(params: {
-	page?: number;
-	limit?: number;
+	cursor?: string;
+	prevCursor?: string;
+	perPage?: number;
 	outletId?: string;
 	status?: string;
 	startDate?: string;
 	endDate?: string;
-}): Promise<{ orders: OrderHistoryItem[]; pagination: Pagination }> {
+}): Promise<{ orders: OrderHistoryItem[]; pagination: CursorPagination }> {
 	const q = new URLSearchParams();
-	if (params.page) q.set("page", String(params.page));
-	if (params.limit) q.set("limit", String(params.limit));
+	if (params.cursor) q.set("cursor", params.cursor);
+	if (params.prevCursor) q.set("prevCursor", params.prevCursor);
+	q.set("perPage", String(params.perPage ?? 10));
 	if (params.outletId) q.set("outletId", params.outletId);
 	if (params.status) q.set("status", params.status);
 	if (params.startDate) q.set("startDate", params.startDate);

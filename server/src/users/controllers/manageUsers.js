@@ -2,55 +2,90 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { User } from "../models/userModel.js";
-import mongoose from "mongoose"; 
+import mongoose from "mongoose";
+
+// ── Cursor helpers for user pagination (sort: _id desc) ──────────────────────
+function encodeUserCursor(id) {
+  return Buffer.from(id.toString()).toString("base64url");
+}
+
+function decodeUserCursor(str) {
+  try {
+    return new mongoose.Types.ObjectId(Buffer.from(str, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
 
 /**
  * GET /api/v1/users/all
- * Paginated list of all users. Filters: role, tenantId, search (name/email).
+ * Cursor-based list of all users. Filters: role, tenantId, search (name/email).
+ * Query: cursor, prevCursor, perPage (default 10), role, tenantId, search
  */
 const getAllUsers = asyncHandler(async (req, res) => {
   if (req.user.role !== "superAdmin") throw new ApiError(403, "Forbidden");
 
-  const { page = 1, limit = 20, role, tenantId, search } = req.query;
+  const { cursor, prevCursor, perPage = 10, role, tenantId, search } = req.query;
+  const limit = Math.min(Number(perPage), 100);
+  const isNext = !!cursor;
+  const isPrev = !!prevCursor;
 
-  const matchStage = {};
-  if (role) matchStage.role = role;
+  const baseMatch = {};
+  if (role) baseMatch.role = role;
   if (tenantId && mongoose.Types.ObjectId.isValid(tenantId)) {
-    matchStage["tenant.tenantId"] = new mongoose.Types.ObjectId(tenantId);
+    baseMatch["tenant.tenantId"] = new mongoose.Types.ObjectId(tenantId);
   }
   if (search) {
-    matchStage.$or = [
+    baseMatch.$or = [
       { name: { $regex: search, $options: "i" } },
       { email: { $regex: search, $options: "i" } },
     ];
   }
 
-  const skip = (Number(page) - 1) * Number(limit);
+  // Cursor filter (sort: _id desc)
+  let cursorFilter = {};
+  if (isNext) {
+    const id = decodeUserCursor(cursor);
+    if (id) cursorFilter = { _id: { $lt: id } };
+  } else if (isPrev) {
+    const id = decodeUserCursor(prevCursor);
+    if (id) cursorFilter = { _id: { $gt: id } };
+  }
+
+  const sortOrder = isPrev ? 1 : -1; // ascending for prev, then reverse
 
   const [users, total] = await Promise.all([
-    User.find(matchStage)
+    User.find({ ...baseMatch, ...cursorFilter })
       .select("name email role status phoneNumber tenant outlet createdAt")
-      .sort({ _id: -1 })
-      .skip(skip)
-      .limit(Number(limit))
+      .sort({ _id: sortOrder })
+      .limit(limit + 1)
       .lean(),
-    User.countDocuments(matchStage),
+    User.countDocuments(baseMatch),
   ]);
 
+  let result = users;
+  const hasMore = result.length > limit;
+  if (hasMore) result = result.slice(0, limit);
+  if (isPrev) result.reverse();
+
+  const nextCursor = (hasMore || isPrev) && result.length > 0
+    ? encodeUserCursor(result[result.length - 1]._id) : null;
+  const newPrevCursor = (isNext || (isPrev && hasMore)) && result.length > 0
+    ? encodeUserCursor(result[0]._id) : null;
+
   return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        users,
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total,
-          totalPages: Math.ceil(total / Number(limit)),
-        },
+    new ApiResponse(200, {
+      users: result,
+      pagination: {
+        nextCursor,
+        prevCursor: newPrevCursor,
+        perPage: limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: !!(hasMore || isPrev),
+        hasPrevPage: !!(isNext || (isPrev && hasMore)),
       },
-      "Users fetched"
-    )
+    }, "Users fetched")
   );
 });
 

@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { kioskLogin, saveKioskSession } from "../api";
+import { kioskLogin, saveKioskSession, getKioskSession } from "../api";
 
 const CODE_LENGTH = 6;
 
@@ -10,6 +10,19 @@ export default function KioskLoginPage() {
   const [error, setError] = useState("");
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const navigate = useNavigate();
+
+  // If a kiosk session + order type already exists, skip straight to the dashboard.
+  // If only a session exists (no order type chosen yet), skip to start.
+  useEffect(() => {
+    const session = getKioskSession();
+    if (!session) return;
+    if (sessionStorage.getItem("kioskOrderType")) {
+      navigate("/kiosk/dashboard");
+    } else {
+      navigate("/kiosk/start");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (index: number, value: string) => {
     // Accept only digits

@@ -4,7 +4,7 @@ import {
   fetchTenantHourlyHistory,
   fetchOutlets,
   type OrderHistoryItem,
-  type Pagination,
+  type CursorPagination,
   type HourlyPoint,
   type Outlet,
 } from "../api";
@@ -72,26 +72,25 @@ function DateBtn({
 
 function OrdersView({ outlets }: { outlets: Outlet[] }) {
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({
-    page: 1, limit: 20, total: 0, totalPages: 0,
+  const [pagination, setPagination] = useState<CursorPagination>({
+    nextCursor: null, prevCursor: null, perPage: 10, total: 0, totalPages: 0, hasNextPage: false, hasPrevPage: false,
   });
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [outletId, setOutletId] = useState("");
   const [status, setStatus] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [page, setPage] = useState(1);
 
   const load = useCallback(
-    async (p: number) => {
+    async (cursor?: string, prevCursor?: string) => {
       setLoading(true);
       setError("");
       try {
-        const result = await fetchTenantOrderHistory({ page: p, limit: 20, outletId, status, startDate, endDate });
+        const result = await fetchTenantOrderHistory({ cursor, prevCursor, perPage: 10, outletId, status, startDate, endDate });
         setOrders(result.orders);
         setPagination(result.pagination);
-        setPage(p);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Failed to load orders");
       } finally {
@@ -101,7 +100,7 @@ function OrdersView({ outlets }: { outlets: Outlet[] }) {
     [outletId, status, startDate, endDate]
   );
 
-  useEffect(() => { load(1); }, [load]);
+  useEffect(() => { setCurrentPage(1); load(); }, [load]);
 
   return (
     <div>
@@ -150,9 +149,6 @@ function OrdersView({ outlets }: { outlets: Outlet[] }) {
         <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
           <h3 className="text-sm font-semibold text-gray-700">
             Orders
-            {pagination.total > 0 && (
-              <span className="ml-2 text-gray-400 font-normal">({pagination.total} total)</span>
-            )}
           </h3>
         </div>
 
@@ -191,16 +187,30 @@ function OrdersView({ outlets }: { outlets: Outlet[] }) {
           </div>
         )}
 
-        {pagination.totalPages > 1 && (
+        {(pagination.hasPrevPage || pagination.hasNextPage) && (
           <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-            <p className="text-xs text-gray-400">Page {pagination.page} of {pagination.totalPages}</p>
+            <p className="text-sm text-gray-500">
+              Page <span className="font-semibold text-gray-800">{currentPage}</span>
+              {pagination.totalPages > 0 && (
+                <> of <span className="font-semibold text-gray-800">{pagination.totalPages}</span></>
+              )}
+              {pagination.total > 0 && (
+                <span className="text-gray-400 ml-1">({pagination.total} total)</span>
+              )}
+            </p>
             <div className="flex gap-2">
-              <button onClick={() => load(page - 1)} disabled={page <= 1}
-                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">
+              <button
+                onClick={() => { setCurrentPage(p => p - 1); load(undefined, pagination.prevCursor!); }}
+                disabled={!pagination.hasPrevPage}
+                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+              >
                 Previous
               </button>
-              <button onClick={() => load(page + 1)} disabled={page >= pagination.totalPages}
-                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">
+              <button
+                onClick={() => { setCurrentPage(p => p + 1); load(pagination.nextCursor!); }}
+                disabled={!pagination.hasNextPage}
+                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+              >
                 Next
               </button>
             </div>

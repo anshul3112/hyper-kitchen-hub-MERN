@@ -342,11 +342,14 @@ export async function toggleDisplay(id: string): Promise<DisplayDevice> {
 
 // ── Order History types & API ─────────────────────────────────────────────────
 
-export type Pagination = {
-  page: number;
-  limit: number;
+export type CursorPagination = {
+  nextCursor: string | null;
+  prevCursor: string | null;
+  perPage: number;
   total: number;
   totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 };
 
 export type OrderHistoryItem = {
@@ -370,15 +373,17 @@ export type HourlyPoint = {
 
 /** GET /api/v1/analytics/outlet-orders */
 export async function fetchOutletOrderHistory(params: {
-  page?: number;
-  limit?: number;
+  cursor?: string;
+  prevCursor?: string;
+  perPage ?: number;
   status?: string;
   startDate?: string;
   endDate?: string;
-}): Promise<{ orders: OrderHistoryItem[]; pagination: Pagination }> {
+}): Promise<{ orders: OrderHistoryItem[]; pagination: CursorPagination }> {
   const q = new URLSearchParams();
-  if (params.page) q.set("page", String(params.page));
-  if (params.limit) q.set("limit", String(params.limit));
+  if (params.cursor) q.set("cursor", params.cursor);
+  if (params.prevCursor) q.set("prevCursor", params.prevCursor);
+  q.set("perPage", String(params.perPage ?? 10));
   if (params.status) q.set("status", params.status);
   if (params.startDate) q.set("startDate", params.startDate);
   if (params.endDate) q.set("endDate", params.endDate);
@@ -386,7 +391,7 @@ export async function fetchOutletOrderHistory(params: {
     credentials: "include",
     headers: getAuthHeaders(),
   });
-  const parsed = await parseOrThrow<ApiResponse<{ orders: OrderHistoryItem[]; pagination: Pagination }>>(res);
+  const parsed = await parseOrThrow<ApiResponse<{ orders: OrderHistoryItem[]; pagination: CursorPagination }>>(res);
   return parsed.data;
 }
 

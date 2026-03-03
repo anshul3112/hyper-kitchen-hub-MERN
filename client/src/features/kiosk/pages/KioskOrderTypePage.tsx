@@ -8,7 +8,12 @@ export default function KioskOrderTypePage() {
 
   useEffect(() => {
     if (!session) {
-      navigate("/kiosk/login", { replace: true });
+      navigate("/kiosk/login");
+      return;
+    }
+    // If order type was already chosen, skip straight to the dashboard
+    if (sessionStorage.getItem("kioskOrderType")) {
+      navigate("/kiosk/dashboard");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -51,7 +56,7 @@ export default function KioskOrderTypePage() {
 
       {/* Back */}
       <button
-        onClick={() => navigate("/kiosk/start")}
+      onClick={() => navigate("/kiosk/start")}
         className="text-gray-400 hover:text-purple-600 text-sm transition-colors"
       >
         ← Back

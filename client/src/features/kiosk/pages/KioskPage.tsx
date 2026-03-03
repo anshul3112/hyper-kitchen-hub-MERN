@@ -33,7 +33,7 @@ export default function KioskPage() {
 
   useEffect(() => {
     if (!session) {
-      navigate("/kiosk/login", { replace: true });
+      navigate("/kiosk/login");
       return;
     }
     loadAll();
@@ -115,7 +115,7 @@ export default function KioskPage() {
       const msg = err instanceof Error ? err.message : "Failed to load menu";
       if (msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("invalid")) {
         clearKioskSession();
-        navigate("/kiosk/login", { replace: true });
+        navigate("/kiosk/login");
         return;
       }
       setError(msg);
@@ -160,7 +160,7 @@ export default function KioskPage() {
   // Read orderType set on /kiosk/order-type; redirect there if missing (e.g. direct refresh)
   const orderType = sessionStorage.getItem("kioskOrderType") as "dineIn" | "takeAway" | null;
   if (!orderType) {
-    navigate("/kiosk/order-type", { replace: true });
+    navigate("/kiosk/order-type");
     return null;
   }
 

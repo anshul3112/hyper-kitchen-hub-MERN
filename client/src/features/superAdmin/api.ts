@@ -102,11 +102,14 @@ export async function createTenant(payload: CreateTenantInput): Promise<Tenant> 
 
 // ─── Extended Types ──────────────────────────────────────────────────────────
 
-export type Pagination = {
-	page: number;
-	limit: number;
+export type CursorPagination = {
+	nextCursor: string | null;
+	prevCursor: string | null;
+	perPage: number;
 	total: number;
 	totalPages: number;
+	hasNextPage: boolean;
+	hasPrevPage: boolean;
 };
 
 export type OrderHistoryItem = {
@@ -181,16 +184,18 @@ export async function fetchAnalyticsOverview(): Promise<AnalyticsOverview> {
 }
 
 export async function fetchOrderHistory(params: {
-	page?: number;
-	limit?: number;
+	cursor?: string;
+	prevCursor?: string;
+	perPage?: number;
 	tenantId?: string;
 	status?: string;
 	startDate?: string;
 	endDate?: string;
-}): Promise<{ orders: OrderHistoryItem[]; pagination: Pagination }> {
+}): Promise<{ orders: OrderHistoryItem[]; pagination: CursorPagination }> {
 	const q = new URLSearchParams();
-	if (params.page) q.set("page", String(params.page));
-	if (params.limit) q.set("limit", String(params.limit));
+	if (params.cursor) q.set("cursor", params.cursor);
+	if (params.prevCursor) q.set("prevCursor", params.prevCursor);
+	q.set("perPage", String(params.perPage ?? 10));
 	if (params.tenantId) q.set("tenantId", params.tenantId);
 	if (params.status) q.set("status", params.status);
 	if (params.startDate) q.set("startDate", params.startDate);
@@ -241,15 +246,17 @@ export async function fetchTenantDetails(tenantId: string): Promise<TenantDetail
 // ─── User Management API ─────────────────────────────────────────────────────
 
 export async function fetchAllUsers(params: {
-	page?: number;
-	limit?: number;
+	cursor?: string;
+	prevCursor?: string;
+	perPage?: number;
 	role?: string;
 	tenantId?: string;
 	search?: string;
-}): Promise<{ users: UserRecord[]; pagination: Pagination }> {
+}): Promise<{ users: UserRecord[]; pagination: CursorPagination }> {
 	const q = new URLSearchParams();
-	if (params.page) q.set("page", String(params.page));
-	if (params.limit) q.set("limit", String(params.limit));
+	if (params.cursor) q.set("cursor", params.cursor);
+	if (params.prevCursor) q.set("prevCursor", params.prevCursor);
+	q.set("perPage", String(params.perPage ?? 10));
 	if (params.role) q.set("role", params.role);
 	if (params.tenantId) q.set("tenantId", params.tenantId);
 	if (params.search) q.set("search", params.search);

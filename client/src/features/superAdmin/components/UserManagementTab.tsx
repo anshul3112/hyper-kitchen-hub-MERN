@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { fetchAllUsers, toggleUserStatus, fetchTenants, type UserRecord, type Pagination, type Tenant } from "../api";
+import { fetchAllUsers, toggleUserStatus, fetchTenants, type UserRecord, type CursorPagination, type Tenant } from "../api";
 
 const ROLE_OPTIONS = [
   "", "superAdmin", "tenantAdmin", "tenantOwner",
@@ -28,9 +28,10 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function UserManagementTab() {
   const [users, setUsers] = useState<UserRecord[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({
-    page: 1, limit: 20, total: 0, totalPages: 0,
+  const [pagination, setPagination] = useState<CursorPagination>({
+    nextCursor: null, prevCursor: null, perPage: 10, total: 0, totalPages: 0, hasNextPage: false, hasPrevPage: false,
   });
+  const [currentPage, setCurrentPage] = useState(1);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -40,7 +41,6 @@ export default function UserManagementTab() {
   const [tenantId, setTenantId] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetchTenants().then((r) => setTenants(r.data || [])).catch(() => {});
@@ -52,14 +52,13 @@ export default function UserManagementTab() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const load = useCallback(async (p: number) => {
+  const load = useCallback(async (cursor?: string, prevCursor?: string) => {
     setLoading(true);
     setError("");
     try {
-      const result = await fetchAllUsers({ page: p, limit: 20, role, tenantId, search: debouncedSearch });
+      const result = await fetchAllUsers({ cursor, prevCursor, perPage: 10, role, tenantId, search: debouncedSearch });
       setUsers(result.users);
       setPagination(result.pagination);
-      setPage(p);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load users");
     } finally {
@@ -67,7 +66,7 @@ export default function UserManagementTab() {
     }
   }, [role, tenantId, debouncedSearch]);
 
-  useEffect(() => { load(1); }, [load]);
+  useEffect(() => { setCurrentPage(1); load(); }, [load]);
 
   const handleToggle = async (user: UserRecord) => {
     setToggling(user._id);
@@ -138,9 +137,6 @@ export default function UserManagementTab() {
         <div className="px-5 py-4 border-b border-gray-100">
           <h3 className="text-sm font-semibold text-gray-700">
             Users
-            {pagination.total > 0 && (
-              <span className="ml-2 text-gray-400 font-normal">({pagination.total} total)</span>
-            )}
           </h3>
         </div>
 
@@ -201,22 +197,28 @@ export default function UserManagementTab() {
           </div>
         )}
 
-        {pagination.totalPages > 1 && (
+        {(pagination.hasPrevPage || pagination.hasNextPage) && (
           <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-            <p className="text-xs text-gray-400">
-              Page {pagination.page} of {pagination.totalPages}
+            <p className="text-sm text-gray-500">
+              Page <span className="font-semibold text-gray-800">{currentPage}</span>
+              {pagination.totalPages > 0 && (
+                <> of <span className="font-semibold text-gray-800">{pagination.totalPages}</span></>
+              )}
+              {pagination.total > 0 && (
+                <span className="text-gray-400 ml-1">({pagination.total} total)</span>
+              )}
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => load(page - 1)}
-                disabled={page <= 1}
+                onClick={() => { setCurrentPage(p => p - 1); load(undefined, pagination.prevCursor!); }}
+                disabled={!pagination.hasPrevPage}
                 className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
               >
                 Previous
               </button>
               <button
-                onClick={() => load(page + 1)}
-                disabled={page >= pagination.totalPages}
+                onClick={() => { setCurrentPage(p => p + 1); load(pagination.nextCursor!); }}
+                disabled={!pagination.hasNextPage}
                 className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
               >
                 Next
