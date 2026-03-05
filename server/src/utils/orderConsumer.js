@@ -119,8 +119,12 @@ async function processOrderMessage(body) {
       orderStatus: "Failed",
     });
 
-    // Notify the kiosk that its order could not be fulfilled
-    emitOrderFailed(outletId.toString(), { orderId: correlationId });
+    // Notify the kiosk that its order could not be fulfilled due to stock
+    emitOrderFailed(outletId.toString(), {
+      orderId: correlationId,
+      reason: "out_of_stock",
+      outOfStockItems: insufficientItems.map((it) => it.name ?? it.id),
+    });
 
     return; // message will be deleted by the caller
   }
@@ -194,8 +198,8 @@ async function processOrderMessage(body) {
     order.orderStatus = "Failed";
     await order.save();
 
-    // Notify the originating kiosk that its order failed
-    emitOrderFailed(outletId.toString(), { orderId: correlationId });
+    // Notify the originating kiosk that its order failed due to payment
+    emitOrderFailed(outletId.toString(), { orderId: correlationId, reason: "payment_failed" });
 
     console.warn(
       `[SQS consumer] Payment failed for order ${order._id} — inventory restored | correlationId: ${correlationId}`

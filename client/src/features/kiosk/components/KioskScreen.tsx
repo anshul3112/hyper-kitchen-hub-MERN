@@ -44,6 +44,7 @@ export default function KioskScreen({
   // Captured at submit time so the success screen can show the amount after cart is cleared
   const [submittedAmount, setSubmittedAmount] = useState(0);
   const [orderError, setOrderError] = useState("");
+  const [orderErrorTitle, setOrderErrorTitle] = useState("Order Failed");
   // Tracks the correlationId returned by the server so we can match the WebSocket event
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
 
@@ -58,6 +59,7 @@ export default function KioskScreen({
     setUpiId("");
     setSubmittedAmount(0);
     setOrderError("");
+    setOrderErrorTitle("Order Failed");
     setCheckoutNotices([]);
     setCheckoutInitializing(true);
     setCheckoutOpen(true);
@@ -167,6 +169,7 @@ export default function KioskScreen({
       setPendingOrderId(orderId);
     } catch (err: unknown) {
       setOrderError(err instanceof Error ? err.message : "Something went wrong");
+      setOrderErrorTitle("Order Failed");
       setPayStep("error");
     }
   };
@@ -194,10 +197,25 @@ export default function KioskScreen({
       setPayStep("success");
     };
 
-    const handleFailed = (data: { orderId: string }) => {
+    const handleFailed = (data: {
+      orderId: string;
+      reason?: string;
+      outOfStockItems?: string[];
+    }) => {
       if (data.orderId !== pendingOrderId) return;
       setPendingOrderId(null);
-      setOrderError("Payment failed. Please try again.");
+      if (data.reason === "out_of_stock" && data.outOfStockItems?.length) {
+        const names = data.outOfStockItems.join(", ");
+        setOrderErrorTitle("Out of Stock");
+        setOrderError(
+          data.outOfStockItems.length === 1
+            ? `${names} is out of stock.`
+            : `The following items are out of stock: ${names}.`
+        );
+      } else {
+        setOrderErrorTitle("Payment Failed");
+        setOrderError("Payment failed. Please try again.");
+      }
       setPayStep("error");
     };
 
@@ -691,7 +709,7 @@ export default function KioskScreen({
                   <span className="text-3xl">❌</span>
                 </div>
                 <div>
-                  <p className="text-xl font-extrabold text-gray-900">Payment Failed</p>
+                  <p className="text-xl font-extrabold text-gray-900">{orderErrorTitle}</p>
                   <p className="text-sm text-red-500 mt-2">{orderError}</p>
                 </div>
                 <div className="w-full flex gap-3">
