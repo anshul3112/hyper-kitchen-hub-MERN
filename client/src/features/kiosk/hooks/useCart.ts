@@ -127,7 +127,7 @@ export function useCart() {
 
   const cartItems = Object.values(cart);
 
-  const cartCount = cartItems.reduce((sum, entry) => sum + entry.quantity, 0);
+  const cartCount = cartItems.length;
 
   const cartTotal = cartItems.reduce(
     (sum, entry) => sum + entry.price * entry.quantity,
