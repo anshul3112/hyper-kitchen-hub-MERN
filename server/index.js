@@ -5,6 +5,7 @@ import cors from 'cors'
 import connectDB from "./src/utils/db.js";
 import { connectToRedis } from "./src/utils/redis.js";
 import { initSocket } from "./src/utils/socket.js";
+import { startOrderConsumer } from "./src/utils/orderConsumer.js";
 import userRouter from "./src/users/routes/userLoginRoutes.js";
 import tenantRouter from "./src/tenant/routes/tenantRoutes.js";
 import createUserRouter from "./src/users/routes/createUserRoutes.js";
@@ -27,6 +28,11 @@ const PORT = process.env.PORT || 8000;
 await connectDB();
 await connectToRedis();
 initSocket(httpServer);
+
+// Start SQS consumer worker (runs in same process; socket must be initialised first)
+startOrderConsumer().catch((err) =>
+  console.error("[SQS consumer] Fatal startup error:", err.message)
+);
 
 app.use(cors({
   origin: [process.env.CORS_ORIGIN, "http://localhost:5173"], 

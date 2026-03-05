@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import type { MenuCategory, MenuFilter, EnrichedMenuItem, OrderResult } from "../api";
+import type { Socket } from "socket.io-client";
+import type { MenuCategory, MenuFilter, EnrichedMenuItem } from "../api";
 import { placeOrder } from "../api";
 import { useCart } from "../hooks/useCart";
 import { getChangedItems, patchItemsInCache, clearChangedItems } from "../db/kioskDB";
@@ -12,6 +13,8 @@ type Props = {
   kioskNumber: number;
   /** The order type selected by the customer on the pre-menu screen */
   orderType: "dineIn" | "takeAway";
+  /** Socket.IO socket used to listen for order status events from the server. */
+  socketRef: React.MutableRefObject<Socket | null>;
   /** Called after checkout applies inventory patches so KioskPage can re-render items live. */
   onItemsPatched: (patches: Record<string, { price?: number; quantity?: number; status?: boolean; orderType?: "dineIn" | "takeAway" | "both" }>) => void;
   /** Called when customer clicks "New Order" after a successful checkout — resets to welcome screen. */
@@ -23,6 +26,7 @@ export default function KioskScreen({
   filters,
   items,
   orderType,
+  socketRef,
   onItemsPatched,
   onNewOrder,
 }: Props) {
@@ -37,8 +41,11 @@ export default function KioskScreen({
   const [payStep, setPayStep] = useState<PayStep>("cart");
   const [payerName, setPayerName] = useState("");
   const [upiId, setUpiId] = useState("");
-  const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
+  // Captured at submit time so the success screen can show the amount after cart is cleared
+  const [submittedAmount, setSubmittedAmount] = useState(0);
   const [orderError, setOrderError] = useState("");
+  // Tracks the correlationId returned by the server so we can match the WebSocket event
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
 
   // Notices generated at checkout-open time from pending changed_items
   const [checkoutNotices, setCheckoutNotices] = useState<string[]>([]);
@@ -49,7 +56,7 @@ export default function KioskScreen({
     setPayStep("cart");
     setPayerName("");
     setUpiId("");
-    setOrderResult(null);
+    setSubmittedAmount(0);
     setOrderError("");
     setCheckoutNotices([]);
     setCheckoutInitializing(true);
@@ -141,21 +148,68 @@ export default function KioskScreen({
 
   const handlePlaceOrder = async () => {
     if (!payerName.trim() || !upiId.trim()) return;
+
+    // Capture total before cart is cleared so the success screen can display it
+    const total = cartTotal;
+    setSubmittedAmount(total);
     setPayStep("loading");
+
     try {
-      const result = await placeOrder({
+      // Enqueues to SQS and returns 202 with a correlationId
+      const { orderId } = await placeOrder({
         items: cartItems,
-        totalAmount: cartTotal,
+        totalAmount: total,
         paymentDetails: { name: payerName.trim(), upiId: upiId.trim() },
       });
-      setOrderResult(result);
-      setPayStep("success");
-      clearCart();
+
+      // Store the orderId so the WebSocket useEffect can match the server event.
+      // The spinner keeps rotating until order:confirmed or order:failed arrives.
+      setPendingOrderId(orderId);
     } catch (err: unknown) {
       setOrderError(err instanceof Error ? err.message : "Something went wrong");
       setPayStep("error");
     }
   };
+
+  // ── WebSocket: wait for order:confirmed / order:failed ──────────────────
+  useEffect(() => {
+    if (!pendingOrderId) return;
+
+    const socket = socketRef.current;
+
+    if (!socket) {
+      // Socket not yet connected (rare) — fall back to a generous timeout
+      const fallback = setTimeout(() => {
+        clearCart();
+        setPendingOrderId(null);
+        setPayStep("success");
+      }, 10_000);
+      return () => clearTimeout(fallback);
+    }
+
+    const handleConfirmed = (data: { orderId: string; orderNo?: number }) => {
+      if (data.orderId !== pendingOrderId) return; // belongs to a different kiosk
+      clearCart();
+      setPendingOrderId(null);
+      setPayStep("success");
+    };
+
+    const handleFailed = (data: { orderId: string }) => {
+      if (data.orderId !== pendingOrderId) return;
+      setPendingOrderId(null);
+      setOrderError("Payment failed. Please try again.");
+      setPayStep("error");
+    };
+
+    socket.on("order:confirmed", handleConfirmed);
+    socket.on("order:failed", handleFailed);
+
+    return () => {
+      socket.off("order:confirmed", handleConfirmed);
+      socket.off("order:failed", handleFailed);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOrderId]);
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<string | null>(null);
@@ -609,16 +663,17 @@ export default function KioskScreen({
             )}
 
             {/* ── STEP: Success ───────────────────────────────────────────── */}
-            {payStep === "success" && orderResult && (
+            {payStep === "success" && (
               <div className="flex flex-col items-center justify-center py-12 px-6 gap-5 text-center">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
                   <span className="text-3xl">✅</span>
                 </div>
                 <div>
                   <p className="text-xl font-extrabold text-gray-900">Order Placed!</p>
-                  <p className="text-3xl font-black text-purple-600 mt-1">#{orderResult.orderNo}</p>
-                  <p className="text-sm text-gray-500 mt-2">Payment: <span className="font-semibold text-green-600">{orderResult.paymentStatus}</span></p>
-                  <p className="text-sm text-gray-500">Amount paid: <span className="font-semibold">₹{orderResult.totalAmount}</span></p>
+                  <p className="text-sm text-gray-500 mt-2">Your order is being prepared</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Amount paid: <span className="font-semibold">₹{submittedAmount}</span>
+                  </p>
                 </div>
                 <button
                   onClick={() => { closeCheckout(); onNewOrder?.(); }}

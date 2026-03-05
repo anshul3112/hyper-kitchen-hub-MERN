@@ -132,5 +132,5 @@ export async function withPresignedUrl(obj) {
  */
 export async function withPresignedUrls(arr) {
   if (!arr || arr.length === 0) return arr;
-  return Promise.all(arr.map(withPresignedUrl));
+  return Promise.all(arr.map(withPresignedUrl)); 
 }

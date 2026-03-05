@@ -104,3 +104,28 @@ export function emitOrderStatusUpdate(outletId, payload) {
 export function emitInventoryUpdate(outletId, payload) {
   getIO().to(`outlet:${outletId}`).emit("inventory:update", payload);
 }
+
+/**
+ * Emitted immediately when the HTTP request is accepted and the SQS message
+ * is enqueued. The kiosk uses this to start showing the "pending" loader.
+ * payload: { orderId: string }
+ */
+export function emitOrderPending(outletId, payload) {
+  getIO().to(`outlet:${outletId}`).emit("order:pending", payload);
+}
+
+/**
+ * Emitted by the SQS consumer once payment succeeds and the order is saved.
+ * payload: { orderId: string, orderNo: number }
+ */
+export function emitOrderConfirmed(outletId, payload) {
+  getIO().to(`outlet:${outletId}`).emit("order:confirmed", payload);
+}
+
+/**
+ * Emitted by the SQS consumer when inventory is insufficient or payment fails.
+ * payload: { orderId: string }
+ */
+export function emitOrderFailed(outletId, payload) {
+  getIO().to(`outlet:${outletId}`).emit("order:failed", payload);
+}

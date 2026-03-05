@@ -198,6 +198,7 @@ export default function KioskPage() {
       outletName={session.kiosk.outlet.outletName}
       kioskNumber={session.kiosk.number}
       orderType={orderType}
+      socketRef={socketRef}
       onItemsPatched={handleItemsPatched}
       onNewOrder={handleNewOrder}
     />

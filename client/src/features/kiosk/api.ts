@@ -201,10 +201,11 @@ export function mergeMenuWithInventory(
 
 /**
  * POST /api/v1/orders
- * Creates an order from the kiosk cart. The backend calls the mock payment
- * internally and returns the created order with paymentStatus and orderStatus.
+ * Enqueues the order for async processing via SQS FIFO (HTTP 202).
+ * Returns { orderId } — a correlation UUID the kiosk uses to listen
+ * for the matching "order:confirmed" / "order:failed" WebSocket events.
  */
-export async function placeOrder(payload: PlaceOrderPayload): Promise<OrderResult> {
+export async function placeOrder(payload: PlaceOrderPayload): Promise<{ orderId: string }> {
   const session = getKioskSession();
   if (!session) throw new Error("Kiosk session not found. Please log in again.");
 
@@ -217,6 +218,6 @@ export async function placeOrder(payload: PlaceOrderPayload): Promise<OrderResul
     body: JSON.stringify(payload),
   });
 
-  const parsed = await parseOrThrow<{ data: OrderResult }>(res);
+  const parsed = await parseOrThrow<{ data: { orderId: string } }>(res);
   return parsed.data;
 }

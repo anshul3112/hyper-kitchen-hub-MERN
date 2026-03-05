@@ -1,13 +1,9 @@
-import mongoose from "mongoose";
+import { randomUUID } from "crypto";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
 import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { ApiError } from "../../../utils/ApiError.js";
-import { Orders } from "../models/orderModel.js";
-import { callMockPayment } from "../../utils/mockPayment.js";
-import { getNextOrderNumber } from "../../core/controllers/getNextOrderNumber.js";
-import { reserveInventoryStock, restoreInventoryStock } from "../../utils/decrementInventory.js";
-import { emitNewOrder, emitOrderStatusUpdate, emitInventoryUpdate } from "../../../utils/socket.js";
-import { Inventory } from "../../../items/models/inventoryModel.js";
+import { sendOrderMessage } from "../../../utils/sqsProducer.js";
+import { emitOrderPending } from "../../../utils/socket.js";
 
 /**
  * POST /api/v1/orders
@@ -20,15 +16,13 @@ import { Inventory } from "../../../items/models/inventoryModel.js";
  *   paymentDetails: { name: string, upiId: string }
  * }
  *
- * Flow:
- *  Phase 1 — inside transaction:
- *    1. Reserve inventory ($inc qty by -qty, guarded by $gte check)
- *    2. Get next order number (atomic $inc on outlet.orderNumber)
- *    3. Create order with orderStatus "Pending", paymentStatus "pending"
- *  Phase 2 — outside transaction:
- *    4. Call mock payment (3-second delay)
- *    5a. Payment succeeded → update order to Completed / done
- *    5b. Payment failed   → restore inventory, update order to Failed
+ * Flow (SQS FIFO architecture):
+ *  1. Validate request body
+ *  2. Enqueue message to SQS FIFO queue (MessageGroupId = outletId)
+ *  3. Return 202 Accepted immediately
+ *
+ * All heavy lifting (inventory check, order creation, payment, socket events)
+ * is handled sequentially per-outlet by the consumer worker (orderConsumer.js).
  */
 export const placeOrder = asyncHandler(async (req, res) => {
   const { items, totalAmount, paymentDetails } = req.body;
@@ -47,93 +41,35 @@ export const placeOrder = asyncHandler(async (req, res) => {
   // ── Kiosk context ──────────────────────────────────────────────────────────
   const outletId = req.kiosk?.outlet?.outletId;
   const tenantId = req.kiosk?.tenant?.tenantId;
+  const kioskId  = req.kiosk?._id;
+
   if (!outletId || !tenantId) {
     throw new ApiError(401, "Invalid kiosk session: missing outlet or tenant context");
   }
 
-  const session = await mongoose.startSession();
-  let order;
+  // ── Generate a correlation ID that ties this HTTP request to the WebSocket event ─
+  // The kiosk receives it in the 202 response and subscribes to "order:confirmed" / "order:failed"
+  // keyed by this ID.  The consumer emits those events after processing the SQS message.
+  const correlationId = randomUUID();
 
-  try {
-    
-    // PHASE 1 — reservation transaction
-    await session.withTransaction(async () => {
-      // 1. Reserve inventory (fail fast if any item has insufficient stock)
-      await reserveInventoryStock(items, outletId, session);
+  // ── Notify the kiosk immediately so it can show the "pending" state ────────
+  emitOrderPending(outletId.toString(), { orderId: correlationId });
 
-      // 2. Get next order number
-      const orderNo = await getNextOrderNumber(outletId, session);
+  // ── Enqueue to SQS FIFO ────────────────────────────────────────────────────
+  // The consumer handles inventory check, order creation, payment, and socket events.
+  await sendOrderMessage({
+    correlationId,
+    items,
+    totalAmount,
+    paymentDetails,
+    outletId: outletId.toString(),
+    tenantId: tenantId.toString(),
+    kioskId:  kioskId?.toString() ?? "unknown",
+  });
 
-      // 3. Create a PENDING order
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-
-      const [created] = await Orders.create(
-        [
-          {
-            orderNo,
-            name: paymentDetails.name,
-            time: timeStr,
-            itemsCart: items.map((it) => ({
-              itemId: it.id,
-              name: it.name,
-              qty: it.quantity,
-              price: it.price,
-            })),
-            totalAmount,
-            outletId,
-            tenantId,
-            paymentStatus: "pending",
-            paymentDetails: null,
-            orderStatus: "Pending",
-          },
-        ],
-        { session }
-      );
-
-      order = created;
-    });
-
-    // PHASE 2 — payment (outside transaction)
-    const paymentResult = await callMockPayment();
-    const paymentSucceeded = paymentResult.paymentStatus === "done";
-
-    if (paymentSucceeded) {
-      // 5a. Payment ok → mark order Completed
-      // Notify outlet room: a new successful order has arrived
-      emitNewOrder(outletId, order.toObject());
-
-      // Broadcast updated inventory quantities to all kiosks/admin in the outlet
-      const itemIds = items.map((it) => it.id);
-      const updatedInventory = await Inventory.find({ itemId: { $in: itemIds }, outletId });
-      updatedInventory.forEach((rec) => {
-        emitInventoryUpdate(outletId.toString(), {
-          itemId: rec.itemId.toString(),
-          price: rec.price ?? null,
-          quantity: rec.quantity,
-          status: rec.status,
-        });
-      });
-
-      order.paymentStatus = "done";
-      order.orderStatus = "Completed";
-      order.paymentDetails = paymentDetails;
-      await order.save();
-    } else {
-      // 5b. Payment failed → restore reserved inventory, mark order Failed
-      await restoreInventoryStock(items, outletId);
-      order.paymentStatus = "failed";
-      order.orderStatus = "Failed";
-      await order.save();
-    }
-
-
-    return res.status(201).json(
-      new ApiResponse(201, order, "Order placed successfully")
-    );
-  } finally {
-    session.endSession();
-  }
+  return res.status(202).json(
+    new ApiResponse(202, { orderId: correlationId }, "Order received and is being processed")
+  );
 });
 
 
