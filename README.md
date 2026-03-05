@@ -37,12 +37,31 @@ Before starting, ensure you have the following installed on your system:
    - **Server**: Create a `.env` file in the `server` directory with the following variables:
 
      ```env
-     MONGO_URI=<your-mongodb-uri>
-     PORT=8000
-     ACCESS_TOKEN_SECRET=<your-token-secret>
-     ACCESS_TOKEN_EXPIRY=1d
-     KIOSK_TOKEN_SECRET=<your-kiosk-secret>
-     KIOSK_TOKEN_EXPIRY=30d
+MONGO_URI=<your-mongodb-uri>
+
+ACCESS_TOKEN_SECRET=<your-access-token-secret>
+ACCESS_TOKEN_EXPIRY=1d
+
+KIOSK_TOKEN_SECRET=<your-kiosk-token-secret>
+KIOSK_TOKEN_EXPIRY=30d
+
+NODE_ENV=PRODUCTION
+
+AWS_BUCKET=<your-bucket-name>
+AWS_REGION=ap-south-1
+AWS_ACCESS_KEY_ID=<your-access-key>
+AWS_SECRET_ACCESS_KEY=<your-secret-key>
+
+AWS_SQS_QUEUE_URL=<your-sqs-queue-url>
+AWS_SQS_ACCESS_KEY_ID=<your-sqs-access-key>
+AWS_SQS_SECRET_ACCESS_KEY=<your-sqs-secret-key>
+
+REDIS_URL=<your-redis-url>
+
+RATE_LIMIT_AUTH_WINDOW_MS=900000
+RATE_LIMIT_AUTH_MAX=100
+RATE_LIMIT_API_WINDOW_MS=60000
+RATE_LIMIT_API_MAX=200
      ```
 
    - **Client**: Create a `.env` file in the `client` directory with the following variables:
