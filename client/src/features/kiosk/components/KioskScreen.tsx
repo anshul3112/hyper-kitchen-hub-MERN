@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import type { Socket } from "socket.io-client";
 import type { MenuCategory, MenuFilter, EnrichedMenuItem } from "../api";
 import { placeOrder } from "../api";
@@ -33,7 +33,7 @@ export default function KioskScreen({
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
 
-  const { cart, cartCount, cartTotal, cartItems, addToCart, increment, decrement, clearCart, patchCart } = useCart();
+  const { cart, cartCount, cartTotal, cartItems, addToCart, increment, decrement, removeItem, clearCart, patchCart } = useCart();
 
   // ── Checkout modal state ─────────────────────────────────────────────────────
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -260,6 +260,48 @@ export default function KioskScreen({
     increment(item._id);
   };
 
+  // ── Combo suggestion logic ─────────────────────────────────────────────────
+  type ComboSuggestion = {
+    combo: EnrichedMenuItem;
+    matchingItemIds: string[];
+    savings: number;
+  };
+
+  const comboSuggestions = useMemo<ComboSuggestion[]>(() => {
+    const cartItemIds = new Set(cartItems.map((ci) => ci.id));
+    if (cartItemIds.size === 0) return [];
+
+    const suggestions: ComboSuggestion[] = [];
+    for (const item of items) {
+      if (item.type !== 'combo') continue;
+      if (!item.inStock) continue;
+      // NOTE: we intentionally keep showing the suggestion even when the combo
+      // is already in the cart — the customer may have added standalone component
+      // items on top of an existing combo and could bundle them again.
+      const comboItemIds = item.comboItems ?? [];
+      const matchingItemIds = comboItemIds.filter((id) => cartItemIds.has(id));
+      if (matchingItemIds.length >= (item.minMatchCount ?? 1)) {
+        // savings = sum of individual unit prices for all combo items vs combo price
+        const individualTotal = comboItemIds.reduce((sum, id) => {
+          const found = items.find((i) => i._id === id);
+          return sum + (found?.displayPrice ?? 0);
+        }, 0);
+        const savings = Math.max(0, individualTotal - item.displayPrice);
+        if(savings > 0)
+        suggestions.push({ combo: item, matchingItemIds, savings });
+      }
+    }
+    return suggestions;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, items]);
+
+  /** Replace matched individual items in cart with the combo item. */
+  const handleUpgradeToCombo = (suggestion: { combo: EnrichedMenuItem; matchingItemIds: string[] }) => {
+    suggestion.matchingItemIds.forEach((id) => removeItem(id));
+    addToCart(suggestion.combo);
+    showToast(`Upgraded to ${suggestion.combo.name}! 🎉`);
+  };
+
   const visibleItems = items.filter((item) => {
     // Filter by order type: show items tagged 'both' or matching the selected type
     const matchesOrderType =
@@ -424,6 +466,32 @@ export default function KioskScreen({
         {/* ── Main Content: Item Grid ──────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto p-5">
 
+          {/* ── Bundle & Save — persistent suggestion banner while browsing ── */}
+          {comboSuggestions.length > 0 && (
+            <div className="mb-5 rounded-2xl bg-purple-50 border border-purple-200 px-4 py-3">
+              <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-2">💡 Bundle &amp; Save</p>
+              <div className="flex flex-col gap-2">
+                {comboSuggestions.map((s) => (
+                  <div key={s.combo._id} className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-gray-800">🍱 {s.combo.name}</span>
+                      <span className="text-xs text-gray-500 ml-2">₹{s.combo.displayPrice}</span>
+                      {s.savings > 0 && (
+                        <span className="text-xs text-green-600 font-semibold ml-1.5">· Save ₹{s.savings}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleUpgradeToCombo(s)}
+                      className="flex-shrink-0 text-xs font-bold bg-purple-600 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-xl transition-all"
+                    >
+                      Add Combo →
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {visibleItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
               <p className="text-5xl mb-4">🍽️</p>
@@ -493,6 +561,11 @@ export default function KioskScreen({
                       <p className="text-base font-bold text-gray-900 leading-tight line-clamp-2">
                         {item.name}
                       </p>
+                      {item.type === 'combo' && (
+                        <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                          🍱 Combo
+                        </span>
+                      )}
                       {item.description && (
                         <p className="text-sm text-gray-400 line-clamp-2 leading-snug">
                           {item.description}
@@ -578,6 +651,34 @@ export default function KioskScreen({
                       <span className="text-sm font-bold text-gray-900">₹{item.price * item.quantity}</span>
                     </div>
                   ))}
+
+                  {/* Combo upgrade suggestions */}
+                  {comboSuggestions.length > 0 && (
+                    <div className="mt-2 rounded-xl bg-purple-50 border border-purple-200 px-4 py-3 space-y-3">
+                      <p className="text-xs font-bold text-purple-700 uppercase tracking-wide">💡 Upgrade Suggestions</p>
+                      {comboSuggestions.map((s) => (
+                        <div key={s.combo._id} className="flex items-center justify-between gap-3">
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-800">
+                              🍱 {s.combo.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              ₹{s.combo.displayPrice}
+                              {s.savings > 0 && (
+                                <span className="ml-1.5 text-green-600 font-semibold">· Save ₹{s.savings}</span>
+                              )}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleUpgradeToCombo(s)}
+                            className="flex-shrink-0 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            Upgrade →
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="px-6 py-4 border-t border-gray-100">

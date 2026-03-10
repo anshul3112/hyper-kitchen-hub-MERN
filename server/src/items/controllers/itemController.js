@@ -16,7 +16,7 @@ import mongoose from "mongoose";
  * Create a new menu item for the calling tenantAdmin's tenant.
  */
 export const addItem = asyncHandler(async (req, res) => {
-  const { name, description, defaultAmount, category, filters = [], imageUrl } = req.body;
+  const { name, description, defaultAmount, category, filters = [], imageUrl, type = 'single', comboItems = [], minMatchCount = 1 } = req.body;
   const user = req.user;
 
   // Check if user is tenantAdmin
@@ -64,6 +64,23 @@ export const addItem = asyncHandler(async (req, res) => {
     throw new ApiError(404, `Filter with ID ${missing} not found`);
   }
 
+  // Validate combo fields
+  if (type !== 'single' && type !== 'combo') {
+    throw new ApiError(400, "type must be 'single' or 'combo'");
+  }
+  if (type === 'combo') {
+    if (!Array.isArray(comboItems) || comboItems.length === 0) {
+      throw new ApiError(400, "A combo item must include at least one item in comboItems");
+    }
+    const foundComboItems = await Items.find({ _id: { $in: comboItems }, tenantId }).select('_id').lean();
+    if (foundComboItems.length !== comboItems.length) {
+      throw new ApiError(404, "One or more comboItems IDs are invalid or do not belong to your tenant");
+    }
+    if (typeof minMatchCount !== 'number' || minMatchCount < 1) {
+      throw new ApiError(400, "minMatchCount must be a positive integer");
+    }
+  }
+
   const item = new Items({
     name: name.trim(),
     description: description?.trim() || "",
@@ -72,7 +89,10 @@ export const addItem = asyncHandler(async (req, res) => {
     filters,
     imageKey: imageUrl?.trim() || null,
     tenantId,
-    status: true
+    status: true,
+    type,
+    comboItems: type === 'combo' ? comboItems : [],
+    minMatchCount: type === 'combo' ? minMatchCount : 1,
   });
 
   try {
@@ -149,7 +169,7 @@ export const getItems = asyncHandler(async (req, res) => {
  */
 export const editItem = asyncHandler(async (req, res) => {
   const { itemId } = req.params;
-  const { name, description, defaultAmount, category, filters, imageUrl, status } = req.body;
+  const { name, description, defaultAmount, category, filters, imageUrl, status, type, comboItems, minMatchCount } = req.body;
   const user = req.user;
 
   // Check if user is tenantAdmin
@@ -221,6 +241,34 @@ export const editItem = asyncHandler(async (req, res) => {
 
   if (status !== undefined) {
     item.status = status;
+  }
+
+  // Update combo fields
+  if (type !== undefined) {
+    if (type !== 'single' && type !== 'combo') {
+      throw new ApiError(400, "type must be 'single' or 'combo'");
+    }
+    item.type = type;
+    if (type === 'single') {
+      item.comboItems = [];
+      item.minMatchCount = 1;
+    }
+  }
+  if (item.type === 'combo' && comboItems !== undefined) {
+    if (!Array.isArray(comboItems) || comboItems.length === 0) {
+      throw new ApiError(400, "A combo item must include at least one item in comboItems");
+    }
+    const foundComboItems = await Items.find({ _id: { $in: comboItems }, tenantId }).select('_id').lean();
+    if (foundComboItems.length !== comboItems.length) {
+      throw new ApiError(404, "One or more comboItems IDs are invalid or do not belong to your tenant");
+    }
+    item.comboItems = comboItems;
+  }
+  if (item.type === 'combo' && minMatchCount !== undefined) {
+    if (typeof minMatchCount !== 'number' || minMatchCount < 1) {
+      throw new ApiError(400, "minMatchCount must be a positive integer");
+    }
+    item.minMatchCount = minMatchCount;
   }
 
   try {

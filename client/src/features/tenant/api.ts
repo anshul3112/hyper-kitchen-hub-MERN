@@ -157,6 +157,12 @@ export type MenuItem = {
 	tenantId: string;
 	category: MenuItemCategory | null;
 	filters: MenuItemFilter[];
+	/** 'single' = standard item; 'combo' = a meal that bundles other items */
+	type?: 'single' | 'combo';
+	/** IDs of items that form this combo (only used when type = 'combo') */
+	comboItems?: string[];
+	/** Minimum number of comboItems that must be in the cart to trigger an upgrade suggestion */
+	minMatchCount?: number;
 	createdAt?: string;
 	updatedAt?: string;
 };
@@ -262,6 +268,9 @@ export type CreateItemInput = {
 	imageUrl?: string;
 	category: string;
 	filters?: string[];
+	type?: 'single' | 'combo';
+	comboItems?: string[];
+	minMatchCount?: number;
 };
 
 export type UpdateItemInput = Partial<CreateItemInput> & { status?: boolean };

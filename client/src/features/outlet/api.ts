@@ -50,6 +50,10 @@ export type MenuItem = {
   tenantId: string;
   category: MenuCategory | null;
   filters: MenuFilter[];
+  /** 'single' = standard item; 'combo' = derived stock from components */
+  type?: 'single' | 'combo';
+  /** Component item IDs (only present when type = 'combo') */
+  comboItems?: string[];
   createdAt?: string;
   updatedAt?: string;
 };

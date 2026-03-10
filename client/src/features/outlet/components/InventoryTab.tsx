@@ -243,6 +243,18 @@ export default function InventoryTab() {
             {items.map((item) => {
               const inv = inventoryMap[item._id];
               const row = getRow(item._id);
+              const isCombo = item.type === 'combo';
+              // Derived quantity for combos = min of all component items' stock.
+              // This is read-only; combos have no independent inventory record.
+              const comboQty = isCombo && item.comboItems && item.comboItems.length > 0
+                ? item.comboItems.reduce((min, id) => {
+                    const rec = inventoryMap[id];
+                    return Math.min(min, rec ? rec.quantity : 0);
+                  }, Infinity)
+                : null;
+              const derivedQty = isCombo
+                ? (isFinite(comboQty as number) ? (comboQty as number) : 0)
+                : null;
               const isEditing = row.editMode !== null;
 
               return (
@@ -250,6 +262,11 @@ export default function InventoryTab() {
                   {/* Item name */}
                   <td className="px-5 py-3">
                     <p className="font-medium text-gray-800">{item.name}</p>
+                    {isCombo && (
+                      <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                        🍱 Combo
+                      </span>
+                    )}
                     {item.description && (
                       <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{item.description}</p>
                     )}
@@ -293,7 +310,15 @@ export default function InventoryTab() {
 
                   {/* Quantity */}
                   <td className="px-5 py-3">
-                    {isEditing && (row.editMode === "quantity" || row.editMode === "both") ? (
+                    {isCombo ? (
+                      // Combos: read-only quantity derived from component items
+                      <div className="flex items-center gap-1.5">
+                        <span className={`font-semibold ${derivedQty === 0 ? "text-red-500" : "text-gray-800"}`}>
+                          {derivedQty}
+                        </span>
+                        <span className="text-xs text-blue-500 italic">auto</span>
+                      </div>
+                    ) : isEditing && (row.editMode === "quantity" || row.editMode === "both") ? (
                       <input
                         type="number"
                         min={0}
@@ -324,7 +349,9 @@ export default function InventoryTab() {
 
                   {/* Low-Stock Alert Threshold */}
                   <td className="px-5 py-3">
-                    {row.thresholdEditing ? (
+                    {isCombo ? (
+                      <span className="text-xs text-gray-400 italic">N/A</span>
+                    ) : row.thresholdEditing ? (
                       <div className="flex flex-col gap-1">
                         <input
                           type="number"
@@ -474,6 +501,15 @@ export default function InventoryTab() {
                           </button>
                         </div>
                       </div>
+                    ) : isCombo ? (
+                      // Combos: only allow setting the outlet price; quantity is auto
+                      <button
+                        onClick={() => openEdit(item._id, "price")}
+                        className="px-2 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded hover:bg-gray-100"
+                        title="Update outlet price for this combo"
+                      >
+                        Price
+                      </button>
                     ) : (
                       <div className="flex gap-2 flex-wrap">
                         <button

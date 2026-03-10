@@ -36,6 +36,27 @@ const itemsSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "Tenant",
     required: true
+  },
+  // ── Combo / Meal support ────────────────────────────────────────────────────
+  /** 'single' = standard item; 'combo' = a meal that bundles other items */
+  type: {
+    type: String,
+    enum: ['single', 'combo'],
+    default: 'single'
+  },
+  /** IDs of items that form this combo (only used when type = 'combo') */
+  comboItems: [{
+    type: Schema.Types.ObjectId,
+    ref: 'Items'
+  }],
+  /**
+   * Minimum number of comboItems that must be present in the cart before
+   * the kiosk shows an upgrade suggestion.
+   */
+  minMatchCount: {
+    type: Number,
+    default: 1,
+    min: 1
   }
 }, { timestamps: true });
 

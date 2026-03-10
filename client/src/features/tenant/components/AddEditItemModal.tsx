@@ -12,6 +12,7 @@ import {
 
 interface Props {
   item?: MenuItem | null; // null = create, MenuItem = edit
+  items: MenuItem[];      // all items for combo sub-item selection
   categories: MenuCategory[];
   filters: MenuFilter[];
   onClose: () => void;
@@ -20,6 +21,7 @@ interface Props {
 
 export default function AddEditItemModal({
   item,
+  items,
   categories,
   filters,
   onClose,
@@ -51,6 +53,18 @@ export default function AddEditItemModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // ── Combo fields ─────────────────────────────────────────────────────────────
+  const [itemType, setItemType] = useState<'single' | 'combo'>(item?.type ?? 'single');
+  const [selectedComboItemIds, setSelectedComboItemIds] = useState<string[]>(item?.comboItems ?? []);
+  const [minMatchCount, setMinMatchCount] = useState<string>(
+    item?.minMatchCount !== undefined ? String(item.minMatchCount) : "1"
+  );
+
+  const toggleComboItem = (id: string) =>
+    setSelectedComboItemIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+
   const toggleCategory = (id: string) =>
     setSelectedCategoryId((prev) => (prev === id ? "" : id));
 
@@ -65,6 +79,13 @@ export default function AddEditItemModal({
     const amount = parseFloat(defaultAmount);
     if (isNaN(amount) || amount < 0) { setError("A valid non-negative price is required"); return; }
     if (!selectedCategoryId) { setError("Please select a category"); return; }
+    if (itemType === 'combo' && selectedComboItemIds.length === 0) {
+      setError("Please select at least one item for the combo"); return;
+    }
+    const matchCount = parseInt(minMatchCount, 10);
+    if (itemType === 'combo' && (isNaN(matchCount) || matchCount < 1 || matchCount > selectedComboItemIds.length)) {
+      setError(`Min match count must be between 1 and ${selectedComboItemIds.length}`); return;
+    }
 
     setLoading(true);
     setError("");
@@ -102,6 +123,9 @@ export default function AddEditItemModal({
           : undefined,
         category: selectedCategoryId,
         filters: selectedFilterIds,
+        type: itemType,
+        comboItems: itemType === 'combo' ? selectedComboItemIds : [],
+        minMatchCount: itemType === 'combo' ? parseInt(minMatchCount, 10) : 1,
       };
 
       let saved: MenuItem;
@@ -296,6 +320,88 @@ export default function AddEditItemModal({
                   })}
                 </div>
               </div>
+            )}
+
+            {/* Item Type toggle */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Item Type</label>
+              <div className="flex gap-2">
+                {(['single', 'combo'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setItemType(t)}
+                    className={`px-4 py-1.5 text-sm rounded-full border font-medium transition-colors ${
+                      itemType === t
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
+                    }`}
+                  >
+                    {t === 'single' ? '🍽️ Single' : '🍱 Combo / Meal'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Combo sub-item picker (only when type = combo) */}
+            {itemType === 'combo' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Combo Items <span className="text-red-500">*</span>
+                    <span className="text-xs text-gray-400 font-normal ml-1">— select items that make up this combo</span>
+                  </label>
+                  {items.filter((i) => i._id !== item?._id).length === 0 ? (
+                    <p className="text-sm text-gray-400 italic">No other items available.</p>
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg max-h-44 overflow-y-auto divide-y divide-gray-100">
+                      {items
+                        .filter((i) => i._id !== item?._id)
+                        .map((i) => {
+                          const checked = selectedComboItemIds.includes(i._id);
+                          return (
+                            <label
+                              key={i._id}
+                              className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors ${
+                                checked ? "bg-blue-50" : ""
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleComboItem(i._id)}
+                                className="accent-blue-600 w-4 h-4 flex-shrink-0"
+                              />
+                              <span className="text-sm text-gray-800 flex-1 line-clamp-1">{i.name}</span>
+                              <span className="text-xs text-gray-400 flex-shrink-0">₹{i.defaultAmount}</span>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Min Match Count
+                    <span className="text-xs text-gray-400 font-normal ml-1">— min items from combo needed in cart to trigger suggestion</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={selectedComboItemIds.length || 1}
+                    value={minMatchCount}
+                    onChange={(e) => setMinMatchCount(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    placeholder="e.g. 2"
+                  />
+                  {selectedComboItemIds.length > 0 && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {selectedComboItemIds.length} item{selectedComboItemIds.length !== 1 ? "s" : ""} selected — suggestion triggers when ≥ {minMatchCount} {Number(minMatchCount) === 1 ? "is" : "are"} in cart.
+                    </p>
+                  )}
+                </div>
+              </>
             )}
           </form>
         </div>

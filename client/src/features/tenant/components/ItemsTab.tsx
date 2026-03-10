@@ -163,6 +163,11 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
                     <h4 className="font-semibold text-gray-800 text-sm leading-tight line-clamp-1">
                       {item.name}
                     </h4>
+                    {item.type === 'combo' && (
+                      <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                        🍱 Combo
+                      </span>
+                    )}
                     <p className="text-blue-600 font-bold text-sm mt-0.5">
                       ₹{item.defaultAmount.toLocaleString("en-IN")}
                     </p>
@@ -244,6 +249,7 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
       {modalTarget !== undefined && (
         <AddEditItemModal
           item={modalTarget}
+          items={items}
           categories={categories}
           filters={filters}
           onClose={() => setModalTarget(undefined)}

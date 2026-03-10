@@ -5,6 +5,7 @@ import {
 } from "@aws-sdk/client-sqs";
 import { Orders } from "../outlet/orders/models/orderModel.js";
 import { Inventory } from "../items/models/inventoryModel.js";
+import { Items } from "../items/models/itemModel.js";
 import { getNextOrderNumber } from "../outlet/core/controllers/getNextOrderNumber.js";
 import { callMockPayment } from "../outlet/utils/mockPayment.js";
 import { emitNewOrder, emitInventoryUpdate, emitOrderConfirmed, emitOrderFailed, emitLowStockAlert } from "./socket.js";
@@ -22,6 +23,55 @@ const sqsClient = new SQSClient({
   },
 });
 
+
+// ── Combo expansion ───────────────────────────────────────────────────────────
+/**
+ * Expand any combo items in the order list to their component items.
+ * A combo has no independent inventory — when one is ordered, we decrement
+ * the stock of every component item instead (each by the same quantity).
+ * Single (non-combo) items pass through unchanged.
+ *
+ * Returns the expanded list suitable for inventory operations.
+ */
+async function expandOrderItemsWithCombos(orderItems) {
+  // Identify which order items might be combos
+  const potentialComboIds = orderItems.map((it) => it.id);
+
+  // Fetch only docs that exist and are combos
+  const comboDocs = await Items.find(
+    { _id: { $in: potentialComboIds }, type: 'combo' }
+  ).select('_id comboItems').lean();
+
+  if (comboDocs.length === 0) return orderItems; // no combos — fast path
+
+  const comboMap = new Map(comboDocs.map((d) => [d._id.toString(), d.comboItems]));
+
+  // Collect all component IDs so we can look up their names for error messages
+  const allComponentIds = comboDocs.flatMap((d) => d.comboItems.map((id) => id.toString()));
+  const componentDocs = await Items.find({ _id: { $in: allComponentIds } })
+    .select('_id name').lean();
+  const componentNameMap = new Map(componentDocs.map((d) => [d._id.toString(), d.name]));
+
+  const expanded = [];
+  for (const it of orderItems) {
+    const componentIds = comboMap.get(it.id);
+    if (componentIds && componentIds.length > 0) {
+      // Replace the combo entry with one entry per component item
+      for (const componentId of componentIds) {
+        const idStr = componentId.toString();
+        expanded.push({
+          id: idStr,
+          name: componentNameMap.get(idStr) ?? idStr,
+          price: 0,           // price not used for inventory ops
+          quantity: it.quantity,
+        });
+      }
+    } else {
+      expanded.push(it);
+    }
+  }
+  return expanded;
+}
 
 // ── Inventory helpers (no MongoDB sessions — FIFO queue ensures serialisation) ─
 
@@ -90,8 +140,14 @@ async function processOrderMessage(body) {
     `[SQS consumer] Processing correlationId: ${correlationId} | outletId: ${outletId}`
   );
 
-  // ── Step 1: atomic inventory decrement ────────────────────────────────────
-  const insufficientItems = await tryDecrementInventory(items, outletId);
+  // Expand any combo items to their component items before touching inventory.
+  // The original `items` list is kept for the order document (customer sees the
+  // combo name); `expandedItems` is used for all inventory operations so that
+  // the stock of each component is decremented / restored correctly.
+  const expandedItems = await expandOrderItemsWithCombos(items);
+
+  // ── Step 1: atomic inventory decrement ─────────────────────────────────────────
+  const insufficientItems = await tryDecrementInventory(expandedItems, outletId);
 
   if (insufficientItems.length > 0) {
     const names = insufficientItems.map((it) => it.name ?? it.id).join(", ");
@@ -177,7 +233,7 @@ async function processOrderMessage(body) {
     });
 
     // Fetch fresh inventory quantities and broadcast to kiosks
-    const itemIds = items.map((it) => it.id);
+    const itemIds = expandedItems.map((it) => it.id);
     const updatedInventory = await Inventory.find({ itemId: { $in: itemIds }, outletId });
     updatedInventory.forEach((rec) => {
       emitInventoryUpdate(outletId.toString(), {
@@ -191,7 +247,7 @@ async function processOrderMessage(body) {
       if (rec.lowStockThreshold != null && rec.quantity <= rec.lowStockThreshold) {
         emitLowStockAlert(outletId.toString(), {
           itemId: rec.itemId.toString(),
-          itemName: items.find((it) => it.id === rec.itemId.toString())?.name ?? rec.itemId.toString(),
+          itemName: expandedItems.find((it) => it.id === rec.itemId.toString())?.name ?? rec.itemId.toString(),
           quantity: rec.quantity,
           lowStockThreshold: rec.lowStockThreshold,
         });
@@ -202,8 +258,8 @@ async function processOrderMessage(body) {
       `[SQS consumer] Order ${order._id} completed successfully — correlationId: ${correlationId}`
     );
   } else {
-    // Payment failed — restore inventory and mark order Failed
-    await restoreInventory(items, outletId);
+    // Payment failed — restore the component items' inventory and mark order Failed
+    await restoreInventory(expandedItems, outletId);
     order.paymentStatus = "failed";
     order.orderStatus = "Failed";
     await order.save();

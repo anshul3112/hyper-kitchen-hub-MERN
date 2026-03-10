@@ -27,6 +27,12 @@ export type MenuItem = {
   imageUrl?: string;
   category: MenuCategory | null;
   filters: MenuFilter[];
+  /** 'single' = standard item; 'combo' = a meal that bundles other items */
+  type?: 'single' | 'combo';
+  /** IDs of items that form this combo (only used when type = 'combo') */
+  comboItems?: string[];
+  /** Minimum number of comboItems that must be in the cart to trigger an upgrade suggestion */
+  minMatchCount?: number;
 };
 
 export type KioskMenu = {
@@ -185,8 +191,22 @@ export function mergeMenuWithInventory(
   return items.map((item) => {
     const rec = invMap.get(item._id);
     const displayPrice = rec && rec.price != null ? rec.price : item.defaultAmount;
-    const stockQuantity = rec ? rec.quantity : 0;
     const orderType: 'dineIn' | 'takeAway' | 'both' = rec?.orderType ?? 'both';
+
+    // Combos have no independent inventory — their stock is the min of their
+    // component items' quantities so that ordering the combo always has enough
+    // of each component available.
+    let stockQuantity: number;
+    if (item.type === 'combo' && item.comboItems && item.comboItems.length > 0) {
+      stockQuantity = item.comboItems.reduce((min, id) => {
+        const compRec = invMap.get(id);
+        return Math.min(min, compRec ? compRec.quantity : 0);
+      }, Infinity);
+      if (!isFinite(stockQuantity)) stockQuantity = 0;
+    } else {
+      stockQuantity = rec ? rec.quantity : 0;
+    }
+
     return {
       ...item,
       displayPrice,
