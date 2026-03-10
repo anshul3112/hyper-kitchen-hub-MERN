@@ -122,19 +122,10 @@ export type OrderHistoryItem = {
 	paymentStatus: string;
 	date: string;
 	itemsCart: { itemId: string; name: string; qty: number; price: number }[];
-	tenantId: string;
-	tenantName: string;
-	outletId: string;
-	outletName: string;
-};
-
-export type RevenueTrendPoint = {
-	date: string;
-	revenue: number;
-	orders: number;
-};
-
-export type AnalyticsOverview = {
+  tenant: { tenantId: string; tenantName: string };
+  outlet: { outletId: string; outletName: string };
+  /** Flat convenience fields added by the analytics controller */
+  tenantName: string;
 	orders: {
 		totalOrders: number;
 		totalRevenue: number;

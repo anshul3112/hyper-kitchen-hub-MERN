@@ -29,15 +29,13 @@ const ordersSchema = new Schema(
       type: Date,
       default: Date.now,
     },
-    outletId: {
-      type: Schema.Types.ObjectId,
-      ref: "Outlet",
-      required: true,
+    tenant: {
+      tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
+      tenantName: { type: String, required: true },
     },
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: "Tenant",
-      required: true,
+    outlet: {
+      outletId: { type: Schema.Types.ObjectId, ref: "Outlet", required: true },
+      outletName: { type: String, required: true },
     },
     paymentStatus: {
       type: String,
@@ -67,11 +65,11 @@ const ordersSchema = new Schema(
 );
 
 // outlet lookup (fetch orders for an outlet)
-ordersSchema.index({ outletId: 1 });
+ordersSchema.index({ "outlet.outletId": 1 });
 // tenant lookup (fetch orders for a tenant)
-ordersSchema.index({ tenantId: 1 });
+ordersSchema.index({ "tenant.tenantId": 1 });
 // orders by outlet sorted by date (order history)
-ordersSchema.index({ outletId: 1, date: -1 });
+ordersSchema.index({ "outlet.outletId": 1, date: -1 });
 // status filter (kitchen/billing views)
 ordersSchema.index({ orderStatus: 1 });
 

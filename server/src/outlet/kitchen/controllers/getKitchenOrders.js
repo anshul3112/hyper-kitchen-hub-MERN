@@ -19,7 +19,7 @@ export const getKitchenOrders = asyncHandler(async (req, res) => {
   }
 
   const orders = await Orders.find({
-    outletId,
+    "outlet.outletId": outletId,
     orderStatus: "Completed",
     fulfillmentStatus: { $ne: "served" },
   }).sort({ createdAt: 1 }); // oldest first

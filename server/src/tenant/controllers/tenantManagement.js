@@ -61,7 +61,7 @@ const getTenantDetails = asyncHandler(async (req, res) => {
       .lean(),
 
     Orders.aggregate([
-      { $match: { tenantId: tenantObjId } },
+      { $match: { "tenant.tenantId": tenantObjId } },
       {
         $group: {
           _id: null,

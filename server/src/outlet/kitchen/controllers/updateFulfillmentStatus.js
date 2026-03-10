@@ -30,7 +30,7 @@ export const updateFulfillmentStatus = asyncHandler(async (req, res) => {
     throw new ApiError(403, "No outlet associated with this user");
   }
 
-  const order = await Orders.findOne({ _id: orderId, outletId });
+  const order = await Orders.findOne({ _id: orderId, "outlet.outletId": outletId });
   if (!order) {
     throw new ApiError(404, "Order not found");
   }

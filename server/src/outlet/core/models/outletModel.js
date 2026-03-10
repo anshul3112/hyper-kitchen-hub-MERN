@@ -40,10 +40,6 @@ const outletSchema = new Schema({
       type: Schema.Types.ObjectId,
       ref: "Tenant",
       required: true
-    },
-    tenantName: {
-      type: String,
-      required: true
     }
   },
   orderNumber: {

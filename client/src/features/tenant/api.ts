@@ -370,7 +370,9 @@ export type OrderHistoryItem = {
 	fulfillmentStatus: string;
 	paymentStatus: string;
 	date: string;
-	outletId: string;
+	tenant: { tenantId: string; tenantName: string };
+	outlet: { outletId: string; outletName: string };
+	/** Flat convenience field added by the analytics controller */
 	outletName: string;
 };
 

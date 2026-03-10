@@ -3,7 +3,6 @@ import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { ApiError } from "../../../utils/ApiError.js";
 import { Orders } from "../../orders/models/orderModel.js";
 import { Tenant } from "../../../tenant/models/tenantModel.js";
-import { Outlet } from "../../core/models/outletModel.js";
 import { User } from "../../../users/models/userModel.js";
 import mongoose from "mongoose";
 
@@ -91,29 +90,12 @@ const getAnalyticsOverview = asyncHandler(async (req, res) => {
         { $project: { date: "$_id", revenue: 1, orders: 1, _id: 0 } },
       ]),
 
-      // Top 8 tenants by revenue
+      // Top 8 tenants by revenue — names read from denormalized order fields
       Orders.aggregate([
-        { $group: { _id: "$tenantId", revenue: { $sum: "$totalAmount" }, orders: { $sum: 1 } } },
+        { $group: { _id: "$tenant.tenantId", tenantName: { $first: "$tenant.tenantName" }, revenue: { $sum: "$totalAmount" }, orders: { $sum: 1 } } },
         { $sort: { revenue: -1 } },
         { $limit: 8 },
-        {
-          $lookup: {
-            from: "tenants",
-            localField: "_id",
-            foreignField: "_id",
-            as: "tenant",
-          },
-        },
-        { $unwind: { path: "$tenant", preserveNullAndEmptyArrays: true } },
-        {
-          $project: {
-            tenantId: "$_id",
-            tenantName: { $ifNull: ["$tenant.name", "Unknown"] },
-            revenue: 1,
-            orders: 1,
-            _id: 0,
-          },
-        },
+        { $project: { tenantId: "$_id", tenantName: 1, revenue: 1, orders: 1, _id: 0 } },
       ]),
 
       // 5 most recent orders
@@ -161,7 +143,7 @@ const getOrderHistory = asyncHandler(async (req, res) => {
 
   const baseMatch = {};
   if (tenantId && mongoose.Types.ObjectId.isValid(tenantId)) {
-    baseMatch.tenantId = new mongoose.Types.ObjectId(tenantId);
+    baseMatch["tenant.tenantId"] = new mongoose.Types.ObjectId(tenantId);
   }
   if (status) baseMatch.orderStatus = status;
   if (startDate || endDate) {
@@ -191,18 +173,10 @@ const getOrderHistory = asyncHandler(async (req, res) => {
     Orders.countDocuments(baseMatch),
   ]);
 
-  // Application-level join for tenant and outlet names
-  const tenantIds = [...new Set(rawDocs.map((o) => o.tenantId.toString()))];
-  const outletIds = [...new Set(rawDocs.map((o) => o.outletId.toString()))];
-  const [tenants, outlets] = await Promise.all([
-    Tenant.find({ _id: { $in: tenantIds } }).select("name").lean(),
-    Outlet.find({ _id: { $in: outletIds } }).select("name").lean(),
-  ]);
-  const tenantMap = new Map(tenants.map((t) => [t._id.toString(), t]));
-  const outletMap = new Map(outlets.map((o) => [o._id.toString(), o]));
+  // Names are denormalized in the order document — no extra DB queries needed
   rawDocs.forEach((order) => {
-    order.tenantName = tenantMap.get(order.tenantId.toString())?.name ?? "Unknown";
-    order.outletName = outletMap.get(order.outletId.toString())?.name ?? "Unknown";
+    order.tenantName = order.tenant?.tenantName ?? "Unknown";
+    order.outletName = order.outlet?.outletName ?? "Unknown";
   });
 
   let result = rawDocs;
@@ -247,7 +221,7 @@ const getRevenueTrends = asyncHandler(async (req, res) => {
 
   const matchStage = { date: { $gte: startDate } };
   if (tenantId && mongoose.Types.ObjectId.isValid(tenantId)) {
-    matchStage.tenantId = new mongoose.Types.ObjectId(tenantId);
+    matchStage["tenant.tenantId"] = new mongoose.Types.ObjectId(tenantId);
   }
 
   const trends = await Orders.aggregate([
@@ -299,9 +273,9 @@ const getTenantOrderHistory = asyncHandler(async (req, res) => {
   const isNext = !!cursor;
   const isPrev = !!prevCursor;
 
-  const baseMatch = { tenantId: tenantObjId };
+  const baseMatch = { "tenant.tenantId": tenantObjId };
   if (outletId && mongoose.Types.ObjectId.isValid(outletId))
-    baseMatch.outletId = new mongoose.Types.ObjectId(outletId);
+    baseMatch["outlet.outletId"] = new mongoose.Types.ObjectId(outletId);
   if (status) baseMatch.orderStatus = status;
   if (startDate || endDate) {
     baseMatch.date = {};
@@ -330,12 +304,9 @@ const getTenantOrderHistory = asyncHandler(async (req, res) => {
     Orders.countDocuments(baseMatch),
   ]);
 
-  // Application-level join for outlet names
-  const outletIds = [...new Set(rawDocs.map((o) => o.outletId.toString()))];
-  const outlets = await Outlet.find({ _id: { $in: outletIds } }).select("name").lean();
-  const outletMap = new Map(outlets.map((o) => [o._id.toString(), o]));
+  // outletName is denormalized in the order document
   rawDocs.forEach((order) => {
-    order.outletName = outletMap.get(order.outletId.toString())?.name ?? "Unknown";
+    order.outletName = order.outlet?.outletName ?? "Unknown";
   });
 
   let result = rawDocs;
@@ -391,7 +362,7 @@ const getOutletOrderHistory = asyncHandler(async (req, res) => {
   const isNext = !!cursor;
   const isPrev = !!prevCursor;
 
-  const baseMatch = { outletId: outletObjId };
+  const baseMatch = { "outlet.outletId": outletObjId };
   if (status) baseMatch.orderStatus = status;
   if (startDate || endDate) {
     baseMatch.date = {};
@@ -415,13 +386,12 @@ const getOutletOrderHistory = asyncHandler(async (req, res) => {
   const sortStage = isPrev ? { _id: 1 } : { _id: -1 };
   const fullMatch = { ...baseMatch, ...cursorFilter };
 
-  const [rawDocs, total, outlet] = await Promise.all([
+  const [rawDocs, total] = await Promise.all([
     Orders.find(fullMatch).sort(sortStage).limit(limit + 1).lean(),
     Orders.countDocuments(baseMatch),
-    Outlet.findById(outletObjId).select("name").lean(),
   ]);
-  const outletName = outlet?.name ?? "Unknown";
-  rawDocs.forEach((order) => { order.outletName = outletName; });
+  // outletName is denormalized in the order document
+  rawDocs.forEach((order) => { order.outletName = order.outlet?.outletName ?? "Unknown"; });
 
   let result = rawDocs;
   const hasMore = result.length > limit;
@@ -473,20 +443,20 @@ const getHourlyHistory = asyncHandler(async (req, res) => {
   if (["outletAdmin", "outletOwner"].includes(role)) {
     const oid = req.user.outlet?.outletId;
     if (!oid) throw new ApiError(400, "Outlet not found on user");
-    matchStage.outletId = new mongoose.Types.ObjectId(oid);
+    matchStage["outlet.outletId"] = new mongoose.Types.ObjectId(oid);
   } else if (["tenantAdmin", "tenantOwner"].includes(role)) {
     const tid = req.user.tenant?.tenantId;
     if (!tid) throw new ApiError(400, "Tenant not found on user");
-    matchStage.tenantId = new mongoose.Types.ObjectId(tid);
+    matchStage["tenant.tenantId"] = new mongoose.Types.ObjectId(tid);
     if (outletId && mongoose.Types.ObjectId.isValid(outletId))
-      matchStage.outletId = new mongoose.Types.ObjectId(outletId);
+      matchStage["outlet.outletId"] = new mongoose.Types.ObjectId(outletId);
   } else {
     // superAdmin: must provide tenantId or outletId
     const { tenantId } = req.query;
     if (tenantId && mongoose.Types.ObjectId.isValid(tenantId))
-      matchStage.tenantId = new mongoose.Types.ObjectId(tenantId);
+      matchStage["tenant.tenantId"] = new mongoose.Types.ObjectId(tenantId);
     if (outletId && mongoose.Types.ObjectId.isValid(outletId))
-      matchStage.outletId = new mongoose.Types.ObjectId(outletId);
+      matchStage["outlet.outletId"] = new mongoose.Types.ObjectId(outletId);
   }
 
   const hourly = await Orders.aggregate([

@@ -39,9 +39,11 @@ export const placeOrder = asyncHandler(async (req, res) => {
   }
 
   // ── Kiosk context ──────────────────────────────────────────────────────────
-  const outletId = req.kiosk?.outlet?.outletId;
-  const tenantId = req.kiosk?.tenant?.tenantId;
-  const kioskId  = req.kiosk?._id;
+  const outletId   = req.kiosk?.outlet?.outletId;
+  const outletName = req.kiosk?.outlet?.outletName;
+  const tenantId   = req.kiosk?.tenant?.tenantId;
+  const tenantName = req.kiosk?.tenant?.tenantName;
+  const kioskId    = req.kiosk?._id;
 
   if (!outletId || !tenantId) {
     throw new ApiError(401, "Invalid kiosk session: missing outlet or tenant context");
@@ -62,9 +64,11 @@ export const placeOrder = asyncHandler(async (req, res) => {
     items,
     totalAmount,
     paymentDetails,
-    outletId: outletId.toString(),
-    tenantId: tenantId.toString(),
-    kioskId:  kioskId?.toString() ?? "unknown",
+    outletId:   outletId.toString(),
+    outletName: outletName ?? "",
+    tenantId:   tenantId.toString(),
+    tenantName: tenantName ?? "",
+    kioskId:    kioskId?.toString() ?? "unknown",
   });
 
   return res.status(202).json(

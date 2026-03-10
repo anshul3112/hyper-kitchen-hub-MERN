@@ -84,7 +84,7 @@ async function restoreInventory(items, outletId) {
  *     → failure: restore inventory, mark Failed
  */
 async function processOrderMessage(body) {
-  const { correlationId, outletId, tenantId, items, totalAmount, paymentDetails } = body;
+  const { correlationId, outletId, outletName, tenantId, tenantName, items, totalAmount, paymentDetails } = body;
 
   console.log(
     `[SQS consumer] Processing correlationId: ${correlationId} | outletId: ${outletId}`
@@ -112,8 +112,8 @@ async function processOrderMessage(body) {
         price: it.price,
       })),
       totalAmount,
-      outletId,
-      tenantId,
+      tenant: { tenantId, tenantName },
+      outlet: { outletId, outletName },
       paymentStatus: "failed",
       paymentDetails: null,
       orderStatus: "Failed",
@@ -147,8 +147,8 @@ async function processOrderMessage(body) {
       price: it.price,
     })),
     totalAmount,
-    outletId,
-    tenantId,
+    tenant: { tenantId, tenantName },
+    outlet: { outletId, outletName },
     paymentStatus: "pending",
     paymentDetails: null,
     orderStatus: "Pending",

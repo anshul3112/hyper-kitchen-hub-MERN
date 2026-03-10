@@ -32,6 +32,18 @@ export default function KioskPage() {
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
 
   useEffect(() => {
+    function preventBack() {
+      history.pushState(null, "", location.href);
+    }
+
+    // to fix this problem , it is not working now
+    preventBack();
+
+    window.addEventListener("popstate", preventBack);
+    return () => window.removeEventListener("popstate", preventBack);
+  }, []);
+
+  useEffect(() => {
     if (!session) {
       navigate("/kiosk/login");
       return;

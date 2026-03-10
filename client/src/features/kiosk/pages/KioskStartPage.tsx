@@ -7,6 +7,17 @@ export default function KioskStartPage() {
   const session = getKioskSession();
 
   useEffect(() => {
+    function preventBack() {
+      history.pushState(null, "", location.href);
+    }
+
+    preventBack();
+
+    window.addEventListener("popstate", preventBack);
+    return () => window.removeEventListener("popstate", preventBack);
+  }, []);
+
+  useEffect(() => {
     if (!session) {
       navigate("/kiosk/login");
       return;

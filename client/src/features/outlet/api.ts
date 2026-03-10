@@ -361,7 +361,7 @@ export type OrderHistoryItem = {
   fulfillmentStatus: string;
   paymentStatus: string;
   date: string;
-  outletId: string;
+  outlet: { outletId: string; outletName: string };
 };
 
 export type HourlyPoint = {
