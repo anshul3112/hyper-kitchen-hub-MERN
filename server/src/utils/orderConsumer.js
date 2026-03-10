@@ -7,7 +7,7 @@ import { Orders } from "../outlet/orders/models/orderModel.js";
 import { Inventory } from "../items/models/inventoryModel.js";
 import { getNextOrderNumber } from "../outlet/core/controllers/getNextOrderNumber.js";
 import { callMockPayment } from "../outlet/utils/mockPayment.js";
-import { emitNewOrder, emitInventoryUpdate, emitOrderConfirmed, emitOrderFailed } from "./socket.js";
+import { emitNewOrder, emitInventoryUpdate, emitOrderConfirmed, emitOrderFailed, emitLowStockAlert } from "./socket.js";
 
 
 const QUEUE_URL = process.env.AWS_SQS_QUEUE_URL;
@@ -186,6 +186,16 @@ async function processOrderMessage(body) {
         quantity: rec.quantity,
         status: rec.status,
       });
+
+      // Fire low-stock alert if the new quantity is at or below the threshold
+      if (rec.lowStockThreshold != null && rec.quantity <= rec.lowStockThreshold) {
+        emitLowStockAlert(outletId.toString(), {
+          itemId: rec.itemId.toString(),
+          itemName: items.find((it) => it.id === rec.itemId.toString())?.name ?? rec.itemId.toString(),
+          quantity: rec.quantity,
+          lowStockThreshold: rec.lowStockThreshold,
+        });
+      }
     });
 
     console.log(

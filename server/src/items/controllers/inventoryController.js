@@ -3,7 +3,7 @@ import { Items } from "../models/itemModel.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { emitInventoryUpdate } from "../../utils/socket.js";
+import { emitInventoryUpdate, emitLowStockAlert } from "../../utils/socket.js";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -40,6 +40,30 @@ const validateItem = async (itemId, tenantId) => {
   const item = await Items.findOne({ _id: itemId, tenantId });
   if (!item) throw new ApiError(404, "Item not found or does not belong to your tenant");
   return item;
+};
+
+/**
+ * After any write that changes `quantity`, check whether the new quantity has
+ * fallen to or below the configured lowStockThreshold.  If so, fire a socket
+ * alert to every socket in the outlet room (i.e. the outlet admin dashboard).
+ * itemName is optional — pass it when you already have it to avoid an extra DB round-trip.
+ */
+const checkAndEmitLowStock = async (record, outletId, itemName) => {
+  if (record.lowStockThreshold == null) return;
+  if (record.quantity > record.lowStockThreshold) return;
+
+  let name = itemName;
+  if (!name) {
+    const item = await Items.findById(record.itemId).select("name").lean();
+    name = item?.name ?? record.itemId.toString();
+  }
+
+  emitLowStockAlert(outletId.toString(), {
+    itemId: record.itemId.toString(),
+    itemName: name,
+    quantity: record.quantity,
+    lowStockThreshold: record.lowStockThreshold,
+  });
 };
 
 /**
@@ -95,6 +119,9 @@ export const upsertInventoryItem = asyncHandler(async (req, res) => {
     status: record.status,
     orderType: record.orderType,
   });
+
+  // Fire low-stock alert if quantity is at or below the configured threshold
+  await checkAndEmitLowStock(record, outletId);
 
   return res.status(200).json(
     new ApiResponse(200, record, "Inventory updated successfully")
@@ -168,6 +195,9 @@ export const updateInventoryQuantity = asyncHandler(async (req, res) => {
     status: record.status,
     orderType: record.orderType,
   });
+
+  // Fire low-stock alert if quantity is at or below the configured threshold
+  await checkAndEmitLowStock(record, outletId);
 
   return res.status(200).json(
     new ApiResponse(200, record, "Quantity updated successfully")
@@ -255,5 +285,47 @@ export const updateInventoryOrderType = asyncHandler(async (req, res) => {
 
   return res.status(200).json(
     new ApiResponse(200, record, "Order type updated successfully")
+  );
+});
+
+/**
+ * PATCH /api/v1/items/inventory/:itemId/threshold
+ * Set or clear the low-stock threshold for an item at this outlet.
+ * Body: { lowStockThreshold: number | null }
+ *   - Pass a non-negative number to enable alerts when quantity <= threshold.
+ *   - Pass null to disable the alert for this item.
+ */
+export const updateInventoryThreshold = asyncHandler(async (req, res) => {
+  requireOutletAdmin(req.user);
+  const outletId = resolveOutlet(req.user);
+  const tenantId = req.user.tenant?.tenantId;
+  const { itemId } = req.params;
+  const { lowStockThreshold } = req.body;
+
+  if (lowStockThreshold !== null && lowStockThreshold !== undefined) {
+    if (typeof lowStockThreshold !== "number" || lowStockThreshold < 0) {
+      throw new ApiError(400, "lowStockThreshold must be a non-negative number or null");
+    }
+  }
+
+  await validateItem(itemId, tenantId);
+
+  const record = await Inventory.findOneAndUpdate(
+    { itemId, outletId },
+    { lowStockThreshold: lowStockThreshold ?? null, editedBy: req.user._id },
+    { new: true, upsert: true, runValidators: true }
+  );
+
+  // Immediately check if current quantity already breaches the new threshold
+  await checkAndEmitLowStock(record, outletId);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      record,
+      lowStockThreshold == null
+        ? "Low-stock threshold cleared"
+        : `Low-stock threshold set to ${lowStockThreshold}`
+    )
   );
 });

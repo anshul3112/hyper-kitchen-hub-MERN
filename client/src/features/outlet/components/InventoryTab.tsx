@@ -7,6 +7,7 @@ import {
   updateInventoryQuantity,
   toggleInventoryStatus,
   updateInventoryOrderType,
+  updateInventoryThreshold,
   type InventoryRecord,
   type MenuItem,
 } from "../api";
@@ -24,6 +25,11 @@ type RowState = {
   error: string;
   orderTypeUpdating: boolean;
   orderTypeError: string;
+  // threshold editing
+  thresholdEditing: boolean;
+  thresholdInput: string;
+  thresholdSaving: boolean;
+  thresholdError: string;
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -38,6 +44,10 @@ function emptyRow(): RowState {
     error: "",
     orderTypeUpdating: false,
     orderTypeError: "",
+    thresholdEditing: false,
+    thresholdInput: "",
+    thresholdSaving: false,
+    thresholdError: "",
   };
 }
 
@@ -150,6 +160,41 @@ export default function InventoryTab() {
     }
   };
 
+  const openThresholdEdit = (itemId: string) => {
+    const inv = inventoryMap[itemId];
+    setRow(itemId, {
+      thresholdEditing: true,
+      thresholdInput: inv?.lowStockThreshold != null ? String(inv.lowStockThreshold) : "",
+      thresholdError: "",
+    });
+  };
+
+  const cancelThresholdEdit = (itemId: string) =>
+    setRow(itemId, { thresholdEditing: false, thresholdInput: "", thresholdError: "" });
+
+  const saveThreshold = async (itemId: string) => {
+    const row = getRow(itemId);
+    const raw = row.thresholdInput.trim();
+    const value = raw === "" ? null : parseInt(raw, 10);
+
+    if (value !== null && (isNaN(value) || value < 0)) {
+      setRow(itemId, { thresholdError: "Must be a non-negative whole number (or blank to disable)" });
+      return;
+    }
+
+    setRow(itemId, { thresholdSaving: true, thresholdError: "" });
+    try {
+      const updated = await updateInventoryThreshold(itemId, value);
+      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
+      setRow(itemId, { thresholdEditing: false, thresholdSaving: false, thresholdInput: "" });
+    } catch (err: unknown) {
+      setRow(itemId, {
+        thresholdSaving: false,
+        thresholdError: err instanceof Error ? err.message : "Failed to save threshold",
+      });
+    }
+  };
+
   // ── render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -188,6 +233,7 @@ export default function InventoryTab() {
               <th className="text-left px-5 py-3 font-medium text-gray-600">Default Price</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Outlet Price</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Quantity</th>
+              <th className="text-left px-5 py-3 font-medium text-gray-600">Low-Stock Alert</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Kiosk Visible</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Order Type</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Actions</th>
@@ -258,11 +304,96 @@ export default function InventoryTab() {
                         autoFocus={row.editMode === "quantity"}
                       />
                     ) : inv ? (
-                      <span className={`font-semibold ${inv.quantity === 0 ? "text-red-500" : "text-gray-800"}`}>
-                        {inv.quantity}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`font-semibold ${inv.quantity === 0 ? "text-red-500" : "text-gray-800"}`}>
+                          {inv.quantity}
+                        </span>
+                        {inv.lowStockThreshold != null && inv.quantity <= inv.lowStockThreshold && (
+                          <span
+                            title={`Low stock! Threshold is ${inv.lowStockThreshold}`}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200"
+                          >
+                            ⚠ Low
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-red-400 text-xs font-medium">0 (not set)</span>
+                    )}
+                  </td>
+
+                  {/* Low-Stock Alert Threshold */}
+                  <td className="px-5 py-3">
+                    {row.thresholdEditing ? (
+                      <div className="flex flex-col gap-1">
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="e.g. 5"
+                          value={row.thresholdInput}
+                          onChange={(e) => setRow(item._id, { thresholdInput: e.target.value })}
+                          className="w-20 px-2 py-1 border border-orange-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          autoFocus
+                        />
+                        {row.thresholdError && (
+                          <p className="text-xs text-red-500">{row.thresholdError}</p>
+                        )}
+                        <div className="flex gap-1 mt-0.5">
+                          <button
+                            onClick={() => saveThreshold(item._id)}
+                            disabled={row.thresholdSaving}
+                            className="px-2 py-0.5 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 disabled:opacity-50"
+                          >
+                            {row.thresholdSaving ? "..." : "Set"}
+                          </button>
+                          <button
+                            onClick={() => cancelThresholdEdit(item._id)}
+                            disabled={row.thresholdSaving}
+                            className="px-2 py-0.5 border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-100 disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        {inv?.lowStockThreshold != null ? (
+                          <span className="text-sm font-medium text-orange-700">
+                            ≤ {inv.lowStockThreshold}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Off</span>
+                        )}
+                        <button
+                          onClick={() => openThresholdEdit(item._id)}
+                          className="text-xs text-orange-500 hover:text-orange-700 underline"
+                          title="Set low-stock alert threshold"
+                        >
+                          {inv?.lowStockThreshold != null ? "Edit" : "Set"}
+                        </button>
+                        {inv?.lowStockThreshold != null && (
+                          <button
+                            onClick={async () => {
+                              setRow(item._id, { thresholdSaving: true, thresholdError: "" });
+                              try {
+                                const updated = await updateInventoryThreshold(item._id, null);
+                                setInventoryMap((prev) => ({ ...prev, [item._id]: updated }));
+                              } catch (err: unknown) {
+                                setRow(item._id, {
+                                  thresholdError: err instanceof Error ? err.message : "Failed to clear",
+                                });
+                              } finally {
+                                setRow(item._id, { thresholdSaving: false });
+                              }
+                            }}
+                            className="text-xs text-gray-400 hover:text-red-500 underline"
+                            title="Clear threshold (disable alert)"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
                     )}
                   </td>
 

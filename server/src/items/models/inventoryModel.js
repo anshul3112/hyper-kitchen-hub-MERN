@@ -35,6 +35,13 @@ const inventorySchema = new Schema({
     type: String,
     enum: ['dineIn', 'takeAway', 'both'],
     default: 'both'
+  },
+  // outlet admin sets this; an alert fires when quantity drops to or below this value
+  // null means the threshold feature is disabled for this item
+  lowStockThreshold: {
+    type: Number,
+    default: null,
+    min: 0
   }
 }, { timestamps: true });
 

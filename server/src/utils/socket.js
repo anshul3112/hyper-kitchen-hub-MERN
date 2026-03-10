@@ -129,3 +129,12 @@ export function emitOrderConfirmed(outletId, payload) {
 export function emitOrderFailed(outletId, payload) {
   getIO().to(`outlet:${outletId}`).emit("order:failed", payload);
 }
+
+/**
+ * Emitted whenever an inventory item's quantity drops to or below the
+ * outlet admin's configured lowStockThreshold.
+ * payload: { itemId: string, itemName: string, quantity: number, lowStockThreshold: number }
+ */
+export function emitLowStockAlert(outletId, payload) {
+  getIO().to(`outlet:${outletId}`).emit("inventory:low_stock", payload);
+}

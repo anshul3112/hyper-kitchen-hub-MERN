@@ -133,6 +133,8 @@ export type InventoryRecord = {
   status: boolean;
   /** Controls which order-type this item is available for; defaults to 'both' */
   orderType: 'dineIn' | 'takeAway' | 'both';
+  /** Alert fires when quantity drops to or below this value; null means disabled */
+  lowStockThreshold: number | null;
   editedBy: string;
   createdAt?: string;
   updatedAt?: string;
@@ -222,6 +224,22 @@ export async function updateInventoryOrderType(
     credentials: "include",
     headers: getAuthHeaders(),
     body: JSON.stringify({ orderType }),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
+  return parsed.data;
+}
+
+/** PATCH: set (or clear) the low-stock alert threshold for an item.
+ *  Pass null to disable alerts for this item. */
+export async function updateInventoryThreshold(
+  itemId: string,
+  lowStockThreshold: number | null
+): Promise<InventoryRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}/threshold`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ lowStockThreshold }),
   });
   const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
   return parsed.data;

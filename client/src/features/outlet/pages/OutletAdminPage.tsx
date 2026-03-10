@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { io, type Socket } from "socket.io-client";
 
 import DashboardHeader from "../../../common/components/DashboardHeader";
 import NavTabs from "../../../common/components/NavTabs";
@@ -28,8 +29,24 @@ const TABS = [
   { key: "orders", label: "Orders" },
 ];
 
+const SOCKET_URL =
+  (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL ||
+  "http://localhost:8000";
+
+type LowStockAlert = {
+  id: string;           // random id for keying + dismissal
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  lowStockThreshold: number;
+};
+
 export default function OutletAdminPage() {
   const [activeSection, setActiveSection] = useState("overview");
+
+  // Low-stock alert toasts
+  const [alerts, setAlerts] = useState<LowStockAlert[]>([]);
+  const socketRef = useRef<Socket | null>(null);
 
   // Kiosks state
   const [kiosks, setKiosks] = useState<Kiosk[]>([]);
@@ -46,6 +63,39 @@ export default function OutletAdminPage() {
   // Load kiosks on mount
   useEffect(() => {
     loadKiosks();
+  }, []);
+
+  // ── Socket: low-stock alerts ────────────────────────────────────────────
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken") ?? "";
+    const outletId = localStorage.getItem("outletId") ?? "";
+
+    const socket = io(SOCKET_URL, {
+      auth: { token },
+      transports: ["websocket"],
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      if (outletId) socket.emit("join:outlet", { outletId });
+    });
+
+    socket.on("inventory:low_stock", (payload: Omit<LowStockAlert, "id">) => {
+      const alert: LowStockAlert = { ...payload, id: `${Date.now()}-${Math.random()}` };
+      setAlerts((prev) => {
+        // Replace existing alert for the same item so we don't stack duplicates
+        const filtered = prev.filter((a) => a.itemId !== payload.itemId);
+        return [...filtered, alert];
+      });
+      // Auto-dismiss after 10 s
+      setTimeout(() => {
+        setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
+      }, 10000);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   // Load menu when menu tab is first opened
@@ -246,6 +296,36 @@ export default function OutletAdminPage() {
           onClose={() => setIsKioskModalOpen(false)}
           onSuccess={handleKioskCreated}
         />
+      )}
+
+      {/* ── Low-stock alert toasts ─────────────────────────────────────── */}
+      {alerts.length > 0 && (
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full">
+          {alerts.map((alert) => (
+            <div
+              key={alert.id}
+              className="flex items-start gap-3 bg-orange-50 border border-orange-300 rounded-lg px-4 py-3 shadow-lg"
+            >
+              <span className="text-xl shrink-0">⚠️</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-orange-800">Low Stock Alert</p>
+                <p className="text-sm text-orange-700 truncate">
+                  <span className="font-medium">{alert.itemName}</span>
+                  {" "}— only{" "}
+                  <span className="font-bold">{alert.quantity}</span> left
+                  {" "}(threshold: {alert.lowStockThreshold})
+                </p>
+              </div>
+              <button
+                onClick={() => setAlerts((prev) => prev.filter((a) => a.id !== alert.id))}
+                className="text-orange-400 hover:text-orange-700 text-lg leading-none shrink-0"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
