@@ -49,6 +49,8 @@ export default function KioskScreen({
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   // ETA (minutes) received from the server in order:confirmed
   const [confirmedEta, setConfirmedEta] = useState<number | null>(null);
+  // Items whose price changed between checkout-open and SQS processing (price_changed failure)
+  const [priceChangedItems, setPriceChangedItems] = useState<Array<{ name: string; oldPrice: number; newPrice: number }>>([]);
 
   // Notices generated at checkout-open time from pending changed_items
   const [checkoutNotices, setCheckoutNotices] = useState<string[]>([]);
@@ -64,6 +66,7 @@ export default function KioskScreen({
     setOrderErrorTitle("Order Failed");
     setConfirmedEta(null);
     setCheckoutNotices([]);
+    setPriceChangedItems([]);
     setCheckoutInitializing(true);
     setCheckoutOpen(true);
 
@@ -216,6 +219,7 @@ export default function KioskScreen({
       orderId: string;
       reason?: string;
       outOfStockItems?: string[];
+      priceChangedItems?: Array<{ name: string; oldPrice: number; newPrice: number }>;
     }) => {
       if (data.orderId !== pendingOrderId) return;
       setPendingOrderId(null);
@@ -227,9 +231,15 @@ export default function KioskScreen({
             ? `${names} is out of stock.`
             : `The following items are out of stock: ${names}.`
         );
+        setPriceChangedItems([]);
+      } else if (data.reason === "price_changed" && data.priceChangedItems?.length) {
+        setOrderErrorTitle("Payment Cancelled");
+        setOrderError("Prices changed since your order was placed. Please review and retry.");
+        setPriceChangedItems(data.priceChangedItems);
       } else {
         setOrderErrorTitle("Payment Failed");
         setOrderError("Payment failed. Please try again.");
+        setPriceChangedItems([]);
       }
       setPayStep("error");
     };
@@ -835,26 +845,57 @@ export default function KioskScreen({
             {/* ── STEP: Error ─────────────────────────────────────────────── */}
             {payStep === "error" && (
               <div className="flex flex-col items-center justify-center py-12 px-6 gap-5 text-center">
-                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                  <span className="text-3xl">❌</span>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${priceChangedItems.length > 0 ? "bg-amber-100" : "bg-red-100"}`}>
+                  <span className="text-3xl">{priceChangedItems.length > 0 ? "🔔" : "❌"}</span>
                 </div>
-                <div>
+                <div className="w-full">
                   <p className="text-xl font-extrabold text-gray-900">{orderErrorTitle}</p>
                   <p className="text-sm text-red-500 mt-2">{orderError}</p>
+                  {priceChangedItems.length > 0 && (
+                    <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 space-y-2 text-left">
+                      {priceChangedItems.map((item, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="font-semibold text-gray-800">{item.name}</span>
+                          <span className="text-amber-700 whitespace-nowrap">
+                            ₹{item.oldPrice} → <span className="font-bold text-gray-900">₹{item.newPrice}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="w-full flex gap-3">
-                  <button
-                    onClick={() => setPayStep("payment")}
-                    className="flex-1 border border-gray-300 text-gray-600 font-semibold py-3 rounded-2xl hover:bg-gray-50 transition-all text-sm"
-                  >
-                    Try Again
-                  </button>
-                  <button
-                    onClick={closeCheckout}
-                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-2xl transition-all text-sm"
-                  >
-                    Cancel
-                  </button>
+                  {priceChangedItems.length > 0 ? (
+                    <>
+                      <button
+                        onClick={openCheckout}
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white font-semibold py-3 rounded-2xl transition-all text-sm"
+                      >
+                        Update &amp; Retry
+                      </button>
+                      <button
+                        onClick={closeCheckout}
+                        className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-2xl transition-all text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setPayStep("payment")}
+                        className="flex-1 border border-gray-300 text-gray-600 font-semibold py-3 rounded-2xl hover:bg-gray-50 transition-all text-sm"
+                      >
+                        Try Again
+                      </button>
+                      <button
+                        onClick={closeCheckout}
+                        className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-2xl transition-all text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}

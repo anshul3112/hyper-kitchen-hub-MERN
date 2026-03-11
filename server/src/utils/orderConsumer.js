@@ -9,6 +9,7 @@ import { Inventory } from "../items/models/inventoryModel.js";
 import { Items } from "../items/models/itemModel.js";
 import { getNextOrderNumber } from "../outlet/core/controllers/getNextOrderNumber.js";
 import { callMockPayment } from "../outlet/utils/mockPayment.js";
+import { resolveSchedule } from "../outlet/utils/resolveSchedule.js";
 import { emitNewOrder, emitInventoryUpdate, emitOrderConfirmed, emitOrderFailed, emitLowStockAlert } from "./socket.js";
 
 
@@ -128,6 +129,56 @@ async function computeQueueDelay(outletId) {
   return result[0]?.total ?? 0;
 }
 
+// ── Price validation ────────────────────────────────────────────────────────
+/**
+ * Validate the prices in the order against the current database prices.
+ * Returns an array of items whose price has changed since the frontend last fetched inventory.
+ * Uses the same resolution order as getKioskInventory:
+ *   resolvedActivePrice (schedule) → inventory.price → item.defaultAmount
+ */
+async function validateItemPrices(items, outletId) {
+  const itemIds = items.map((it) => it.id);
+
+  const [invRecords, itemDocs] = await Promise.all([
+    Inventory.find({ itemId: { $in: itemIds }, outletId }).lean(),
+    Items.find({ _id: { $in: itemIds } }).select("_id defaultAmount").lean(),
+  ]);
+
+  const invMap     = new Map(invRecords.map((r) => [r.itemId.toString(), r]));
+  const itemDocMap = new Map(itemDocs.map((d) => [d._id.toString(), d]));
+
+  const now = new Date();
+  const changed = [];
+
+  for (const it of items) {
+    const inv     = invMap.get(it.id);
+    const itemDoc = itemDocMap.get(it.id);
+
+    let effectivePrice;
+    if (!inv) {
+      // No inventory record — fall back to item's catalogue price
+      effectivePrice = itemDoc?.defaultAmount ?? it.price;
+    } else {
+      const { activePrice } = resolveSchedule(inv, now);
+      effectivePrice =
+        (activePrice != null ? activePrice : null) ??
+        (inv.price    != null ? inv.price   : null) ??
+        (itemDoc?.defaultAmount ?? it.price);
+    }
+
+    // Treat floats as equal when the difference is sub-cent
+    if (Math.abs(effectivePrice - it.price) > 0.001) {
+      changed.push({
+        name:     it.name,
+        oldPrice: it.price,
+        newPrice: effectivePrice,
+      });
+    }
+  }
+
+  return changed;
+}
+
 // ── Inventory helpers (no MongoDB sessions — FIFO queue ensures serialisation) ─
 
 /**
@@ -200,6 +251,27 @@ async function processOrderMessage(body) {
   // combo name); `expandedItems` is used for all inventory operations so that
   // the stock of each component is decremented / restored correctly.
   const expandedItems = await expandOrderItemsWithCombos(items);
+
+  // ── Step 0.5: price validation ─────────────────────────────────────────────
+  // Validate every item's price against the current DB price before touching
+  // inventory or payment.  If any price has changed since the frontend last
+  // fetched inventory, reject the order immediately so the customer is not
+  // charged the wrong amount.
+  const priceChangedItems = await validateItemPrices(items, outletId);
+  if (priceChangedItems.length > 0) {
+    const summary = priceChangedItems
+      .map((it) => `${it.name} (₹${it.oldPrice} → ₹${it.newPrice})`)
+      .join(", ");
+    console.warn(
+      `[SQS consumer] Price mismatch detected for [${summary}] — correlationId: ${correlationId}`
+    );
+    emitOrderFailed(outletId.toString(), {
+      orderId: correlationId,
+      reason: "price_changed",
+      priceChangedItems,
+    });
+    return; // message will be deleted by the caller; no inventory or DB writes made
+  }
 
   // ── Step 1: atomic inventory decrement ─────────────────────────────────────────
   const insufficientItems = await tryDecrementInventory(expandedItems, outletId);
