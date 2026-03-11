@@ -788,7 +788,8 @@ export default function KioskScreen({
                   </p>
                   {confirmedEta != null && confirmedEta > 0 && (() => {
                     const lo = confirmedEta;
-                    const hi = Math.ceil(confirmedEta * 1.5);
+                    const rawHi = Math.ceil(confirmedEta * 1.5);
+                    const hi = rawHi > 30 && rawHi % 5 !== 0 ? Math.ceil(rawHi / 5) * 5 : rawHi;
                     return (
                       <div className="mt-3 inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
                         <span className="text-lg">⏱️</span>

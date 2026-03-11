@@ -114,7 +114,7 @@ async function computeQueueDelay(outletId) {
       $match: {
         "outlet.outletId": new mongoose.Types.ObjectId(outletId),
         orderStatus: "Completed",
-        fulfillmentStatus: { $ne: "served" , $ne: "prepared"},
+        fulfillmentStatus: { $nin: ["served", "prepared"] },
       },
     },
     {
@@ -254,7 +254,11 @@ async function processOrderMessage(body) {
   if (currentOrderPrepTime > 0) {
     queueDelay = await computeQueueDelay(outletId);
   }
-  const estimatedPrepTime = currentOrderPrepTime === 0 ? 0 : queueDelay + currentOrderPrepTime;
+  let estimatedPrepTime = currentOrderPrepTime === 0 ? 0 : queueDelay + currentOrderPrepTime;
+  // Round up to the next multiple of 5 when > 20 min and not already on a 5-min boundary
+  if (estimatedPrepTime > 20 && estimatedPrepTime % 5 !== 0) {
+    estimatedPrepTime = Math.ceil(estimatedPrepTime / 5) * 5;
+  }
 
   //  Step 3: create Pending order ─────
   const now = new Date();

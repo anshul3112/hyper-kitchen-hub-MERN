@@ -299,9 +299,20 @@ export default function InventoryTab() {
                 ? (isFinite(comboQty as number) ? (comboQty as number) : 0)
                 : null;
               const isEditing = row.editMode !== null;
+              const isZero = isCombo
+                ? derivedQty === 0
+                : inv != null && inv.quantity === 0;
+              const isLow = !isCombo && inv != null && inv.lowStockThreshold != null && inv.quantity > 0 && inv.quantity <= inv.lowStockThreshold;
+              const rowBg = isEditing
+                ? "bg-blue-50"
+                : isZero
+                ? "bg-red-50 hover:bg-red-100"
+                : isLow
+                ? "bg-yellow-50 hover:bg-yellow-100"
+                : "hover:bg-gray-50";
 
               return (
-                <tr key={item._id} className={isEditing ? "bg-blue-50" : "hover:bg-gray-50"}>
+                <tr key={item._id} className={rowBg}>
                   {/* Item name */}
                   <td className="px-5 py-3">
                     <p className="font-medium text-gray-800">{item.name}</p>
@@ -376,13 +387,8 @@ export default function InventoryTab() {
                         <span className={`font-semibold ${inv.quantity === 0 ? "text-red-500" : "text-gray-800"}`}>
                           {inv.quantity}
                         </span>
-                        {inv.lowStockThreshold != null && inv.quantity <= inv.lowStockThreshold && (
-                          <span
-                            title={`Low stock! Threshold is ${inv.lowStockThreshold}`}
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 border border-orange-200"
-                          >
-                            ⚠ Low
-                          </span>
+                        {inv.lowStockThreshold != null && inv.quantity > 0 && inv.quantity <= inv.lowStockThreshold && (
+                          <span className="text-xs font-medium text-yellow-600">Low</span>
                         )}
                       </div>
                     ) : (
