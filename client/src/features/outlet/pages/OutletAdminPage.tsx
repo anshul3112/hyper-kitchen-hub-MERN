@@ -223,7 +223,7 @@ export default function OutletAdminPage() {
               <h2 className="text-xl font-semibold text-gray-800">Inventory</h2>
               <p className="text-xs text-gray-400">Set outlet-level prices and quantities for each item.</p>
             </div>
-            <InventoryTab />
+            <InventoryTab socketRef={socketRef} />
           </div>
         )}
 

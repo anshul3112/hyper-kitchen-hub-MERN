@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { Socket } from "socket.io-client";
 import {
   fetchOutletInventory,
   fetchMenuDetails,
@@ -63,7 +64,11 @@ function emptyRow(): RowState {
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export default function InventoryTab() {
+type Props = {
+  socketRef: { current: Socket | null };
+};
+
+export default function InventoryTab({ socketRef }: Props) {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [inventoryMap, setInventoryMap] = useState<Record<string, InventoryRecord>>({});
   const [rows, setRows] = useState<Record<string, RowState>>({});
@@ -73,6 +78,39 @@ export default function InventoryTab() {
   useEffect(() => {
     load();
   }, []);
+
+  // Keep inventoryMap in sync with real-time socket updates so row colors
+  // (out-of-stock red, low-stock yellow) update without a manual refresh.
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+
+    const handler = (payload: {
+      itemId: string;
+      price: number | null;
+      quantity: number;
+      status: boolean;
+      orderType: "dineIn" | "takeAway" | "both";
+    }) => {
+      setInventoryMap((prev) => {
+        const existing = prev[payload.itemId];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [payload.itemId]: {
+            ...existing,
+            quantity: payload.quantity,
+            ...(payload.price != null && { price: payload.price }),
+            status: payload.status,
+            orderType: payload.orderType,
+          },
+        };
+      });
+    };
+
+    socket.on("inventory:update", handler);
+    return () => { socket.off("inventory:update", handler); };
+  }, [socketRef]);
 
   const load = async () => {
     setLoading(true);
