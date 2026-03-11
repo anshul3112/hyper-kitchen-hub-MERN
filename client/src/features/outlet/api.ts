@@ -134,7 +134,6 @@ export type PrioritySlot = {
   startTime: number;   // minutes 0–1440
   endTime: number;     // minutes 0–1440
   price: number;
-  enabled: boolean;
 };
 
 export type PriceSlot = {

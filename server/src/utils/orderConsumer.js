@@ -219,7 +219,7 @@ async function processOrderMessage(body) {
       itemsCart: items.map((it) => ({
         itemId: it.id,
         name: it.name,
-        qty: it.quantity,
+        qty: it.quantity, 
         price: it.price,
       })),
       totalAmount,
@@ -313,7 +313,6 @@ async function processOrderMessage(body) {
     updatedInventory.forEach((rec) => {
       emitInventoryUpdate(outletId.toString(), {
         itemId: rec.itemId.toString(),
-        price: rec.price ?? null,
         quantity: rec.quantity,
         status: rec.status,
       });

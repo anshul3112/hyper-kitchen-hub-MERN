@@ -70,7 +70,6 @@ const inventorySchema = new Schema({
       startTime: { type: Number, required: true, min: 0, max: 1440 },
       endTime:   { type: Number, required: true, min: 0, max: 1440 },
       price:     { type: Number, required: true, min: 0 },
-      enabled:   { type: Boolean, default: true },
     }],
     default: [],
     validate: {

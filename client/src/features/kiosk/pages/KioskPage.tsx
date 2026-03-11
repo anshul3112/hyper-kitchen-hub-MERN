@@ -14,7 +14,7 @@ import {
   type EnrichedMenuItem,
 } from "../api";
 import KioskScreen from "../components/KioskScreen";
-import initKioskDB, { addItemsToCache, upsertChangedItem, type CachedItem } from "../db/kioskDB";
+import initKioskDB, { addItemsToCache, type CachedItem } from "../db/kioskDB";
 
 type KioskData = {
   categories: MenuCategory[];
@@ -30,6 +30,9 @@ export default function KioskPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  // Refs to allow stable access inside socket callbacks without stale closures
+  const loadAllRef = useRef<() => Promise<void>>(async () => {});
+  const dataRef = useRef<KioskData | null>(null);
 
   useEffect(() => {
     function preventBack() {
@@ -52,6 +55,10 @@ export default function KioskPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep refs pointing at latest copies to avoid stale closures in socket callbacks
+  useEffect(() => { loadAllRef.current = loadAll; });
+  useEffect(() => { dataRef.current = data; }, [data]);
+
   // ── IndexedDB init + socket inventory listener ────────────────────────────
   useEffect(() => {
     if (!session) return;
@@ -66,20 +73,36 @@ export default function KioskPage() {
 
         socket.on(
           "inventory:update",
-          (data: {
+          (payload: {
             itemId: string;
-            price?: number | null;
             quantity?: number;
             status?: boolean;
             orderType?: "dineIn" | "takeAway" | "both";
           }) => {
-            upsertChangedItem({
-              _id: data.itemId,
-              price: data.price ?? undefined,
-              quantity: data.quantity,
-              status: data.status,
-              orderType: data.orderType,
-            }).catch(console.error);
+            const { itemId, quantity, status, orderType } = payload;
+
+            const currentData = dataRef.current;
+            if (!currentData) return;
+
+            const itemExists = currentData.items.some((i) => i._id === itemId);
+            if (!itemExists) {
+              // Unknown item — a new item was added to the outlet's inventory; re-fetch the menu
+              loadAllRef.current().catch(console.error);
+              return;
+            }
+
+            setData((prev) => {
+              if (!prev) return prev;
+              const updatedItems = prev.items.map((item) => {
+                if (item._id !== itemId) return item;
+                const newStockQty = quantity !== undefined ? quantity : item.stockQuantity;
+                const newStatus  = status   !== undefined ? status   : item.status;
+                const newOrderType = orderType !== undefined ? orderType : item.orderType;
+                const newInStock = newStatus !== false && newStockQty > 0;
+                return { ...item, stockQuantity: newStockQty, status: newStatus, inStock: newInStock, orderType: newOrderType };
+              });
+              return { ...prev, items: updatedItems };
+            });
           },
         );
 

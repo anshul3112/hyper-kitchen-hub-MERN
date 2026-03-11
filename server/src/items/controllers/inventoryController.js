@@ -4,7 +4,6 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { emitInventoryUpdate, emitLowStockAlert } from "../../utils/socket.js";
-import { resolveSchedule } from "../../outlet/utils/resolveSchedule.js";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -119,7 +118,6 @@ export const upsertInventoryItem = asyncHandler(async (req, res) => {
 
   emitInventoryUpdate(outletId.toString(), {
     itemId: itemId.toString(),
-    price: record.price ?? null,
     quantity: record.quantity,
     status: record.status,
     orderType: record.orderType,
@@ -157,13 +155,8 @@ export const updateInventoryPrice = asyncHandler(async (req, res) => {
     { new: true, upsert: true, runValidators: true }
   );
 
-  emitInventoryUpdate(outletId.toString(), {
-    itemId: itemId.toString(),
-    price: record.price ?? null,
-    quantity: record.quantity,
-    status: record.status,
-    orderType: record.orderType,
-  });
+  // Price changes are intentionally not broadcast via WebSocket.
+  // Kiosks validate prices at checkout via a fresh inventory fetch.
 
   return res.status(200).json(
     new ApiResponse(200, record, "Price updated successfully")
@@ -195,7 +188,6 @@ export const updateInventoryQuantity = asyncHandler(async (req, res) => {
 
   emitInventoryUpdate(outletId.toString(), {
     itemId: itemId.toString(),
-    price: record.price ?? null,
     quantity: record.quantity,
     status: record.status,
     orderType: record.orderType,
@@ -239,7 +231,6 @@ export const toggleInventoryStatus = asyncHandler(async (req, res) => {
 
   emitInventoryUpdate(outletId.toString(), {
     itemId: itemId.toString(),
-    price: record.price ?? null,
     quantity: record.quantity,
     status: record.status,
     orderType: record.orderType,
@@ -282,7 +273,6 @@ export const updateInventoryOrderType = asyncHandler(async (req, res) => {
 
   emitInventoryUpdate(outletId.toString(), {
     itemId: itemId.toString(),
-    price: record.price ?? null,
     quantity: record.quantity,
     status: record.status,
     orderType: record.orderType,
@@ -405,9 +395,6 @@ function validateSlot(type, slot, index) {
     if (typeof slot.price !== "number" || slot.price < 0) {
       throw new ApiError(400, `${prefix}.price must be a non-negative number`);
     }
-    if (typeof slot.enabled !== "boolean") {
-      throw new ApiError(400, `${prefix}.enabled must be a boolean`);
-    }
     return;
   }
 
@@ -464,13 +451,8 @@ export const scheduleInventory = asyncHandler(async (req, res) => {
     { new: true, upsert: true, runValidators: true }
   );
 
-  // Resolve schedule so the socket payload carries current effective price
-  const { activePrice } = resolveSchedule(record);
-
   emitInventoryUpdate(outletId.toString(), {
     itemId: itemId.toString(),
-    price: record.price ?? null,
-    activePrice,
     quantity: record.quantity,
     status: record.status,
     orderType: record.orderType,

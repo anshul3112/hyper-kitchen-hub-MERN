@@ -74,7 +74,6 @@ export function resolveSchedule(inventory, now = new Date()) {
 
   // ── 1. Priority slots ─────────────────────────────────────────────────────
   for (const slot of prioritySlots) {
-    if (!slot.enabled) continue;
     if (!isDateInRange(slot.startDate, slot.endDate, now)) continue;
     if (!isInTimeRange(slot.startTime, slot.endTime, minuteOfDay)) continue;
 

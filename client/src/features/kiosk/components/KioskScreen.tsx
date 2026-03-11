@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import type { Socket } from "socket.io-client";
 import type { MenuCategory, MenuFilter, EnrichedMenuItem } from "../api";
-import { placeOrder } from "../api";
+import { placeOrder, fetchKioskInventory } from "../api";
 import { useCart } from "../hooks/useCart";
-import { getChangedItems, patchItemsInCache, clearChangedItems } from "../db/kioskDB";
 import ComboUpgradeModal, { type ComboSuggestion } from "./ComboUpgradeModal";
 
 type Props = {
@@ -69,86 +68,97 @@ export default function KioskScreen({
     setCheckoutOpen(true);
 
     try {
-      const changes = await getChangedItems();
-      if (changes.length === 0) return;
+      const freshInventory = await fetchKioskInventory();
+      const invMap = new Map(freshInventory.map((r) => [r.itemId, r]));
 
-      // Build a patches map keyed by itemId
-      const patches: Record<string, { price?: number; quantity?: number; status?: boolean; orderType?: "dineIn" | "takeAway" | "both" }> = {};
-      changes.forEach((c) => {
-        patches[c._id] = { price: c.price, quantity: c.quantity, status: c.status, orderType: c.orderType };
-      });
-
-      // Build notices for items that are actually in the cart
       const notices: string[] = [];
+      // cartPatches: adjustments to apply to the in-memory cart (remove / clamp / price update)
+      const cartPatches: Record<string, { price?: number; quantity?: number; status?: boolean }> = {};
+      // menuPatches: updates to propagate to the parent items grid (all inventory items)
+      const menuPatches: Record<string, { price?: number; quantity?: number; status?: boolean; orderType?: "dineIn" | "takeAway" | "both" }> = {};
+
+      // Build menuPatches for every item we currently display
+      for (const item of items) {
+        const inv = invMap.get(item._id);
+        if (!inv) continue;
+        const freshPrice =
+          (inv.activePrice != null ? inv.activePrice : null) ??
+          inv.price ??
+          item.defaultAmount;
+        menuPatches[item._id] = {
+          price: freshPrice,
+          quantity: inv.quantity,
+          status: inv.status,
+          orderType: inv.orderType,
+        };
+      }
+
+      // Validate each cart item against fresh inventory and build notices
       for (const cartItem of cartItems) {
-        const patch = patches[cartItem.id];
-        if (!patch) continue;
+        const inv = invMap.get(cartItem.id);
 
-        if (patch.status === false) {
+        if (!inv) {
+          // Item no longer exists in inventory
           notices.push(`${cartItem.name} is no longer available — removed from cart.`);
-          continue; // no further checks needed; item is gone
-        }
-
-        if (patch.quantity === 0) {
-          notices.push(`${cartItem.name} is out of stock — removed from cart.`);
+          cartPatches[cartItem.id] = { status: false };
           continue;
         }
 
-        if (patch.quantity !== undefined && patch.quantity < cartItem.quantity) {
-          notices.push(
-            `${cartItem.name}: only ${patch.quantity} available — quantity reduced from ${cartItem.quantity} to ${patch.quantity}.`,
-          );
+        if (inv.status === false) {
+          notices.push(`${cartItem.name} is no longer available — removed from cart.`);
+          cartPatches[cartItem.id] = { status: false };
+          continue;
         }
 
-        if (patch.price !== undefined && patch.price !== cartItem.price) {
+        if (inv.quantity === 0) {
+          notices.push(`${cartItem.name} is out of stock — removed from cart.`);
+          cartPatches[cartItem.id] = { quantity: 0 };
+          continue;
+        }
+
+        const patch: { price?: number; quantity?: number } = {};
+
+        if (inv.quantity < cartItem.quantity) {
           notices.push(
-            `Price of ${cartItem.name} updated: \u20b9${cartItem.price} \u2192 \u20b9${patch.price}.`,
+            `${cartItem.name}: only ${inv.quantity} available — quantity reduced from ${cartItem.quantity} to ${inv.quantity}.`,
           );
+          patch.quantity = inv.quantity;
+        }
+
+        const freshPrice =
+          (inv.activePrice != null ? inv.activePrice : null) ??
+          inv.price ??
+          (items.find((i) => i._id === cartItem.id)?.defaultAmount ?? cartItem.price);
+
+        if (freshPrice !== cartItem.price) {
+          notices.push(
+            `Price of ${cartItem.name} updated: \u20b9${cartItem.price} \u2192 \u20b9${freshPrice}.`,
+          );
+          patch.price = freshPrice;
+        }
+
+        if (Object.keys(patch).length > 0) {
+          cartPatches[cartItem.id] = patch;
         }
       }
 
-      // 1. Clamp / update the cart in-place
-      patchCart(patches);
+      // Apply cart adjustments (remove unavailable, clamp qty, update prices)
+      if (Object.keys(cartPatches).length > 0) {
+        patchCart(cartPatches);
+      }
 
-      // 2. Patch items_cache in IndexedDB
-      await patchItemsInCache(changes);
-
-      // 3. Consume changed_items queue
-      await clearChangedItems();
-
-      // 4. Tell parent to re-render the item grid with fresh prices/stock
-      onItemsPatched(patches);
+      // Propagate fresh prices + stock to the parent menu grid
+      onItemsPatched(menuPatches);
 
       setCheckoutNotices(notices);
     } catch (err) {
-      console.error("Failed to apply inventory changes at checkout:", err);
+      console.error("Failed to validate cart at checkout:", err);
     } finally {
       setCheckoutInitializing(false);
     }
   };
 
-  // Silently drain changed_items and sync cart + item grid on close — no notices shown.
-  const applyPatchesSilently = async () => {
-    try {
-      const changes = await getChangedItems();
-      if (changes.length === 0) return;
-
-      const patches: Record<string, { price?: number; quantity?: number; status?: boolean; orderType?: "dineIn" | "takeAway" | "both" }> = {};
-      changes.forEach((c) => {
-        patches[c._id] = { price: c.price, quantity: c.quantity, status: c.status, orderType: c.orderType };
-      });
-
-      patchCart(patches);
-      await patchItemsInCache(changes);
-      await clearChangedItems();
-      onItemsPatched(patches);
-    } catch (err) {
-      console.error("Failed to apply silent inventory patches on close:", err);
-    }
-  };
-
-  const closeCheckout = async () => {
-    await applyPatchesSilently();
+  const closeCheckout = () => {
     setCheckoutOpen(false);
   };
 
@@ -317,6 +327,11 @@ export default function KioskScreen({
     const matchesOrderType =
       item.orderType === "both" || item.orderType === orderType;
     if (!matchesOrderType) return false;
+
+    // Hide outlet-disabled items that the customer hasn't already added to their cart.
+    // Items that are simply out of stock (status=true, qty=0) are still displayed
+    // with an "Out of Stock" overlay — disabled-by-admin items disappear entirely.
+    if (item.status === false && !cart[item._id]) return false;
 
     if (selectedCategory !== "all") {
       if (item.category?._id !== selectedCategory) return false;
@@ -586,7 +601,12 @@ export default function KioskScreen({
                             </span>
                             <button
                               onClick={() => handleIncrement(item)}
-                              className="w-7 h-7 rounded-lg bg-purple-600 text-white font-bold text-base flex items-center justify-center hover:bg-purple-700 active:scale-95 transition-all"
+                              disabled={qty >= item.stockQuantity}
+                              className={`w-7 h-7 rounded-lg text-white font-bold text-base flex items-center justify-center transition-all ${
+                                qty >= item.stockQuantity
+                                  ? "bg-purple-300 cursor-not-allowed"
+                                  : "bg-purple-600 hover:bg-purple-700 active:scale-95"
+                              }`}
                             >
                               +
                             </button>

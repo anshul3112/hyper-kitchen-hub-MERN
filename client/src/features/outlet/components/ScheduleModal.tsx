@@ -175,7 +175,6 @@ const blankPriority = (): PrioritySlot => ({
   startTime: now6am,
   endTime: now10pm,
   price: 0,
-  enabled: true,
 });
 
 const blankPrice = (): PriceSlot => ({
@@ -251,6 +250,8 @@ export default function ScheduleModal({
   // Draft for the slot currently being edited/added
   const [draft, setDraft] = useState<PrioritySlot | PriceSlot | AvailabilitySlot | null>(null);
   const [draftError, setDraftError] = useState("");
+  // Raw string for the price input so the field starts empty (placeholder "0") instead of showing a literal 0 that blocks typing
+  const [rawPrice, setRawPrice] = useState("");
 
   // Reset editing state whenever the tab changes
   const switchTab = (tab: ScheduleSlotType) => {
@@ -261,6 +262,7 @@ export default function ScheduleModal({
     setSaveError("");
     setSuccessMsg("");
     setDraftError("");
+    setRawPrice("");
     setUnsavedWarning(false);
   };
 
@@ -288,13 +290,17 @@ export default function ScheduleModal({
     setAddingNew(true);
     setEditingIndex(null);
     setDraft(blankForTab());
+    setRawPrice("");
     setDraftError("");
   };
 
   const openEdit = (index: number) => {
     setEditingIndex(index);
     setAddingNew(false);
-    setDraft({ ...getSlots()[index] } as PrioritySlot | PriceSlot | AvailabilitySlot);
+    const slot = getSlots()[index];
+    setDraft({ ...slot } as PrioritySlot | PriceSlot | AvailabilitySlot);
+    const existingPrice = (slot as PriceSlot).price;
+    setRawPrice(existingPrice !== undefined && existingPrice !== 0 ? String(existingPrice) : "");
     setDraftError("");
   };
 
@@ -302,6 +308,7 @@ export default function ScheduleModal({
     setEditingIndex(null);
     setAddingNew(false);
     setDraft(null);
+    setRawPrice("");
     setDraftError("");
   };
 
@@ -372,7 +379,7 @@ export default function ScheduleModal({
       const s = slot as PrioritySlot;
       return {
         label: `${toDateInput(s.startDate)} → ${toDateInput(s.endDate)}  •  ${start}–${end}`,
-        detail: `₹${s.price}  •  ${s.enabled ? "Enabled" : "Disabled"}`,
+        detail: `₹${s.price}`,
       };
     }
     if (activeTab === "priceSlots") {
@@ -432,18 +439,13 @@ export default function ScheduleModal({
               type="number"
               min={0}
               step="0.01"
-              value={d.price}
-              onChange={(e) => setDraft({ ...d, price: parseFloat(e.target.value) || 0 })}
+              value={rawPrice}
+              placeholder="0"
+              onChange={(e) => {
+                setRawPrice(e.target.value);
+                setDraft({ ...d, price: parseFloat(e.target.value) || 0 });
+              }}
               className="w-28 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-600 w-20 shrink-0">Enabled</label>
-            <input
-              type="checkbox"
-              checked={d.enabled}
-              onChange={(e) => setDraft({ ...d, enabled: e.target.checked })}
-              className="w-4 h-4 accent-blue-600"
             />
           </div>
         </div>
@@ -463,8 +465,12 @@ export default function ScheduleModal({
               type="number"
               min={0}
               step="0.01"
-              value={d.price}
-              onChange={(e) => setDraft({ ...d, price: parseFloat(e.target.value) || 0 })}
+              value={rawPrice}
+              placeholder="0"
+              onChange={(e) => {
+                setRawPrice(e.target.value);
+                setDraft({ ...d, price: parseFloat(e.target.value) || 0 });
+              }}
               className="w-28 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
@@ -645,9 +651,16 @@ export default function ScheduleModal({
         <div className="flex flex-col gap-1.5 px-5 py-3 border-t border-gray-200 shrink-0">
           {/* Feedback messages */}
           {unsavedWarning && (
-            <p className="text-xs text-amber-600">
-              You have unsaved changes. Please click &apos;Save Changes&apos; to apply them.
-            </p>
+            <div className="flex items-center justify-between gap-3 rounded-md bg-amber-50 border border-amber-300 px-3 py-2">
+              <p className="text-xs text-amber-700">You have unsaved changes.</p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-xs text-red-600 hover:underline whitespace-nowrap"
+              >
+                Discard &amp; Close
+              </button>
+            </div>
           )}
           {successMsg && (
             <p className="text-xs text-green-600 font-medium">{successMsg}</p>

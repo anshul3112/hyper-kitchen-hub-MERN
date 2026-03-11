@@ -49,7 +49,9 @@ export type InventoryItem = {
   price: number;
   quantity: number;
   outletId: string;
-  /** Controls which order-type this item is available for; defaults to 'both' */
+  /** Outlet-level enable/disable for this item */
+  status: boolean;
+  /** Controls which order-type this item is available for at this outlet */
   orderType: 'dineIn' | 'takeAway' | 'both';
   /**
    * Schedule-resolved effective price at the time the inventory was fetched.
