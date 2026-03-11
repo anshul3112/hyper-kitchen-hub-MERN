@@ -10,9 +10,15 @@ import {
   updateInventoryOrderType,
   updateInventoryThreshold,
   updateInventoryPrepTime,
+  updateInventorySchedule,
   type InventoryRecord,
   type MenuItem,
+  type ScheduleSlotType,
+  type PrioritySlot,
+  type PriceSlot,
+  type AvailabilitySlot,
 } from "../api";
+import ScheduleModal from "./ScheduleModal";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -74,6 +80,23 @@ export default function InventoryTab({ socketRef }: Props) {
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Schedule modal state
+  const [scheduleModal, setScheduleModal] = useState<{ open: boolean; itemId: string | null }>(
+    { open: false, itemId: null }
+  );
+
+  const openSchedule = (itemId: string) => setScheduleModal({ open: true, itemId });
+  const closeSchedule = () => setScheduleModal({ open: false, itemId: null });
+
+  const handleSaveSchedule = async (
+    itemId: string,
+    type: ScheduleSlotType,
+    slots: PrioritySlot[] | PriceSlot[] | AvailabilitySlot[]
+  ) => {
+    const updated = await updateInventorySchedule(itemId, type, slots);
+    setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
+  };
 
   useEffect(() => {
     load();
@@ -648,13 +671,22 @@ export default function InventoryTab({ socketRef }: Props) {
                       </div>
                     ) : isCombo ? (
                       // Combos: only allow setting the outlet price; quantity is auto
-                      <button
-                        onClick={() => openEdit(item._id, "price")}
-                        className="px-2 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded hover:bg-gray-100"
-                        title="Update outlet price for this combo"
-                      >
-                        Price
-                      </button>
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => openEdit(item._id, "price")}
+                          className="px-2 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded hover:bg-gray-100"
+                          title="Update outlet price for this combo"
+                        >
+                          Price
+                        </button>
+                        <button
+                          onClick={() => openSchedule(item._id)}
+                          className="px-2 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs rounded hover:bg-indigo-100"
+                          title="Manage schedule slots"
+                        >
+                          Schedule
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex gap-2 flex-wrap">
                         <button
@@ -678,6 +710,13 @@ export default function InventoryTab({ socketRef }: Props) {
                         >
                           Qty
                         </button>
+                        <button
+                          onClick={() => openSchedule(item._id)}
+                          className="px-2 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs rounded hover:bg-indigo-100"
+                          title="Manage schedule slots"
+                        >
+                          Schedule
+                        </button>
                       </div>
                     )}
                   </td>
@@ -687,6 +726,39 @@ export default function InventoryTab({ socketRef }: Props) {
           </tbody>
         </table>
       </div>
+
+      {/* Schedule modal */}
+      {scheduleModal.open && scheduleModal.itemId && (() => {
+        const modalItem = items.find((it) => it._id === scheduleModal.itemId);
+        const modalInv = inventoryMap[scheduleModal.itemId];
+        if (!modalItem) return null;
+        return (
+          <ScheduleModal
+            itemId={scheduleModal.itemId}
+            itemName={modalItem.name}
+            inventory={modalInv ?? {
+              _id: "",
+              itemId: scheduleModal.itemId,
+              outletId: "",
+              price: 0,
+              quantity: 0,
+              status: true,
+              orderType: "both",
+              lowStockThreshold: null,
+              prepTime: 3,
+              prioritySlots: [],
+              weeklyPriceSlots: [],
+              dailyPriceSlots: [],
+              weeklyAvailabilitySlots: [],
+              dailyAvailabilitySlots: [],
+              editedBy: "",
+            }}
+            defaultPrice={modalItem.defaultAmount}
+            onClose={closeSchedule}
+            onSave={handleSaveSchedule}
+          />
+        );
+      })()}
     </div>
   );
 }

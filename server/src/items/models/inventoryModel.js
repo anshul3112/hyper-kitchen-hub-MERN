@@ -50,7 +50,67 @@ const inventorySchema = new Schema({
     type: Number,
     default: 3,
     min: 0
-  }
+  },
+
+  // ── Schedule slots ────────────────────────────────────────────────────────
+  // Times are stored as minutes-of-day (0 = 00:00, 1439 = 23:59).
+  // endTime must always be > startTime (no midnight crossing).
+  // Evaluation priority: prioritySlots > priceSlots > availabilitySlots.
+  // Price and availability are resolved independently.
+  // If no availabilitySlot's days include today → isAvailable = null
+  // (falls back to inventory.status admin toggle).
+
+  // Highest-priority overrides — used for special offers / event pricing.
+  // When an active priority slot matches: item is always visible on kiosk
+  // and the price comes from the slot (ignoring all other price slots).
+  prioritySlots: {
+    type: [{
+      startDate: { type: Date, required: true },
+      endDate:   { type: Date, required: true },
+      startTime: { type: Number, required: true, min: 0, max: 1440 },
+      endTime:   { type: Number, required: true, min: 0, max: 1440 },
+      price:     { type: Number, required: true, min: 0 },
+      enabled:   { type: Boolean, default: true },
+    }],
+    default: [],
+    validate: {
+      validator: (v) => v.length <= 10,
+      message: "prioritySlots cannot exceed 10 entries",
+    },
+  },
+
+  // Price change slots keyed to specific weekdays (0 = Sunday … 6 = Saturday).
+  // Replaces weeklyPriceSlots + dailyPriceSlots — use days: [0,1,2,3,4,5,6] for every day.
+  priceSlots: {
+    type: [{
+      days:      { type: [{ type: Number, min: 0, max: 6 }], required: true },
+      startTime: { type: Number, required: true, min: 0, max: 1440 },
+      endTime:   { type: Number, required: true, min: 0, max: 1440 },
+      price:     { type: Number, required: true, min: 0 },
+    }],
+    default: [],
+    validate: {
+      validator: (v) => v.length <= 10,
+      message: "priceSlots cannot exceed 10 entries",
+    },
+  },
+
+  // Availability rules keyed to specific weekdays.
+  // No enabled boolean — presence of a matching slot means the item is available;
+  // absence of any slot matching today → fall back to inventory.status.
+  // Use days: [0,1,2,3,4,5,6] + startTime=0 + endTime=1439 for always-available.
+  availabilitySlots: {
+    type: [{
+      days:      { type: [{ type: Number, min: 0, max: 6 }], required: true },
+      startTime: { type: Number, required: true, min: 0, max: 1440 },
+      endTime:   { type: Number, required: true, min: 0, max: 1440 },
+    }],
+    default: [],
+    validate: {
+      validator: (v) => v.length <= 10,
+      message: "availabilitySlots cannot exceed 10 entries",
+    },
+  },
 }, { timestamps: true });
 
 // unique record per item+outlet (upsert, price, quantity patches)

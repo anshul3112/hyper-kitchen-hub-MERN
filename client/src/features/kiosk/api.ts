@@ -51,6 +51,11 @@ export type InventoryItem = {
   outletId: string;
   /** Controls which order-type this item is available for; defaults to 'both' */
   orderType: 'dineIn' | 'takeAway' | 'both';
+  /**
+   * Schedule-resolved effective price at the time the inventory was fetched.
+   * null → use inventory.price (outlet override) or item.defaultAmount as fallback.
+   */
+  activePrice?: number | null;
 };
 
 /**
@@ -190,7 +195,11 @@ export function mergeMenuWithInventory(
 
   return items.map((item) => {
     const rec = invMap.get(item._id);
-    const displayPrice = rec && rec.price != null ? rec.price : item.defaultAmount;
+    // Resolution order: schedule-resolved activePrice → outlet price override → item default
+    const displayPrice =
+      (rec?.activePrice != null ? rec.activePrice : null) ??
+      (rec?.price != null ? rec.price : null) ??
+      item.defaultAmount;
     const orderType: 'dineIn' | 'takeAway' | 'both' = rec?.orderType ?? 'both';
 
     // Combos have no independent inventory — their stock is the min of their

@@ -127,6 +127,36 @@ export async function toggleKiosk(id: string): Promise<Kiosk> {
 
 // ── Inventory types ──────────────────────────────────────────────────────────────────
 
+export type PrioritySlot = {
+  _id?: string;
+  startDate: string;   // ISO date string
+  endDate: string;     // ISO date string
+  startTime: number;   // minutes 0–1440
+  endTime: number;     // minutes 0–1440
+  price: number;
+  enabled: boolean;
+};
+
+export type PriceSlot = {
+  _id?: string;
+  days: number[];      // 0 (Sun) – 6 (Sat); use [0,1,2,3,4,5,6] for every day
+  startTime: number;   // minutes 0–1440
+  endTime: number;     // minutes 0–1440; must be > startTime
+  price: number;
+};
+
+export type AvailabilitySlot = {
+  _id?: string;
+  days: number[];      // 0 (Sun) – 6 (Sat)
+  startTime: number;   // minutes 0–1440
+  endTime: number;     // minutes 0–1440; must be > startTime
+};
+
+export type ScheduleSlotType =
+  | 'prioritySlots'
+  | 'priceSlots'
+  | 'availabilitySlots';
+
 export type InventoryRecord = {
   _id: string;
   itemId: string;
@@ -141,6 +171,10 @@ export type InventoryRecord = {
   lowStockThreshold: number | null;
   /** Estimated minutes kitchen needs to prepare this item; 0 = instant/packaged */
   prepTime: number;
+  /** Schedule slot arrays */
+  prioritySlots: PrioritySlot[];
+  priceSlots: PriceSlot[];
+  availabilitySlots: AvailabilitySlot[];
   editedBy: string;
   createdAt?: string;
   updatedAt?: string;
@@ -261,6 +295,22 @@ export async function updateInventoryPrepTime(
     credentials: "include",
     headers: getAuthHeaders(),
     body: JSON.stringify({ prepTime }),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
+  return parsed.data;
+}
+
+/** PATCH: replace the full slot array for one schedule slot type */
+export async function updateInventorySchedule(
+  itemId: string,
+  type: ScheduleSlotType,
+  slots: PrioritySlot[] | PriceSlot[] | AvailabilitySlot[]
+): Promise<InventoryRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}/schedule`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ type, slots }),
   });
   const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
   return parsed.data;

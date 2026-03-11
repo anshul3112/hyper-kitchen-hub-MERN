@@ -30,6 +30,7 @@ import {
   updateInventoryOrderType,
   updateInventoryThreshold,
   updateInventoryPrepTime,
+  scheduleInventory,
 } from "../controllers/inventoryController.js";
 
 const router = Router();
@@ -78,5 +79,7 @@ router.route("/inventory/:itemId/status").patch(toggleInventoryStatus);
 router.route("/inventory/:itemId/orderType").patch(updateInventoryOrderType);
 router.route("/inventory/:itemId/threshold").patch(updateInventoryThreshold);
 router.route("/inventory/:itemId/preptime").patch(updateInventoryPrepTime);
+// PATCH  /api/v1/items/inventory/:itemId/schedule  → replace a full slot-type array
+router.route("/inventory/:itemId/schedule").patch(scheduleInventory);
 
 export default router;

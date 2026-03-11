@@ -4,6 +4,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { emitInventoryUpdate, emitLowStockAlert } from "../../utils/socket.js";
+import { resolveSchedule } from "../../outlet/utils/resolveSchedule.js";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -361,5 +362,121 @@ export const updateInventoryThreshold = asyncHandler(async (req, res) => {
         ? "Low-stock threshold cleared"
         : `Low-stock threshold set to ${lowStockThreshold}`
     )
+  );
+});
+
+// ── Allowed slot-type keys (allowlist for $set injection safety) ──────────────
+const ALLOWED_SLOT_TYPES = new Set([
+  "prioritySlots",
+  "priceSlots",
+  "availabilitySlots",
+]);
+
+/**
+ * Validates a single slot object based on its type.
+ * Throws ApiError on invalid input.
+ */
+function validateSlot(type, slot, index) {
+  const prefix = `slots[${index}]`;
+
+  const validateTime = (val, name) => {
+    if (!Number.isInteger(val) || val < 0 || val > 1440) {
+      throw new ApiError(400, `${prefix}.${name} must be an integer 0–1440`);
+    }
+  };
+
+  validateTime(slot.startTime, "startTime");
+  validateTime(slot.endTime, "endTime");
+
+  if (slot.endTime <= slot.startTime) {
+    throw new ApiError(400, `${prefix}.endTime must be greater than startTime`);
+  }
+
+  if (type === "prioritySlots") {
+    if (!slot.startDate || isNaN(new Date(slot.startDate).getTime())) {
+      throw new ApiError(400, `${prefix}.startDate must be a valid date`);
+    }
+    if (!slot.endDate || isNaN(new Date(slot.endDate).getTime())) {
+      throw new ApiError(400, `${prefix}.endDate must be a valid date`);
+    }
+    if (new Date(slot.startDate) > new Date(slot.endDate)) {
+      throw new ApiError(400, `${prefix}.startDate must be on or before endDate`);
+    }
+    if (typeof slot.price !== "number" || slot.price < 0) {
+      throw new ApiError(400, `${prefix}.price must be a non-negative number`);
+    }
+    if (typeof slot.enabled !== "boolean") {
+      throw new ApiError(400, `${prefix}.enabled must be a boolean`);
+    }
+    return;
+  }
+
+  if (type === "priceSlots" || type === "availabilitySlots") {
+    if (!Array.isArray(slot.days) || slot.days.length === 0) {
+      throw new ApiError(400, `${prefix}.days must be a non-empty array`);
+    }
+    for (const d of slot.days) {
+      if (!Number.isInteger(d) || d < 0 || d > 6) {
+        throw new ApiError(400, `${prefix}.days entries must be integers 0–6`);
+      }
+    }
+  }
+
+  if (type === "priceSlots") {
+    if (typeof slot.price !== "number" || slot.price < 0) {
+      throw new ApiError(400, `${prefix}.price must be a non-negative number`);
+    }
+  }
+}
+
+/**
+ * PATCH /api/v1/items/inventory/:itemId/schedule
+ * Replace the full slot array for one slot type.
+ * Body: { type: ScheduleSlotType, slots: [...] }
+ */
+export const scheduleInventory = asyncHandler(async (req, res) => {
+  requireOutletAdmin(req.user);
+  const outletId = resolveOutlet(req.user);
+  const tenantId = req.user.tenant?.tenantId;
+  const { itemId } = req.params;
+  const { type, slots } = req.body;
+
+  if (!type || !ALLOWED_SLOT_TYPES.has(type)) {
+    throw new ApiError(
+      400,
+      `type must be one of: ${[...ALLOWED_SLOT_TYPES].join(", ")}`
+    );
+  }
+  if (!Array.isArray(slots)) {
+    throw new ApiError(400, "slots must be an array");
+  }
+  if (slots.length > 10) {
+    throw new ApiError(400, `${type} cannot exceed 10 entries`);
+  }
+
+  slots.forEach((slot, i) => validateSlot(type, slot, i));
+
+  await validateItem(itemId, tenantId);
+
+  const record = await Inventory.findOneAndUpdate(
+    { itemId, outletId },
+    { $set: { [type]: slots, editedBy: req.user._id } },
+    { new: true, upsert: true, runValidators: true }
+  );
+
+  // Resolve schedule so the socket payload carries current effective price
+  const { activePrice } = resolveSchedule(record);
+
+  emitInventoryUpdate(outletId.toString(), {
+    itemId: itemId.toString(),
+    price: record.price ?? null,
+    activePrice,
+    quantity: record.quantity,
+    status: record.status,
+    orderType: record.orderType,
+  });
+
+  return res.status(200).json(
+    new ApiResponse(200, record, `${type} updated successfully`)
   );
 });
