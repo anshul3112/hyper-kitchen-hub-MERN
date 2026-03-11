@@ -47,10 +47,13 @@ function isDateInRange(startDate, endDate, now) {
   const start = new Date(startDate);
   const end   = new Date(endDate);
 
-  // Compare at day boundaries in UTC so time-of-day doesn't bleed across dates
-  const startDay = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
-  const endDay   = Date.UTC(end.getUTCFullYear(),   end.getUTCMonth(),   end.getUTCDate());
-  const nowDay   = Date.UTC(now.getUTCFullYear(),   now.getUTCMonth(),   now.getUTCDate());
+  // Normalize to local midnight so the comparison matches the local calendar
+  // date the user entered (e.g. "2026-03-12" means March 12 in the local
+  // timezone, not March 12 UTC which could fall on March 11 locally for
+  // positive-offset timezones like IST before 5:30 AM).
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+  const endDay   = new Date(end.getFullYear(),   end.getMonth(),   end.getDate()).getTime();
+  const nowDay   = new Date(now.getFullYear(),   now.getMonth(),   now.getDate()).getTime();
 
   return nowDay >= startDay && nowDay <= endDay;
 }
