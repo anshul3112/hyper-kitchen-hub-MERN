@@ -91,7 +91,7 @@ export const upsertInventoryItem = asyncHandler(async (req, res) => {
   const outletId = resolveOutlet(req.user);
   const tenantId = req.user.tenant?.tenantId;
   const { itemId } = req.params;
-  const { price, quantity, orderType } = req.body;
+  const { price, quantity, orderType, prepTime } = req.body;
 
   if (price === undefined || price === null) throw new ApiError(400, "price is required");
   if (quantity === undefined || quantity === null) throw new ApiError(400, "quantity is required");
@@ -100,11 +100,15 @@ export const upsertInventoryItem = asyncHandler(async (req, res) => {
   if (orderType !== undefined && !['dineIn', 'takeAway', 'both'].includes(orderType)) {
     throw new ApiError(400, "orderType must be one of: dineIn, takeAway, both");
   }
+  if (prepTime !== undefined && (typeof prepTime !== 'number' || prepTime < 0)) {
+    throw new ApiError(400, "prepTime must be a non-negative number (minutes)");
+  }
 
   await validateItem(itemId, tenantId);
 
   const updateFields = { price: Number(price), quantity: Number(quantity), editedBy: req.user._id };
   if (orderType !== undefined) updateFields.orderType = orderType;
+  if (prepTime !== undefined) updateFields.prepTime = Number(prepTime);
 
   const record = await Inventory.findOneAndUpdate(
     { itemId, outletId },
@@ -285,6 +289,36 @@ export const updateInventoryOrderType = asyncHandler(async (req, res) => {
 
   return res.status(200).json(
     new ApiResponse(200, record, "Order type updated successfully")
+  );
+});
+
+/**
+ * PATCH /api/v1/items/inventory/:itemId/preptime
+ * Change the estimated preparation time (minutes) for an item at this outlet.
+ * Body: { prepTime: number }  — must be >= 1
+ */
+export const updateInventoryPrepTime = asyncHandler(async (req, res) => {
+  requireOutletAdmin(req.user);
+  const outletId = resolveOutlet(req.user);
+  const tenantId = req.user.tenant?.tenantId;
+  const { itemId } = req.params;
+  const { prepTime } = req.body;
+
+  if (prepTime === undefined || prepTime === null) throw new ApiError(400, "prepTime is required");
+  if (typeof prepTime !== "number" || prepTime < 0) {
+    throw new ApiError(400, "prepTime must be a non-negative number (minutes); use 0 for instant items");
+  }
+
+  await validateItem(itemId, tenantId);
+
+  const record = await Inventory.findOneAndUpdate(
+    { itemId, outletId },
+    { prepTime: Number(prepTime), editedBy: req.user._id },
+    { new: true, upsert: true, runValidators: true }
+  );
+
+  return res.status(200).json(
+    new ApiResponse(200, record, `Prep time updated to ${prepTime} minute(s)`)
   );
 });
 

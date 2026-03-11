@@ -8,6 +8,7 @@ import {
   toggleInventoryStatus,
   updateInventoryOrderType,
   updateInventoryThreshold,
+  updateInventoryPrepTime,
   type InventoryRecord,
   type MenuItem,
 } from "../api";
@@ -30,6 +31,11 @@ type RowState = {
   thresholdInput: string;
   thresholdSaving: boolean;
   thresholdError: string;
+  // prep time editing
+  prepTimeEditing: boolean;
+  prepTimeInput: string;
+  prepTimeSaving: boolean;
+  prepTimeError: string;
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -48,6 +54,10 @@ function emptyRow(): RowState {
     thresholdInput: "",
     thresholdSaving: false,
     thresholdError: "",
+    prepTimeEditing: false,
+    prepTimeInput: "",
+    prepTimeSaving: false,
+    prepTimeError: "",
   };
 }
 
@@ -195,6 +205,38 @@ export default function InventoryTab() {
     }
   };
 
+  const openPrepTimeEdit = (itemId: string) => {
+    const inv = inventoryMap[itemId];
+    setRow(itemId, {
+      prepTimeEditing: true,
+      prepTimeInput: inv?.prepTime != null ? String(inv.prepTime) : "3",
+      prepTimeError: "",
+    });
+  };
+
+  const cancelPrepTimeEdit = (itemId: string) =>
+    setRow(itemId, { prepTimeEditing: false, prepTimeInput: "", prepTimeError: "" });
+
+  const savePrepTime = async (itemId: string) => {
+    const row = getRow(itemId);
+    const value = parseInt(row.prepTimeInput.trim(), 10);
+    if (isNaN(value) || value < 0) {
+      setRow(itemId, { prepTimeError: "Must be 0 or more (use 0 for instant items)" });
+      return;
+    }
+    setRow(itemId, { prepTimeSaving: true, prepTimeError: "" });
+    try {
+      const updated = await updateInventoryPrepTime(itemId, value);
+      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
+      setRow(itemId, { prepTimeEditing: false, prepTimeSaving: false, prepTimeInput: "" });
+    } catch (err: unknown) {
+      setRow(itemId, {
+        prepTimeSaving: false,
+        prepTimeError: err instanceof Error ? err.message : "Failed to save prep time",
+      });
+    }
+  };
+
   // ── render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -234,6 +276,7 @@ export default function InventoryTab() {
               <th className="text-left px-5 py-3 font-medium text-gray-600">Outlet Price</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Quantity</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Low-Stock Alert</th>
+              <th className="text-left px-5 py-3 font-medium text-gray-600">Prep Time</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Kiosk Visible</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Order Type</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Actions</th>
@@ -264,11 +307,11 @@ export default function InventoryTab() {
                     <p className="font-medium text-gray-800">{item.name}</p>
                     {isCombo && (
                       <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                        🍱 Combo
+                         Combo
                       </span>
                     )}
                     {item.description && (
-                      <p className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{item.description}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[14rem]">{item.description}</p>
                     )}
                   </td>
 
@@ -420,6 +463,64 @@ export default function InventoryTab() {
                             Clear
                           </button>
                         )}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Prep Time */}
+                  <td className="px-5 py-3">
+                    {row.prepTimeEditing ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={row.prepTimeInput}
+                            onChange={(e) => setRow(item._id, { prepTimeInput: e.target.value })}
+                            className="w-16 px-2 py-1 border border-purple-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            autoFocus
+                          />
+                          <span className="text-xs text-gray-500">min</span>
+                        </div>
+                        {row.prepTimeError && (
+                          <p className="text-xs text-red-500">{row.prepTimeError}</p>
+                        )}
+                        <div className="flex gap-1 mt-0.5">
+                          <button
+                            onClick={() => savePrepTime(item._id)}
+                            disabled={row.prepTimeSaving}
+                            className="px-2 py-0.5 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 disabled:opacity-50"
+                          >
+                            {row.prepTimeSaving ? "..." : "Set"}
+                          </button>
+                          <button
+                            onClick={() => cancelPrepTimeEdit(item._id)}
+                            disabled={row.prepTimeSaving}
+                            className="px-2 py-0.5 border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-100 disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        {inv ? (
+                          <span className={`text-sm font-medium ${
+                            inv.prepTime === 0 ? "text-blue-600" : "text-gray-800"
+                          }`}>
+                            {inv.prepTime === 0 ? "Instant" : `${inv.prepTime} min`}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">3 min</span>
+                        )}
+                        <button
+                          onClick={() => openPrepTimeEdit(item._id)}
+                          className="text-xs text-purple-500 hover:text-purple-700 underline"
+                          title="Change prep time"
+                        >
+                          Edit
+                        </button>
                       </div>
                     )}
                   </td>

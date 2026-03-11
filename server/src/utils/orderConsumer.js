@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import {
   SQSClient,
   ReceiveMessageCommand,
@@ -23,6 +24,8 @@ const sqsClient = new SQSClient({
   },
 });
 
+
+const DEFAULT_PREP_TIME = 3; // minutes — used when an item has no inventory record
 
 // ── Combo expansion ───────────────────────────────────────────────────────────
 /**
@@ -71,6 +74,58 @@ async function expandOrderItemsWithCombos(orderItems) {
     }
   }
   return expanded;
+}
+
+// ── Prep-time helpers ────────────────────────────────────────────────────────
+
+/**
+ * Compute the prep time for the current order.
+ * We use the *expanded* items list (combo components) so that every item
+ * the kitchen actually has to cook is represented.  The result is the
+ * maximum prepTime across all unique items — the kitchen works in parallel,
+ * so total kitchen time equals the longest single item.
+ */
+async function computeOrderPrepTime(expandedItems, outletId) {
+  const uniqueItemIds = [...new Set(expandedItems.map((it) => it.id))];
+
+  const records = await Inventory.find(
+    { itemId: { $in: uniqueItemIds }, outletId },
+    { itemId: 1, prepTime: 1 }
+  ).lean();
+
+  const prepTimeMap = new Map(
+    records.map((r) => [r.itemId.toString(), r.prepTime ?? DEFAULT_PREP_TIME])
+  );
+
+  return uniqueItemIds.reduce((max, id) => {
+    return Math.max(max, prepTimeMap.get(id) ?? DEFAULT_PREP_TIME);
+  }, 0);
+}
+
+/**
+ * Aggregate the sum of prepTime for all *ongoing* orders at this outlet.
+ * An order is "ongoing" when payment succeeded (orderStatus = Completed) but
+ * the kitchen has not yet served it (fulfillmentStatus != 'served').
+ * This sum represents the total work already queued ahead of the new order.
+ */
+async function computeQueueDelay(outletId) {
+  const result = await Orders.aggregate([
+    {
+      $match: {
+        "outlet.outletId": new mongoose.Types.ObjectId(outletId),
+        orderStatus: "Completed",
+        fulfillmentStatus: { $ne: "served" , $ne: "prepared"},
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: "$prepTime" },
+      },
+    },
+  ]);
+
+  return result[0]?.total ?? 0;
 }
 
 // ── Inventory helpers (no MongoDB sessions — FIFO queue ensures serialisation) ─
@@ -188,6 +243,19 @@ async function processOrderMessage(body) {
   //  Step 2: get next order number ────
   const orderNo = await getNextOrderNumber(outletId);
 
+  //  Step 2.5: compute ETA ────────────────────────────────────────────────────
+  // currentOrderPrepTime = max prepTime of all (expanded) items in this order
+  // If currentOrderPrepTime is 0 (all items are instant / packaged), ETA = 0
+  // and we skip queueDelay — there is nothing to cook.
+  // Otherwise: queueDelay = sum of prepTime of all ongoing orders already queued,
+  //            estimatedPrepTime = queueDelay + currentOrderPrepTime
+  const currentOrderPrepTime = await computeOrderPrepTime(expandedItems, outletId);
+  let queueDelay = 0;
+  if (currentOrderPrepTime > 0) {
+    queueDelay = await computeQueueDelay(outletId);
+  }
+  const estimatedPrepTime = currentOrderPrepTime === 0 ? 0 : queueDelay + currentOrderPrepTime;
+
   //  Step 3: create Pending order ─────
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
@@ -208,6 +276,8 @@ async function processOrderMessage(body) {
     paymentStatus: "pending",
     paymentDetails: null,
     orderStatus: "Pending",
+    prepTime: currentOrderPrepTime,
+    estimatedPrepTime,
   });
 
   console.log(`[SQS consumer] Order created — orderId: ${order._id} | orderNo: ${orderNo}`);
@@ -230,6 +300,7 @@ async function processOrderMessage(body) {
     emitOrderConfirmed(outletId.toString(), {
       orderId: correlationId,
       orderNo: order.orderNo,
+      estimatedPrepTime: order.estimatedPrepTime,
     });
 
     // Fetch fresh inventory quantities and broadcast to kiosks

@@ -60,6 +60,18 @@ const ordersSchema = new Schema(
       type: Schema.Types.Mixed,
       default: null,
     },
+    // Maximum prepTime (minutes) among all items in this order.
+    // Derived from the Inventory.prepTime of each cart item at the moment of order creation.
+    prepTime: {
+      type: Number,
+      default: 0,
+    },
+    // Estimated total wait time (minutes) for this order:
+    //   estimatedPrepTime = queueDelay (sum of prepTime of all ongoing orders ahead) + prepTime
+    estimatedPrepTime: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );

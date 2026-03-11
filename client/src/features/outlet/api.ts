@@ -139,6 +139,8 @@ export type InventoryRecord = {
   orderType: 'dineIn' | 'takeAway' | 'both';
   /** Alert fires when quantity drops to or below this value; null means disabled */
   lowStockThreshold: number | null;
+  /** Estimated minutes kitchen needs to prepare this item; 0 = instant/packaged */
+  prepTime: number;
   editedBy: string;
   createdAt?: string;
   updatedAt?: string;
@@ -244,6 +246,21 @@ export async function updateInventoryThreshold(
     credentials: "include",
     headers: getAuthHeaders(),
     body: JSON.stringify({ lowStockThreshold }),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
+  return parsed.data;
+}
+
+/** PATCH: set estimated prep time (minutes) for an item; 0 = instant/packaged */
+export async function updateInventoryPrepTime(
+  itemId: string,
+  prepTime: number
+): Promise<InventoryRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}/preptime`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ prepTime }),
   });
   const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
   return parsed.data;

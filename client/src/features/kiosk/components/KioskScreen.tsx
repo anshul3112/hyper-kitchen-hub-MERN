@@ -4,6 +4,7 @@ import type { MenuCategory, MenuFilter, EnrichedMenuItem } from "../api";
 import { placeOrder } from "../api";
 import { useCart } from "../hooks/useCart";
 import { getChangedItems, patchItemsInCache, clearChangedItems } from "../db/kioskDB";
+import ComboUpgradeModal, { type ComboSuggestion } from "./ComboUpgradeModal";
 
 type Props = {
   categories: MenuCategory[];
@@ -47,6 +48,8 @@ export default function KioskScreen({
   const [orderErrorTitle, setOrderErrorTitle] = useState("Order Failed");
   // Tracks the correlationId returned by the server so we can match the WebSocket event
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  // ETA (minutes) received from the server in order:confirmed
+  const [confirmedEta, setConfirmedEta] = useState<number | null>(null);
 
   // Notices generated at checkout-open time from pending changed_items
   const [checkoutNotices, setCheckoutNotices] = useState<string[]>([]);
@@ -60,6 +63,7 @@ export default function KioskScreen({
     setSubmittedAmount(0);
     setOrderError("");
     setOrderErrorTitle("Order Failed");
+    setConfirmedEta(null);
     setCheckoutNotices([]);
     setCheckoutInitializing(true);
     setCheckoutOpen(true);
@@ -190,10 +194,11 @@ export default function KioskScreen({
       return () => clearTimeout(fallback);
     }
 
-    const handleConfirmed = (data: { orderId: string; orderNo?: number }) => {
+    const handleConfirmed = (data: { orderId: string; orderNo?: number; estimatedPrepTime?: number }) => {
       if (data.orderId !== pendingOrderId) return; // belongs to a different kiosk
       clearCart();
       setPendingOrderId(null);
+      setConfirmedEta(data.estimatedPrepTime ?? null);
       setPayStep("success");
     };
 
@@ -261,11 +266,8 @@ export default function KioskScreen({
   };
 
   // ── Combo suggestion logic ─────────────────────────────────────────────────
-  type ComboSuggestion = {
-    combo: EnrichedMenuItem;
-    matchingItemIds: string[];
-    savings: number;
-  };
+  const [comboDismissed, setComboDismissed] = useState(false);
+  const prevComboCountRef = useRef(0);
 
   const comboSuggestions = useMemo<ComboSuggestion[]>(() => {
     const cartItemIds = new Set(cartItems.map((ci) => ci.id));
@@ -294,6 +296,14 @@ export default function KioskScreen({
     return suggestions;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart, items]);
+
+  // Re-show modal whenever the number of suggestions grows (new combo unlocked)
+  useEffect(() => {
+    if (comboSuggestions.length > prevComboCountRef.current) {
+      setComboDismissed(false);
+    }
+    prevComboCountRef.current = comboSuggestions.length;
+  }, [comboSuggestions]);
 
   /** Replace matched individual items in cart with the combo item. */
   const handleUpgradeToCombo = (suggestion: { combo: EnrichedMenuItem; matchingItemIds: string[] }) => {
@@ -466,32 +476,6 @@ export default function KioskScreen({
         {/* ── Main Content: Item Grid ──────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto p-5">
 
-          {/* ── Bundle & Save — persistent suggestion banner while browsing ── */}
-          {comboSuggestions.length > 0 && (
-            <div className="mb-5 rounded-2xl bg-purple-50 border border-purple-200 px-4 py-3">
-              <p className="text-xs font-bold text-purple-700 uppercase tracking-wide mb-2">💡 Bundle &amp; Save</p>
-              <div className="flex flex-col gap-2">
-                {comboSuggestions.map((s) => (
-                  <div key={s.combo._id} className="flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-semibold text-gray-800">🍱 {s.combo.name}</span>
-                      <span className="text-xs text-gray-500 ml-2">₹{s.combo.displayPrice}</span>
-                      {s.savings > 0 && (
-                        <span className="text-xs text-green-600 font-semibold ml-1.5">· Save ₹{s.savings}</span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleUpgradeToCombo(s)}
-                      className="flex-shrink-0 text-xs font-bold bg-purple-600 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-xl transition-all"
-                    >
-                      Add Combo →
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {visibleItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
               <p className="text-5xl mb-4">🍽️</p>
@@ -563,7 +547,7 @@ export default function KioskScreen({
                       </p>
                       {item.type === 'combo' && (
                         <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                          🍱 Combo
+                           Combo
                         </span>
                       )}
                       {item.description && (
@@ -618,6 +602,15 @@ export default function KioskScreen({
         </main>
       </div>
 
+      {/* ── Combo Upgrade Modal (right-side floating panel) ─────────────── */}
+      {!comboDismissed && (
+        <ComboUpgradeModal
+          suggestions={comboSuggestions}
+          onUpgrade={(s) => { handleUpgradeToCombo(s); }}
+          onClose={() => setComboDismissed(true)}
+        />
+      )}
+
       {/* ── Checkout Modal ─────────────────────────────────────────────────── */}
       {checkoutOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
@@ -660,7 +653,7 @@ export default function KioskScreen({
                         <div key={s.combo._id} className="flex items-center justify-between gap-3">
                           <div className="flex-1">
                             <p className="text-sm font-semibold text-gray-800">
-                              🍱 {s.combo.name}
+                               {s.combo.name}
                             </p>
                             <p className="text-xs text-gray-500">
                               ₹{s.combo.displayPrice}
@@ -793,6 +786,21 @@ export default function KioskScreen({
                   <p className="text-sm text-gray-500 mt-1">
                     Amount paid: <span className="font-semibold">₹{submittedAmount}</span>
                   </p>
+                  {confirmedEta != null && confirmedEta > 0 && (() => {
+                    const lo = confirmedEta;
+                    const hi = Math.ceil(confirmedEta * 1.5);
+                    return (
+                      <div className="mt-3 inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+                        <span className="text-lg">⏱️</span>
+                        <div className="text-left">
+                          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Estimated wait</p>
+                          <p className="text-base font-extrabold text-amber-900">
+                            {lo === hi ? `${lo} min` : `${lo}–${hi} min`}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <button
                   onClick={() => { closeCheckout(); onNewOrder?.(); }}

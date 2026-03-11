@@ -42,6 +42,14 @@ const inventorySchema = new Schema({
     type: Number,
     default: null,
     min: 0
+  },
+  // estimated minutes the kitchen needs to prepare one serving of this item
+  // outlet admin can override this per-item; default is 3 minutes
+  // 0 = no prep needed (e.g. packaged drinks — served instantly)
+  prepTime: {
+    type: Number,
+    default: 3,
+    min: 0
   }
 }, { timestamps: true });
 

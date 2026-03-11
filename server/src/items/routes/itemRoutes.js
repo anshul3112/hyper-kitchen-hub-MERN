@@ -29,6 +29,7 @@ import {
   toggleInventoryStatus,
   updateInventoryOrderType,
   updateInventoryThreshold,
+  updateInventoryPrepTime,
 } from "../controllers/inventoryController.js";
 
 const router = Router();
@@ -68,6 +69,7 @@ router.route("/menu/all").get(getMenuDetails);
 // PATCH  /api/v1/items/inventory/:itemId/status           → enable / disable item at outlet level
 // PATCH  /api/v1/items/inventory/:itemId/orderType        → set dineIn / takeAway / both
 // PATCH  /api/v1/items/inventory/:itemId/threshold        → set / clear low-stock alert threshold
+// PATCH  /api/v1/items/inventory/:itemId/preptime         → set estimated prep time (minutes)
 router.route("/inventory").get(getOutletInventory);
 router.route("/inventory/:itemId").put(upsertInventoryItem);
 router.route("/inventory/:itemId/price").patch(updateInventoryPrice);
@@ -75,5 +77,6 @@ router.route("/inventory/:itemId/quantity").patch(updateInventoryQuantity);
 router.route("/inventory/:itemId/status").patch(toggleInventoryStatus);
 router.route("/inventory/:itemId/orderType").patch(updateInventoryOrderType);
 router.route("/inventory/:itemId/threshold").patch(updateInventoryThreshold);
+router.route("/inventory/:itemId/preptime").patch(updateInventoryPrepTime);
 
 export default router;
