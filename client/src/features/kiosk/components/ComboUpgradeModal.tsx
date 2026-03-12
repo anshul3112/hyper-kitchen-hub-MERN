@@ -71,9 +71,7 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
                     {s.comboItemDetails.map((detail, i) => (
                       <li key={i} className="flex items-center gap-1 text-xs text-gray-600">
                         <span className="text-purple-400">•</span>
-                        {detail.quantity > 1 && (
-                          <span className="font-semibold text-purple-700">{detail.quantity}×</span>
-                        )}
+                        <span className="font-semibold text-purple-700">{detail.quantity}×</span>
                         {detail.name}
                       </li>
                     ))}

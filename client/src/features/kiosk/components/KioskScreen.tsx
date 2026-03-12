@@ -101,10 +101,38 @@ export default function KioskScreen({
 
       // Validate each cart item against fresh inventory and build notices
       for (const cartItem of cartItems) {
+        const menuItem = items.find((i) => i._id === cartItem.id);
+        const isCombo = menuItem?.type === 'combo';
+
+        // ── Combos have no independent inventory — validate via component items ──
+        if (isCombo) {
+          const comboEntries = menuItem?.comboItems ?? [];
+          const stock = comboEntries.length > 0
+            ? comboEntries.reduce((min, ci) => {
+                const compInv = invMap.get(ci.item);
+                const available = compInv ? Math.floor(compInv.quantity / ci.quantity) : 0;
+                return Math.min(min, available);
+              }, Infinity)
+            : 0;
+          const available = isFinite(stock) ? stock : 0;
+
+          if (available === 0) {
+            notices.push(`${cartItem.name} is out of stock — removed from cart.`);
+            cartPatches[cartItem.id] = { quantity: 0 };
+          } else if (available < cartItem.quantity) {
+            notices.push(
+              `${cartItem.name}: only ${available} available — quantity reduced from ${cartItem.quantity} to ${available}.`,
+            );
+            cartPatches[cartItem.id] = { quantity: available };
+          }
+          // Combo price is sourced from item.defaultAmount; no inventory price to validate
+          continue;
+        }
+
+        // ── Single items ──────────────────────────────────────────────────────
         const inv = invMap.get(cartItem.id);
 
         if (!inv) {
-          // Item no longer exists in inventory
           notices.push(`${cartItem.name} is no longer available — removed from cart.`);
           cartPatches[cartItem.id] = { status: false };
           continue;
@@ -134,11 +162,11 @@ export default function KioskScreen({
         const freshPrice =
           (inv.activePrice != null ? inv.activePrice : null) ??
           inv.price ??
-          (items.find((i) => i._id === cartItem.id)?.defaultAmount ?? cartItem.price);
+          (menuItem?.defaultAmount ?? cartItem.price);
 
         if (freshPrice !== cartItem.price) {
           notices.push(
-            `Price of ${cartItem.name} updated: \u20b9${cartItem.price} \u2192 \u20b9${freshPrice}.`,
+            `Price of ${cartItem.name} updated: ₹${cartItem.price} → ₹${freshPrice}.`,
           );
           patch.price = freshPrice;
         }
@@ -581,9 +609,25 @@ export default function KioskScreen({
                         {item.name}
                       </p>
                       {item.type === 'combo' && (
-                        <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                           {t("combo")}
-                        </span>
+                        <>
+                          <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                             {t("combo")}
+                          </span>
+                          {item.comboItems && item.comboItems.length > 0 && (
+                            <ul className="mt-1 space-y-0.5">
+                              {item.comboItems.map((ci, idx) => {
+                                const comp = items.find((i) => i._id === ci.item);
+                                return (
+                                  <li key={idx} className="flex items-center gap-1 text-[10px] text-gray-500 leading-tight">
+                                    <span className="text-blue-400 flex-shrink-0">•</span>
+                                    <span className="font-semibold text-blue-600 flex-shrink-0">{ci.quantity}×</span>
+                                    <span className="line-clamp-1">{comp?.name ?? ci.item}</span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </>
                       )}
                       {item.description && (
                         <p className="text-sm text-gray-400 line-clamp-2 leading-snug">
@@ -714,9 +758,7 @@ export default function KioskScreen({
                                   {s.comboItemDetails.map((detail, i) => (
                                     <li key={i} className="flex items-center gap-1 text-xs text-gray-600">
                                       <span className="text-purple-400">•</span>
-                                      {detail.quantity > 1 && (
-                                        <span className="font-semibold text-purple-700">{detail.quantity}×</span>
-                                      )}
+                                      <span className="font-semibold text-purple-700">{detail.quantity}×</span>
                                       {detail.name}
                                     </li>
                                   ))}
