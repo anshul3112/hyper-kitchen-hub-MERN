@@ -60,5 +60,6 @@
   "addCombo": "Add Combo",
   "stockLimitToast": "Only {{count}} of \"{{name}}\" available",
   "upgradedToCombo": "Upgraded to {{name}}!",
-  "recommendedForYou": "Recommended For You"
+  "recommendedForYou": "Recommended For You",
+  "includes": "Includes"
 }

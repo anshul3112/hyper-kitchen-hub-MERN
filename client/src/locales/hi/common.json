@@ -60,5 +60,6 @@
   "addCombo": "कॉम्बो जोड़ें",
   "stockLimitToast": "\"{{name}}\" केवल {{count}} उपलब्ध",
   "upgradedToCombo": "{{name}} में अपग्रेड किया!",
-  "recommendedForYou": "आपके लिए सुझाव"
+  "recommendedForYou": "आपके लिए सुझाव",
+  "includes": "शामिल है"
 }

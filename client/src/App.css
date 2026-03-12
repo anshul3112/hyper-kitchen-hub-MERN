@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+@utility scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @keyframes slide-in-right {
   from {
     opacity: 0;
