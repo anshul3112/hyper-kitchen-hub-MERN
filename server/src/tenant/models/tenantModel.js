@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { SUPPORTED_LANGUAGES } from '../../utils/constants.js';
 
 const tenantSchema = new Schema({
   name: {
@@ -31,7 +32,23 @@ const tenantSchema = new Schema({
   address :{
     type: String,
     trim: true
-  }
+  },
+  /**
+   * Additional kiosk languages enabled by this tenant (English is always available).
+   * Values must be entries from SUPPORTED_LANGUAGES (excluding 'English').
+   */
+  kioskLanguages: {
+    type: [String],
+    default: [],
+    validate: {
+      validator: function (arr) {
+        return arr.every(
+          (lang) => lang !== 'English' && SUPPORTED_LANGUAGES.includes(lang)
+        );
+      },
+      message: 'One or more languages are invalid or English cannot be added here',
+    },
+  },
 }, { timestamps: true });
 
 tenantSchema.index({ name: 1 }, { unique: true });

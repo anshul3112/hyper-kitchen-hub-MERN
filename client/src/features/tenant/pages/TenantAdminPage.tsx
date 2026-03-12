@@ -10,12 +10,14 @@ import AddOutletAdminModal from "../components/AddOutletAdminModal";
 import OutletsTable from "../components/OutletsTable";
 import TenantMenuPanel from "../components/TenantMenuPanel";
 import TenantOrderHistoryTab from "../components/TenantOrderHistoryTab";
+import TenantKioskSettings from "../components/TenantKioskSettings";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "outlets", label: "Outlets" },
   { key: "menu", label: "Menu" },
   { key: "orders", label: "Orders" },
+  { key: "settings", label: "Settings" },
 ];
 
 export default function TenantAdminPage() {
@@ -95,6 +97,8 @@ export default function TenantAdminPage() {
         {activeSection === "menu" && <TenantMenuPanel />}
 
         {activeSection === "orders" && <TenantOrderHistoryTab />}
+
+        {activeSection === "settings" && <TenantKioskSettings />}
       </main>
 
       {isModalOpen && (

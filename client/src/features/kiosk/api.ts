@@ -253,3 +253,23 @@ export async function placeOrder(payload: PlaceOrderPayload): Promise<{ orderId:
   const parsed = await parseOrThrow<{ data: { orderId: string } }>(res);
   return parsed.data;
 }
+
+// ── Kiosk languages ───────────────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/kiosks/languages
+ * Returns the additional kiosk languages configured for this kiosk's tenant.
+ * English is always available; this returns only the extra enabled languages.
+ */
+export async function fetchKioskLanguages(): Promise<string[]> {
+  const token = localStorage.getItem("kioskToken");
+  const res = await fetch(`${API_BASE_URL}/api/v1/kiosks/languages`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: token ? `Bearer ${token}` : "",
+    },
+  });
+  const parsed = await parseOrThrow<{ data: { kioskLanguages: string[] } }>(res);
+  return parsed.data.kioskLanguages;
+}

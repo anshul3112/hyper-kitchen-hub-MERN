@@ -433,3 +433,31 @@ export async function fetchTenantHourlyHistory(params: {
 	const parsed = await parseOrThrow(res);
 	return parsed.data;
 }
+
+// ── Kiosk language settings ───────────────────────────────────────────────────
+
+/** GET /api/v1/tenants/:tenantId/languages */
+export async function fetchTenantLanguages(tenantId: string): Promise<string[]> {
+	const res = await fetch(`${API_BASE_URL}/api/v1/tenants/${tenantId}/languages`, {
+		method: "GET",
+		credentials: "include",
+		headers: getAuthHeaders(),
+	});
+	const parsed = (await parseOrThrow(res)) as ApiResponse<{ kioskLanguages: string[] }>;
+	return parsed.data.kioskLanguages;
+}
+
+/** PATCH /api/v1/tenants/:tenantId/languages */
+export async function updateTenantLanguages(
+	tenantId: string,
+	kioskLanguages: string[]
+): Promise<string[]> {
+	const res = await fetch(`${API_BASE_URL}/api/v1/tenants/${tenantId}/languages`, {
+		method: "PATCH",
+		credentials: "include",
+		headers: getAuthHeaders(),
+		body: JSON.stringify({ kioskLanguages }),
+	});
+	const parsed = (await parseOrThrow(res)) as ApiResponse<{ kioskLanguages: string[] }>;
+	return parsed.data.kioskLanguages;
+}

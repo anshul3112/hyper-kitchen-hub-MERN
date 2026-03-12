@@ -1,17 +1,28 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import "../../../i18n";
-import { getKioskSession } from "../api";
+import { getKioskSession, fetchKioskLanguages } from "../api";
+import { LANGUAGE_META } from "../../../common/utils/languages";
 
 export default function KioskStartPage() {
   const navigate = useNavigate();
   const session = getKioskSession();
   const { t, i18n } = useTranslation("common");
+  const [extraLanguages, setExtraLanguages] = useState<string[]>([]);
 
   function switchLanguage(lang: string) {
     i18n.changeLanguage(lang);
   }
+
+  useEffect(() => {
+    fetchKioskLanguages()
+      .then(setExtraLanguages)
+      .catch(() => {
+        // Non-fatal: fall back to English-only if fetch fails
+        setExtraLanguages([]);
+      });
+  }, []);
 
 
   useEffect(() => {
@@ -43,6 +54,7 @@ export default function KioskStartPage() {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center select-none px-6">
       {/* Language Switcher */}
       <div className="absolute top-6 right-6 flex gap-2">
+        {/* English is always shown */}
         <button
           onClick={() => switchLanguage("en")}
           className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
@@ -53,16 +65,25 @@ export default function KioskStartPage() {
         >
           English
         </button>
-        <button
-          onClick={() => switchLanguage("hi")}
-          className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
-            i18n.language === "hi"
-              ? "bg-purple-600 text-white border-purple-600"
-              : "bg-white text-purple-600 border-purple-300 hover:border-purple-600"
-          }`}
-        >
-          हिंदी
-        </button>
+
+        {/* Tenant-configured additional languages */}
+        {extraLanguages.map((lang) => {
+          const meta = LANGUAGE_META[lang];
+          if (!meta) return null;
+          return (
+            <button
+              key={lang}
+              onClick={() => switchLanguage(meta.code)}
+              className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${
+                i18n.language === meta.code
+                  ? "bg-purple-600 text-white border-purple-600"
+                  : "bg-white text-purple-600 border-purple-300 hover:border-purple-600"
+              }`}
+            >
+              {meta.nativeLabel}
+            </button>
+          );
+        })}
       </div>
 
       {/* Icon */}

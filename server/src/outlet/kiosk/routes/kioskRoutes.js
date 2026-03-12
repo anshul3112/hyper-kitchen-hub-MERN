@@ -7,6 +7,7 @@ import { toggleKiosk } from "../controllers/toggleKiosk.js";
 import { loginKiosk } from "../controllers/loginKiosk.js";
 import { getKioskMenu } from "../controllers/getKioskMenu.js";
 import { getKioskInventory } from "../controllers/getKioskInventory.js";
+import { getKioskLanguages } from "../controllers/getKioskLanguages.js";
 
 const router = Router();
 
@@ -22,8 +23,10 @@ router.route('/:id/toggle').patch(verifyJWT, toggleKiosk);
 // ── Kiosk-device routes ───────────────────────────────────────────────────────
 // GET /api/v1/kiosks/menu        → fetch all menu (categories, filters, items)
 // GET /api/v1/kiosks/inventory   → fetch outlet inventory for this kiosk's outlet (with schedule-resolved activePrice)
+// GET /api/v1/kiosks/languages   → fetch this kiosk's tenant language settings
 router.route('/menu').get(verifyKioskJWT, getKioskMenu);
 router.route('/inventory').get(verifyKioskJWT, getKioskInventory);
+router.route('/languages').get(verifyKioskJWT, getKioskLanguages);
 
 export { verifyKioskJWT };
 export default router;
