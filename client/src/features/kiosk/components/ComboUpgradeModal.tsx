@@ -4,6 +4,7 @@ export type ComboSuggestion = {
   combo: EnrichedMenuItem;
   matchingItemIds: string[];
   savings: number;
+  comboItemNames: string[];
 };
 
 type Props = {
@@ -36,14 +37,22 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
         </p>
 
         {/* Suggestions */}
-        <div className="px-4 py-3 space-y-3 max-h-80 overflow-y-auto">
+        <div className="px-4 py-3 space-y-3 max-h-96 overflow-y-auto">
           {suggestions.map((s) => (
             <div
               key={s.combo._id}
               className="flex flex-col gap-2 pb-3 border-b border-gray-100 last:border-0 last:pb-0"
             >
+              {/* Combo image */}
+              {s.combo.imageUrl && (
+                <img
+                  src={s.combo.imageUrl}
+                  alt={s.combo.name}
+                  className="w-full h-28 object-cover rounded-xl"
+                />
+              )}
               <div>
-                <p className="text-sm font-semibold text-gray-800"> {s.combo.name}</p>
+                <p className="text-sm font-semibold text-gray-800">{s.combo.name}</p>
                 <p className="text-xs text-gray-500">
                   ₹{s.combo.displayPrice}
                   {s.savings > 0 && (
@@ -52,6 +61,17 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
                     </span>
                   )}
                 </p>
+                {/* Items in this combo */}
+                {s.comboItemNames.length > 0 && (
+                  <ul className="mt-1.5 space-y-0.5">
+                    {s.comboItemNames.map((name, i) => (
+                      <li key={i} className="flex items-center gap-1 text-xs text-gray-600">
+                        <span className="text-purple-400">•</span>
+                        {name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <button
                 onClick={() => onUpgrade(s)}

@@ -309,8 +309,13 @@ export default function KioskScreen({
           return sum + (found?.displayPrice ?? 0);
         }, 0);
         const savings = Math.max(0, individualTotal - item.displayPrice);
-        if(savings > 0)
-        suggestions.push({ combo: item, matchingItemIds, savings });
+        if (savings > 0) {
+          const comboItemNames = comboItemIds.map((id) => {
+            const found = items.find((i) => i._id === id);
+            return found?.name ?? 'Unknown';
+          });
+          suggestions.push({ combo: item, matchingItemIds, savings, comboItemNames });
+        }
       }
     }
     return suggestions;
@@ -680,24 +685,43 @@ export default function KioskScreen({
                     <div className="mt-2 rounded-xl bg-purple-50 border border-purple-200 px-4 py-3 space-y-3">
                       <p className="text-xs font-bold text-purple-700 uppercase tracking-wide">💡 Upgrade Suggestions</p>
                       {comboSuggestions.map((s) => (
-                        <div key={s.combo._id} className="flex items-center justify-between gap-3">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-800">
-                               {s.combo.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              ₹{s.combo.displayPrice}
-                              {s.savings > 0 && (
-                                <span className="ml-1.5 text-green-600 font-semibold">· Save ₹{s.savings}</span>
+                        <div key={s.combo._id} className="flex flex-col gap-2 pb-3 border-b border-purple-100 last:border-0 last:pb-0">
+                          {/* Combo image */}
+                          {s.combo.imageUrl && (
+                            <img
+                              src={s.combo.imageUrl}
+                              alt={s.combo.name}
+                              className="w-full h-28 object-cover rounded-xl"
+                            />
+                          )}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-gray-800">{s.combo.name}</p>
+                              <p className="text-xs text-gray-500">
+                                ₹{s.combo.displayPrice}
+                                {s.savings > 0 && (
+                                  <span className="ml-1.5 text-green-600 font-semibold">· Save ₹{s.savings}</span>
+                                )}
+                              </p>
+                              {/* Items in this combo */}
+                              {s.comboItemNames.length > 0 && (
+                                <ul className="mt-1.5 space-y-0.5">
+                                  {s.comboItemNames.map((name, i) => (
+                                    <li key={i} className="flex items-center gap-1 text-xs text-gray-600">
+                                      <span className="text-purple-400">•</span>
+                                      {name}
+                                    </li>
+                                  ))}
+                                </ul>
                               )}
-                            </p>
+                            </div>
+                            <button
+                              onClick={() => handleUpgradeToCombo(s)}
+                              className="flex-shrink-0 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Upgrade →
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleUpgradeToCombo(s)}
-                            className="flex-shrink-0 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors"
-                          >
-                            Upgrade →
-                          </button>
                         </div>
                       ))}
                     </div>
