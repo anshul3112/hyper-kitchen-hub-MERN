@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { MenuCategory, MenuFilter, MenuItem } from "../api";
+import { localised } from "../../../common/utils/languages";
 
 type Props = {
   categories: MenuCategory[];
@@ -26,7 +27,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      if (!item.name.toLowerCase().includes(q) && !(item.description ?? "").toLowerCase().includes(q)) {
+      if (!localised(item.name, 'en').toLowerCase().includes(q) && !localised(item.description, 'en').toLowerCase().includes(q)) {
         return false;
       }
     }
@@ -69,7 +70,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
                 : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
             }`}
           >
-            {cat.name}
+            {localised(cat.name, 'en')}
           </button>
         ))}
       </div>
@@ -97,7 +98,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
                   : "bg-orange-50 text-orange-600 hover:bg-orange-100"
               }`}
             >
-              {filt.name}
+              {localised(filt.name, 'en')}
             </button>
           ))}
         </div>
@@ -126,7 +127,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
                 {item.imageUrl ? (
                   <img
                     src={item.imageUrl}
-                    alt={item.name}
+                    alt={localised(item.name, 'en')}
                     className="w-full h-full object-contain"
                   />
                 ) : (
@@ -137,10 +138,10 @@ export default function MenuGrid({ categories, filters, items }: Props) {
               {/* Details */}
               <div className="p-3 flex flex-col gap-1 flex-1">
                 <p className="text-sm font-semibold text-gray-900 leading-tight line-clamp-2">
-                  {item.name}
+                  {localised(item.name, 'en')}
                 </p>
                 {item.description && (
-                  <p className="text-xs text-gray-500 line-clamp-2">{item.description}</p>
+                  <p className="text-xs text-gray-500 line-clamp-2">{localised(item.description, 'en')}</p>
                 )}
                 <div className="mt-auto pt-2 flex items-center justify-between">
                   <span className="text-sm font-bold text-blue-600">
@@ -153,7 +154,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
                           key={f._id}
                           className="text-xs bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded"
                         >
-                          {f.name}
+                          {localised(f.name, 'en')}
                         </span>
                       ))}
                     </div>

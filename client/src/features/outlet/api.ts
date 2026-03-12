@@ -24,9 +24,11 @@ export type Kiosk = {
   loginCodeExpiresAt?: string;
 };
 
+export type MultiLangString = { en: string; [langCode: string]: string };
+
 export type MenuCategory = {
   _id: string;
-  name: string;
+  name: MultiLangString;
   status: boolean;
   imageUrl?: string;
   createdAt?: string;
@@ -34,7 +36,7 @@ export type MenuCategory = {
 
 export type MenuFilter = {
   _id: string;
-  name: string;
+  name: MultiLangString;
   isActive: boolean;
   imageUrl?: string;
   createdAt?: string;
@@ -42,8 +44,8 @@ export type MenuFilter = {
 
 export type MenuItem = {
   _id: string;
-  name: string;
-  description?: string;
+  name: MultiLangString;
+  description?: MultiLangString;
   defaultAmount: number;
   status: boolean;
   imageUrl?: string;

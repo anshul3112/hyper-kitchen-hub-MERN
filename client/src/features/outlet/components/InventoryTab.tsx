@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Socket } from "socket.io-client";
+import { localised } from "../../../common/utils/languages";
 import {
   fetchOutletInventory,
   fetchMenuDetails,
@@ -377,14 +378,14 @@ export default function InventoryTab({ socketRef }: Props) {
                 <tr key={item._id} className={rowBg}>
                   {/* Item name */}
                   <td className="px-5 py-3">
-                    <p className="font-medium text-gray-800">{item.name}</p>
+                    <p className="font-medium text-gray-800">{localised(item.name, 'en')}</p>
                     {isCombo && (
                       <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
                          Combo
                       </span>
                     )}
                     {item.description && (
-                      <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[14rem]">{item.description}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[14rem]">{localised(item.description, 'en')}</p>
                     )}
                   </td>
 
@@ -736,7 +737,7 @@ export default function InventoryTab({ socketRef }: Props) {
         return (
           <ScheduleModal
             itemId={scheduleModal.itemId}
-            itemName={modalItem.name}
+            itemName={localised(modalItem.name, 'en')}
             inventory={modalInv ?? {
               _id: "",
               itemId: scheduleModal.itemId,
