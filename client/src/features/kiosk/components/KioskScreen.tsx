@@ -5,6 +5,7 @@ import type { Socket } from "socket.io-client";
 import type { MenuCategory, MenuFilter, EnrichedMenuItem } from "../api";
 import { placeOrder, fetchKioskInventory } from "../api";
 import { useCart } from "../hooks/useCart";
+import { localised } from "../../../common/utils/languages";
 import ComboUpgradeModal, { type ComboSuggestion } from "./ComboUpgradeModal";
 
 type Props = {
@@ -32,7 +33,7 @@ export default function KioskScreen({
   onItemsPatched,
   onNewOrder,
 }: Props) {
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
 
@@ -301,16 +302,16 @@ export default function KioskScreen({
   const handleAddToCart = (item: EnrichedMenuItem) => {
     const qty = cart[item._id]?.quantity ?? 0;
     if (qty >= item.stockQuantity) {
-      showToast(t("stockLimitToast", { count: item.stockQuantity, name: item.name }));
+      showToast(t("stockLimitToast", { count: item.stockQuantity, name: localised(item.name, i18n.language) }));
       return;
     }
-    addToCart(item);
+    addToCart(item, localised(item.name, i18n.language));
   };
 
   const handleIncrement = (item: EnrichedMenuItem) => {
     const qty = cart[item._id]?.quantity ?? 0;
     if (qty >= item.stockQuantity) {
-      showToast(t("stockLimitToast", { count: item.stockQuantity, name: item.name }));
+      showToast(t("stockLimitToast", { count: item.stockQuantity, name: localised(item.name, i18n.language) }));
       return;
     }
     increment(item._id);
@@ -345,7 +346,7 @@ export default function KioskScreen({
         if (savings > 0) {
           const comboItemDetails = comboEntries.map((ci) => {
             const found = items.find((i) => i._id === ci.item);
-            return { name: found?.name ?? 'Unknown', quantity: ci.quantity };
+            return { name: found ? localised(found.name, i18n.language) : 'Unknown', quantity: ci.quantity };
           });
           suggestions.push({ combo: item, matchingItemIds, savings, comboItemDetails });
         }
@@ -353,7 +354,7 @@ export default function KioskScreen({
     }
     return suggestions;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, items]);
+  }, [cart, items, i18n.language]);
 
   // Re-show modal whenever the number of suggestions grows (new combo unlocked)
   useEffect(() => {
@@ -366,8 +367,8 @@ export default function KioskScreen({
   /** Replace matched individual items in cart with the combo item. */
   const handleUpgradeToCombo = (suggestion: { combo: EnrichedMenuItem; matchingItemIds: string[] }) => {
     suggestion.matchingItemIds.forEach((id) => removeItem(id));
-    addToCart(suggestion.combo);
-    showToast(t("upgradedToCombo", { name: suggestion.combo.name }));
+    addToCart(suggestion.combo, localised(suggestion.combo.name, i18n.language));
+    showToast(t("upgradedToCombo", { name: localised(suggestion.combo.name, i18n.language) }));
   };
 
   const visibleItems = items.filter((item) => {
@@ -459,7 +460,7 @@ export default function KioskScreen({
                   className="w-4 h-4 rounded object-cover flex-shrink-0"
                 />
               )}
-              {f.name}
+              {localised(f.name, i18n.language)}
             </button>
           ))}
         </div>
@@ -523,14 +524,14 @@ export default function KioskScreen({
                 <div className="w-full h-[138px] bg-gray-50 flex items-center justify-center flex-shrink-0">
                   <img
                     src={cat.imageUrl}
-                    alt={cat.name}
+                    alt={localised(cat.name, i18n.language)}
                     className="w-full h-full object-contain"
                   />
                 </div>
               )}
               <div className={`flex items-center gap-2 px-4 text-sm font-medium ${cat.imageUrl ? "py-2" : "py-3"}`}>
                 {!cat.imageUrl && <span className="text-base flex-shrink-0">🍴</span>}
-                <span className="line-clamp-2 leading-tight">{cat.name}</span>
+                <span className="line-clamp-2 leading-tight">{localised(cat.name, i18n.language)}</span>
               </div>
             </button>
           ))}
@@ -561,7 +562,7 @@ export default function KioskScreen({
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
-                          alt={item.name}
+                          alt={localised(item.name, i18n.language)}
                           className={`w-full h-full object-contain ${!item.inStock ? "grayscale" : ""}`}
                         />
                       ) : (
@@ -587,7 +588,7 @@ export default function KioskScreen({
                               key={f._id}
                               className="bg-white/90 text-purple-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm"
                             >
-                              {f.name}
+                              {localised(f.name, i18n.language)}
                             </span>
                           ))}
                         </div>
@@ -606,7 +607,7 @@ export default function KioskScreen({
                     {/* Details */}
                     <div className="p-4 flex flex-col gap-1 flex-1">
                       <p className="text-base font-bold text-gray-900 leading-tight line-clamp-2">
-                        {item.name}
+                        {localised(item.name, i18n.language)}
                       </p>
                       {item.type === 'combo' && (
                         <>
@@ -621,7 +622,7 @@ export default function KioskScreen({
                                   <li key={idx} className="flex items-center gap-1 text-[10px] text-gray-500 leading-tight">
                                     <span className="text-blue-400 flex-shrink-0">•</span>
                                     <span className="font-semibold text-blue-600 flex-shrink-0">{ci.quantity}×</span>
-                                    <span className="line-clamp-1">{comp?.name ?? ci.item}</span>
+                                    <span className="line-clamp-1">{comp ? localised(comp.name, i18n.language) : ci.item}</span>
                                   </li>
                                 );
                               })}
@@ -631,7 +632,7 @@ export default function KioskScreen({
                       )}
                       {item.description && (
                         <p className="text-sm text-gray-400 line-clamp-2 leading-snug">
-                          {item.description}
+                          {localised(item.description, i18n.language)}
                         </p>
                       )}
 
@@ -739,13 +740,13 @@ export default function KioskScreen({
                           {s.combo.imageUrl && (
                             <img
                               src={s.combo.imageUrl}
-                              alt={s.combo.name}
+                              alt={localised(s.combo.name, i18n.language)}
                               className="w-full h-28 object-cover rounded-xl"
                             />
                           )}
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1">
-                              <p className="text-sm font-semibold text-gray-800">{s.combo.name}</p>
+                              <p className="text-sm font-semibold text-gray-800">{localised(s.combo.name, i18n.language)}</p>
                               <p className="text-xs text-gray-500">
                                 ₹{s.combo.displayPrice}
                                 {s.savings > 0 && (

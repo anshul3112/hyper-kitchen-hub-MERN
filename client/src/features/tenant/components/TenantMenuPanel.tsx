@@ -3,10 +3,12 @@ import {
   fetchCategories,
   fetchFilters,
   fetchItems,
+  fetchTenantLanguages,
   type MenuCategory,
   type MenuFilter,
   type MenuItem,
 } from "../api";
+import { fetchProfile } from "../../auth/api";
 import CategoriesTab from "./CategoriesTab";
 import FiltersTab from "./FiltersTab";
 import ItemsTab from "./ItemsTab";
@@ -21,6 +23,9 @@ type SubTab = (typeof SUB_TABS)[number]["key"];
 
 export default function TenantMenuPanel() {
   const [activeTab, setActiveTab] = useState<SubTab>("items");
+
+  // Kiosk languages enabled for this tenant
+  const [kioskLanguages, setKioskLanguages] = useState<string[]>(["English"]);
 
   // Items state
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -45,7 +50,21 @@ export default function TenantMenuPanel() {
     loadItems();
     loadCategories();
     loadFilters();
+    loadKioskLanguages();
   }, []);
+
+  const loadKioskLanguages = async () => {
+    try {
+      const profile = await fetchProfile();
+      const tenantId = profile.tenant?.tenantId;
+      if (tenantId) {
+        const langs = await fetchTenantLanguages(tenantId);
+        setKioskLanguages(langs.length > 0 ? langs : ["English"]);
+      }
+    } catch {
+      // fall back to English-only silently
+    }
+  };
 
   const loadItems = async () => {
     itemsFetched.current = true;
@@ -150,6 +169,7 @@ export default function TenantMenuPanel() {
           categories={categories}
           filters={filters}
           loading={itemsLoading}
+          kioskLanguages={kioskLanguages}
           onItemsChange={setItems}
         />
       )}
@@ -158,6 +178,7 @@ export default function TenantMenuPanel() {
         <CategoriesTab
           categories={categories}
           loading={categoriesLoading}
+          kioskLanguages={kioskLanguages}
           onCategoriesChange={setCategories}
         />
       )}
@@ -166,6 +187,7 @@ export default function TenantMenuPanel() {
         <FiltersTab
           filters={filters}
           loading={filtersLoading}
+          kioskLanguages={kioskLanguages}
           onFiltersChange={setFilters}
         />
       )}

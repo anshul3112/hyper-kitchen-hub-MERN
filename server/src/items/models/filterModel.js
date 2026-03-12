@@ -1,5 +1,9 @@
 import mongoose, { Schema } from 'mongoose';
 
+/**
+ * name is stored as a multilingual object: { en: "Veg", hi: "शाकाहारी" }
+ * English (en) is always required; other language fields are optional.
+ */
 const filterSchema = new Schema({
   tenantId: {
     type: Schema.Types.ObjectId,
@@ -7,9 +11,13 @@ const filterSchema = new Schema({
     required: true
   },
   name: {
-    type: String,
-    trim: true,
-    required: true
+    type: Schema.Types.Mixed,
+    required: true,
+    validate: {
+      validator: (v) =>
+        v && typeof v === 'object' && typeof v.en === 'string' && v.en.trim().length > 0,
+      message: 'English name (name.en) is required',
+    },
   },
   // imageUrl: { type: String, trim: true }, // Cloudinary URL — replaced by S3 key
   imageKey: {
@@ -29,7 +37,7 @@ const filterSchema = new Schema({
 
 // tenant lookup (getFilters)
 filterSchema.index({ tenantId: 1 });
-// duplicate-name check per tenant
-filterSchema.index({ name: 1, tenantId: 1 }, { unique: true });
+// duplicate English-name check per tenant
+filterSchema.index({ 'name.en': 1, tenantId: 1 }, { unique: true });
 
 export const Filters = mongoose.model("Filters", filterSchema);

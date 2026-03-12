@@ -5,17 +5,18 @@ import AddEditCategoryModal from "./AddEditCategoryModal";
 interface Props {
   categories: MenuCategory[];
   loading: boolean;
+  kioskLanguages: string[];
   onCategoriesChange: (updated: MenuCategory[]) => void;
 }
 
-export default function CategoriesTab({ categories, loading, onCategoriesChange }: Props) {
+export default function CategoriesTab({ categories, loading, kioskLanguages, onCategoriesChange }: Props) {
   // undefined = modal closed, null = create new, MenuCategory = edit existing
   const [modalTarget, setModalTarget] = useState<MenuCategory | null | undefined>(undefined);
   const [deleteError, setDeleteError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (category: MenuCategory) => {
-    if (!confirm(`Delete category "${category.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete category "${category.name.en}"? This cannot be undone.`)) return;
     setDeletingId(category._id);
     setDeleteError("");
     try {
@@ -98,7 +99,7 @@ export default function CategoriesTab({ categories, loading, onCategoriesChange 
                 {cat.imageUrl ? (
                   <img
                     src={cat.imageUrl}
-                    alt={cat.name}
+                    alt={cat.name.en}
                     className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-100"
                   />
                 ) : (
@@ -107,7 +108,7 @@ export default function CategoriesTab({ categories, loading, onCategoriesChange 
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="font-medium text-gray-800 text-sm truncate">{cat.name}</p>
+                  <p className="font-medium text-gray-800 text-sm truncate">{cat.name.en}</p>
                   <span
                     className={`inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium ${
                       cat.status
@@ -142,6 +143,7 @@ export default function CategoriesTab({ categories, loading, onCategoriesChange 
       {modalTarget !== undefined && (
         <AddEditCategoryModal
           category={modalTarget}
+          kioskLanguages={kioskLanguages}
           onClose={() => setModalTarget(undefined)}
           onSuccess={handleSuccess}
         />

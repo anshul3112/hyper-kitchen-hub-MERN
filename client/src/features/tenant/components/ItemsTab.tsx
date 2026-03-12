@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { deleteItem, updateItem, type MenuItem, type MenuCategory, type MenuFilter } from "../api";
 import AddEditItemModal from "./AddEditItemModal";
+import { localised } from "../../../common/utils/languages";
 
 interface Props {
   items: MenuItem[];
   categories: MenuCategory[];
   filters: MenuFilter[];
   loading: boolean;
+  kioskLanguages: string[];
   onItemsChange: (updated: MenuItem[]) => void;
 }
 
-export default function ItemsTab({ items, categories, filters, loading, onItemsChange }: Props) {
+export default function ItemsTab({ items, categories, filters, loading, kioskLanguages, onItemsChange }: Props) {
   const [search, setSearch] = useState("");
   // undefined = modal closed, null = create new, MenuItem = edit
   const [modalTarget, setModalTarget] = useState<MenuItem | null | undefined>(undefined);
@@ -19,8 +21,8 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
   const [actionError, setActionError] = useState("");
 
   const filtered = items.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase()) ||
-    item.description?.toLowerCase().includes(search.toLowerCase()),
+    localised(item.name, 'en').toLowerCase().includes(search.toLowerCase()) ||
+    localised(item.description, 'en').toLowerCase().includes(search.toLowerCase()),
   );
 
   const handleToggleStatus = async (item: MenuItem) => {
@@ -37,7 +39,7 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
   };
 
   const handleDelete = async (item: MenuItem) => {
-    if (!confirm(`Delete item "${item.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete item "${localised(item.name, 'en')}"? This cannot be undone.`)) return;
     setDeletingId(item._id);
     setActionError("");
     try {
@@ -137,7 +139,7 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
                   {item.imageUrl ? (
                     <img
                       src={item.imageUrl}
-                      alt={item.name}
+                      alt={localised(item.name, 'en')}
                       className="w-full h-full object-contain"
                     />
                   ) : (
@@ -161,7 +163,7 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
                 <div className="p-3 flex-1 flex flex-col gap-2">
                   <div>
                     <h4 className="font-semibold text-gray-800 text-sm leading-tight line-clamp-1">
-                      {item.name}
+                      {localised(item.name, 'en')}
                     </h4>
                     {item.type === 'combo' && (
                       <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
@@ -173,7 +175,7 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
                     </p>
                     {item.description && (
                       <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                        {item.description}
+                        {localised(item.description, 'en')}
                       </p>
                     )}
                   </div>
@@ -184,7 +186,7 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
                       <span
                         className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100"
                       >
-                        {item.category.name}
+                        {localised(item.category.name, 'en')}
                       </span>
                     </div>
                   )}
@@ -197,7 +199,7 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
                           key={f._id}
                           className="text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full border border-orange-100"
                         >
-                          {f.name}
+                          {localised(f.name, 'en')}
                         </span>
                       ))}
                     </div>
@@ -252,6 +254,7 @@ export default function ItemsTab({ items, categories, filters, loading, onItemsC
           items={items}
           categories={categories}
           filters={filters}
+          kioskLanguages={kioskLanguages}
           onClose={() => setModalTarget(undefined)}
           onSuccess={handleSuccess}
         />

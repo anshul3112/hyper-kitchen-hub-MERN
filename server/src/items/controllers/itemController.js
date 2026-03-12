@@ -29,9 +29,9 @@ export const addItem = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Tenant ID is required");
   }
 
-  // Validation
-  if (!name || !name.trim()) {
-    throw new ApiError(400, "Item name is required");
+  // Validation — name must be an object with a non-empty English value
+  if (!name || typeof name !== 'object' || !name.en?.trim()) {
+    throw new ApiError(400, "Item name (English) is required");
   }
 
   if (defaultAmount === undefined || defaultAmount === null) {
@@ -88,9 +88,11 @@ export const addItem = asyncHandler(async (req, res) => {
     }
   }
 
+  const cleanName = { ...name, en: name.en.trim() };
+
   const item = new Items({
-    name: name.trim(),
-    description: description?.trim() || "",
+    name: cleanName,
+    description: description || {},
     defaultAmount,
     category,
     filters,
@@ -105,7 +107,7 @@ export const addItem = asyncHandler(async (req, res) => {
   try {
     await item.save();
   } catch (err) {
-    throw parseDuplicateKeyError(err, { name: "Item with this name already exists in your organization" }) ?? err;
+    throw parseDuplicateKeyError(err, { 'name.en': "Item with this name already exists in your organization" }) ?? err;
   }
 
   const itemWithUrl = await withPresignedUrl(item.toObject());
@@ -199,13 +201,18 @@ export const editItem = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Item not found");
   }
 
-  // Update name — let the unique index catch conflicts on save
-  if (name && name !== item.name) {
-    item.name = name.trim();
+  // Update name — validate that en is present, then replace entire object
+  if (name !== undefined) {
+    if (typeof name !== 'object' || !name.en?.trim()) {
+      throw new ApiError(400, "English name (name.en) is required");
+    }
+    item.name = { ...name, en: name.en.trim() };
+    item.markModified('name');
   }
 
   if (description !== undefined) {
-    item.description = description?.trim() || "";
+    item.description = description || {};
+    item.markModified('description');
   }
 
   if (defaultAmount !== undefined) {
@@ -288,7 +295,7 @@ export const editItem = asyncHandler(async (req, res) => {
   try {
     await item.save();
   } catch (err) {
-    throw parseDuplicateKeyError(err, { name: "Item with this name already exists" }) ?? err;
+    throw parseDuplicateKeyError(err, { 'name.en': "Item with this name already exists" }) ?? err;
   }
 
   // Fetch category and filters in parallel

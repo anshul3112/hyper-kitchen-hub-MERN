@@ -1,14 +1,24 @@
 import mongoose, { Schema } from 'mongoose';
 
+/**
+ * name and description are multilingual objects:
+ *   name: { en: "Paneer Butter Masala", hi: "पनीर बटर मसाला" }
+ *   description: { en: "Rich creamy curry", hi: "मलाईदार करी" }
+ * English (en) is required for name; other keys are optional.
+ */
 const itemsSchema = new Schema({
   name: {
-    type: String,
-    trim: true,
-    required: true
+    type: Schema.Types.Mixed,
+    required: true,
+    validate: {
+      validator: (v) =>
+        v && typeof v === 'object' && typeof v.en === 'string' && v.en.trim().length > 0,
+      message: 'English name (name.en) is required',
+    },
   },
   description: {
-    type: String,
-    trim: true
+    type: Schema.Types.Mixed,
+    default: {},
   },
   status: {
     type: Boolean,
@@ -62,7 +72,7 @@ const itemsSchema = new Schema({
 
 // tenant lookup (getItems)
 itemsSchema.index({ tenantId: 1 });
-// duplicate-name check per tenant
-itemsSchema.index({ name: 1, tenantId: 1 }, { unique: true });
+// duplicate English-name check per tenant
+itemsSchema.index({ 'name.en': 1, tenantId: 1 }, { unique: true });
 
 export const Items = mongoose.model("Items", itemsSchema);

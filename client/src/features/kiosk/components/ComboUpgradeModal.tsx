@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import "../../../i18n";
 import type { EnrichedMenuItem } from "../api";
+import { localised } from "../../../common/utils/languages";
 
 export type ComboSuggestion = {
   combo: EnrichedMenuItem;
@@ -17,7 +18,7 @@ type Props = {
 };
 
 export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: Props) {
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   if (suggestions.length === 0) return null;
 
   return (
@@ -51,12 +52,12 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
               {s.combo.imageUrl && (
                 <img
                   src={s.combo.imageUrl}
-                  alt={s.combo.name}
+                  alt={localised(s.combo.name, i18n.language)}
                   className="w-full h-28 object-cover rounded-xl"
                 />
               )}
               <div>
-                <p className="text-sm font-semibold text-gray-800">{s.combo.name}</p>
+                <p className="text-sm font-semibold text-gray-800">{localised(s.combo.name, i18n.language)}</p>
                 <p className="text-xs text-gray-500">
                   ₹{s.combo.displayPrice}
                   {s.savings > 0 && (

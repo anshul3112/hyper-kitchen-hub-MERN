@@ -24,13 +24,15 @@ export const addFilter = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Tenant ID is required");
   }
 
-  // Validation
-  if (!name || !name.trim()) {
-    throw new ApiError(400, "Filter name is required");
+  // Validation — name must be an object with a non-empty English value
+  if (!name || typeof name !== 'object' || !name.en?.trim()) {
+    throw new ApiError(400, "Filter name (English) is required");
   }
 
+  const cleanName = { ...name, en: name.en.trim() };
+
   const filter = new Filters({
-    name: name.trim(),
+    name: cleanName,
     imageKey: imageUrl?.trim() || null,
     tenantId,
     createdBy: user._id
@@ -39,7 +41,7 @@ export const addFilter = asyncHandler(async (req, res) => {
   try {
     await filter.save();
   } catch (err) {
-    throw parseDuplicateKeyError(err, { name: "Filter with this name already exists for your organization" }) ?? err;
+    throw parseDuplicateKeyError(err, { 'name.en': "Filter with this name already exists for your organization" }) ?? err;
   }
 
   const filterWithUrl = await withPresignedUrl(filter.toObject());
@@ -102,9 +104,13 @@ export const updateFilter = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Filter not found");
   }
 
-  // Update name — let the unique index catch conflicts
-  if (name && name !== filter.name) {
-    filter.name = name.trim();
+  // Update name — validate that en is present, then replace entire object
+  if (name !== undefined) {
+    if (typeof name !== 'object' || !name.en?.trim()) {
+      throw new ApiError(400, "English name (name.en) is required");
+    }
+    filter.name = { ...name, en: name.en.trim() };
+    filter.markModified('name');
   }
 
   if (imageUrl !== undefined) {
@@ -118,7 +124,7 @@ export const updateFilter = asyncHandler(async (req, res) => {
   try {
     await filter.save();
   } catch (err) {
-    throw parseDuplicateKeyError(err, { name: "Filter with this name already exists" }) ?? err;
+    throw parseDuplicateKeyError(err, { 'name.en': "Filter with this name already exists" }) ?? err;
   }
 
   const updatedFilter = await withPresignedUrl(filter.toObject());

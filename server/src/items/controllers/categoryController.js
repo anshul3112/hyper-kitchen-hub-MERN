@@ -24,13 +24,16 @@ export const addCategory = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Tenant ID is required");
   }
 
-  // Validation
-  if (!name || !name.trim()) {
-    throw new ApiError(400, "Category name is required");
+  // Validation — name must be an object with a non-empty English value
+  if (!name || typeof name !== 'object' || !name.en?.trim()) {
+    throw new ApiError(400, "Category name (English) is required");
   }
 
+  // Build a clean name object: trim en, carry other lang values as-is
+  const cleanName = { ...name, en: name.en.trim() };
+
   const category = new Category({
-    name: name.trim(),
+    name: cleanName,
     imageKey: imageUrl?.trim() || null,
     tenantId,
     createdBy: user._id
@@ -39,7 +42,7 @@ export const addCategory = asyncHandler(async (req, res) => {
   try {
     await category.save();
   } catch (err) {
-    throw parseDuplicateKeyError(err, { name: "Category with this name already exists for your organization" }) ?? err;
+    throw parseDuplicateKeyError(err, { 'name.en': "Category with this name already exists for your organization" }) ?? err;
   }
 
   const categoryWithUrl = await withPresignedUrl(category.toObject());
@@ -102,9 +105,13 @@ export const updateCategory = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Category not found");
   }
 
-  // Update name — let the unique index catch conflicts
-  if (name && name !== category.name) {
-    category.name = name.trim();
+  // Update name — validate that en is present, then replace entire object
+  if (name !== undefined) {
+    if (typeof name !== 'object' || !name.en?.trim()) {
+      throw new ApiError(400, "English name (name.en) is required");
+    }
+    category.name = { ...name, en: name.en.trim() };
+    category.markModified('name');
   }
 
   if (imageUrl !== undefined) {
@@ -118,7 +125,7 @@ export const updateCategory = asyncHandler(async (req, res) => {
   try {
     await category.save();
   } catch (err) {
-    throw parseDuplicateKeyError(err, { name: "Category with this name already exists" }) ?? err;
+    throw parseDuplicateKeyError(err, { 'name.en': "Category with this name already exists" }) ?? err;
   }
 
   const updatedCategory = await withPresignedUrl(category.toObject());

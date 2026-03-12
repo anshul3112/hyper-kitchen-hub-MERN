@@ -8,13 +8,16 @@ import {
   type MenuCategory,
   type MenuFilter,
   type CreateItemInput,
+  type MultiLangString,
 } from "../api";
+import { LANGUAGE_META } from "../../../common/utils/languages";
 
 interface Props {
   item?: MenuItem | null; // null = create, MenuItem = edit
   items: MenuItem[];      // all items for combo sub-item selection
   categories: MenuCategory[];
   filters: MenuFilter[];
+  kioskLanguages: string[];
   onClose: () => void;
   onSuccess: (saved: MenuItem) => void;
 }
@@ -24,13 +27,29 @@ export default function AddEditItemModal({
   items,
   categories,
   filters,
+  kioskLanguages,
   onClose,
   onSuccess,
 }: Props) {
   const isEdit = Boolean(item);
 
-  const [name, setName] = useState(item?.name ?? "");
-  const [description, setDescription] = useState(item?.description ?? "");
+  // English name/description is always required; other languages are optional
+  const [nameEn, setNameEn] = useState(
+    item?.name ? (item.name.en ?? "") : ""
+  );
+  const [nameTrans, setNameTrans] = useState<Record<string, string>>(
+    item?.name
+      ? Object.fromEntries(Object.entries(item.name).filter(([k]) => k !== "en"))
+      : {}
+  );
+  const [descEn, setDescEn] = useState(
+    item?.description ? (item.description.en ?? "") : ""
+  );
+  const [descTrans, setDescTrans] = useState<Record<string, string>>(
+    item?.description
+      ? Object.fromEntries(Object.entries(item.description).filter(([k]) => k !== "en"))
+      : {}
+  );
   const [defaultAmount, setDefaultAmount] = useState<string>(
     item?.defaultAmount !== undefined ? String(item.defaultAmount) : "",
   );
@@ -86,7 +105,7 @@ export default function AddEditItemModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setError("Item name is required"); return; }
+    if (!nameEn.trim()) { setError("Item name (English) is required"); return; }
     const amount = parseFloat(defaultAmount);
     if (isNaN(amount) || amount < 0) { setError("A valid non-negative price is required"); return; }
     if (!selectedCategoryId) { setError("Please select a category"); return; }
@@ -120,9 +139,21 @@ export default function AddEditItemModal({
         }
       }
 
+      // Build multilingual name and description objects
+      const namePayload: MultiLangString = { en: nameEn.trim() };
+      const descPayload: MultiLangString = { en: descEn.trim() };
+      for (const lang of kioskLanguages) {
+        if (lang === "English") continue;
+        const meta = LANGUAGE_META[lang];
+        if (meta) {
+          if (nameTrans[meta.code]?.trim()) namePayload[meta.code] = nameTrans[meta.code].trim();
+          if (descTrans[meta.code]?.trim()) descPayload[meta.code] = descTrans[meta.code].trim();
+        }
+      }
+
       const payload: CreateItemInput = {
-        name: name.trim(),
-        description: description.trim(),
+        name: namePayload,
+        description: descPayload,
         defaultAmount: amount,
         // If a new file was uploaded → use its key.
         // If image was explicitly removed → send "" so backend clears imageKey.
@@ -173,31 +204,77 @@ export default function AddEditItemModal({
           <form id="itemForm" onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name (English) *</label>
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={nameEn}
+                onChange={(e) => setNameEn(e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                 placeholder="e.g. Paneer Butter Masala"
                 required
                 autoFocus
               />
             </div>
+            {/* Translation name inputs */}
+            {kioskLanguages
+              .filter((lang) => lang !== "English")
+              .map((lang) => {
+                const meta = LANGUAGE_META[lang];
+                if (!meta) return null;
+                return (
+                  <div key={`name-${lang}`}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name ({meta.nativeLabel})
+                    </label>
+                    <input
+                      type="text"
+                      value={nameTrans[meta.code] ?? ""}
+                      onChange={(e) =>
+                        setNameTrans((prev) => ({ ...prev, [meta.code]: e.target.value }))
+                      }
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                      placeholder={`Translation in ${meta.nativeLabel}`}
+                    />
+                  </div>
+                );
+              })}
 
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
+                Description (English)
               </label>
               <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={descEn}
+                onChange={(e) => setDescEn(e.target.value)}
                 rows={2}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none"
                 placeholder="Short description..."
               />
             </div>
+            {/* Translation description inputs */}
+            {kioskLanguages
+              .filter((lang) => lang !== "English")
+              .map((lang) => {
+                const meta = LANGUAGE_META[lang];
+                if (!meta) return null;
+                return (
+                  <div key={`desc-${lang}`}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Description ({meta.nativeLabel})
+                    </label>
+                    <textarea
+                      value={descTrans[meta.code] ?? ""}
+                      onChange={(e) =>
+                        setDescTrans((prev) => ({ ...prev, [meta.code]: e.target.value }))
+                      }
+                      rows={2}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none"
+                      placeholder={`Description in ${meta.nativeLabel}`}
+                    />
+                  </div>
+                );
+              })}
 
             {/* Price */}
             <div>
@@ -293,7 +370,7 @@ export default function AddEditItemModal({
                         }`}
                       >
                         {selected && "✓ "}
-                        {cat.name}
+                        {cat.name.en}
                       </button>
                     );
                   })}
@@ -325,7 +402,7 @@ export default function AddEditItemModal({
                         }`}
                       >
                         {selected && "✓ "}
-                        {filter.name}
+                        {filter.name.en}
                       </button>
                     );
                   })}
@@ -382,7 +459,7 @@ export default function AddEditItemModal({
                                 onChange={() => toggleComboItem(i._id)}
                                 className="accent-blue-600 w-4 h-4 flex-shrink-0"
                               />
-                              <span className="text-sm text-gray-800 flex-1 line-clamp-1">{i.name}</span>
+                              <span className="text-sm text-gray-800 flex-1 line-clamp-1">{i.name.en}</span>
                               <span className="text-xs text-gray-400 flex-shrink-0">₹{i.defaultAmount}</span>
                               {checked && (
                                 <div className="flex items-center gap-1 flex-shrink-0">

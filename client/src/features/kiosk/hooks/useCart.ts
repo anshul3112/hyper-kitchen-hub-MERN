@@ -34,14 +34,14 @@ export function useCart() {
   }, []);
 
   /** Add one of an item to cart, or create the entry if absent. */
-  const addToCart = useCallback((item: EnrichedMenuItem) => {
+  const addToCart = useCallback((item: EnrichedMenuItem, displayName?: string) => {
     update((prev) => {
       const existing = prev[item._id];
       const entry: CartItem = existing
         ? { ...existing, quantity: existing.quantity + 1 }
         : {
             id: item._id,
-            name: item.name,
+            name: displayName ?? item.name.en,
             price: item.displayPrice,
             quantity: 1,
           };

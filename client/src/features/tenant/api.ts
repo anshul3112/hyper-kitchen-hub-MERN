@@ -124,9 +124,12 @@ export async function createOutletAdmin(payload: CreateOutletAdminInput): Promis
 
 // ── Menu types ──────────────────────────────────────────────────────────────
 
+/** A field that stores text in multiple languages. `en` is always required. */
+export type MultiLangString = { en: string; [langCode: string]: string };
+
 export type MenuFilter = {
 	_id: string;
-	name: string;
+	name: MultiLangString;
 	imageUrl?: string | null;
 	isActive: boolean;
 	tenantId: string;
@@ -136,7 +139,7 @@ export type MenuFilter = {
 
 export type MenuCategory = {
 	_id: string;
-	name: string;
+	name: MultiLangString;
 	imageUrl?: string | null;
 	status: boolean;
 	tenantId: string;
@@ -144,13 +147,13 @@ export type MenuCategory = {
 	updatedAt?: string;
 };
 
-export type MenuItemCategory = { _id: string; name: string; status: boolean };
-export type MenuItemFilter = { _id: string; name: string; isActive: boolean };
+export type MenuItemCategory = { _id: string; name: MultiLangString; status: boolean };
+export type MenuItemFilter = { _id: string; name: MultiLangString; isActive: boolean };
 
 export type MenuItem = {
 	_id: string;
-	name: string;
-	description: string;
+	name: MultiLangString;
+	description?: MultiLangString;
 	defaultAmount: number;
 	imageUrl?: string | null;
 	status: boolean;
@@ -179,7 +182,7 @@ export async function fetchFilters(): Promise<MenuFilter[]> {
 	return parsed.data;
 }
 
-export async function createFilter(payload: { name: string; imageUrl?: string }): Promise<MenuFilter> {
+export async function createFilter(payload: { name: MultiLangString; imageUrl?: string }): Promise<MenuFilter> {
 	const res = await fetch(`${API_BASE_URL}/api/v1/items/filters`, {
 		method: "POST",
 		credentials: "include",
@@ -192,7 +195,7 @@ export async function createFilter(payload: { name: string; imageUrl?: string })
 
 export async function updateFilter(
 	filterId: string,
-	payload: { name?: string; imageUrl?: string; isActive?: boolean },
+	payload: { name?: MultiLangString; imageUrl?: string; isActive?: boolean },
 ): Promise<MenuFilter> {
 	const res = await fetch(`${API_BASE_URL}/api/v1/items/filters/${filterId}`, {
 		method: "PATCH",
@@ -225,7 +228,7 @@ export async function fetchCategories(): Promise<MenuCategory[]> {
 	return parsed.data;
 }
 
-export async function createCategory(payload: { name: string; imageUrl?: string }): Promise<MenuCategory> {
+export async function createCategory(payload: { name: MultiLangString; imageUrl?: string }): Promise<MenuCategory> {
 	const res = await fetch(`${API_BASE_URL}/api/v1/items/categories`, {
 		method: "POST",
 		credentials: "include",
@@ -238,7 +241,7 @@ export async function createCategory(payload: { name: string; imageUrl?: string 
 
 export async function updateCategory(
 	categoryId: string,
-	payload: { name?: string; imageUrl?: string; status?: boolean },
+	payload: { name?: MultiLangString; imageUrl?: string; status?: boolean },
 ): Promise<MenuCategory> {
 	const res = await fetch(`${API_BASE_URL}/api/v1/items/categories/${categoryId}`, {
 		method: "PATCH",
@@ -262,8 +265,8 @@ export async function deleteCategory(categoryId: string): Promise<void> {
 // ── Item API ─────────────────────────────────────────────────────────────────
 
 export type CreateItemInput = {
-	name: string;
-	description?: string;
+	name: MultiLangString;
+	description?: MultiLangString;
 	defaultAmount: number;
 	imageUrl?: string;
 	category: string;

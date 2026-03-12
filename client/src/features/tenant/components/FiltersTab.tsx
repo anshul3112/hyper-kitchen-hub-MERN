@@ -5,17 +5,18 @@ import AddEditFilterModal from "./AddEditFilterModal";
 interface Props {
   filters: MenuFilter[];
   loading: boolean;
+  kioskLanguages: string[];
   onFiltersChange: (updated: MenuFilter[]) => void;
 }
 
-export default function FiltersTab({ filters, loading, onFiltersChange }: Props) {
+export default function FiltersTab({ filters, loading, kioskLanguages, onFiltersChange }: Props) {
   // undefined = modal closed, null = create new, MenuFilter = edit existing
   const [modalTarget, setModalTarget] = useState<MenuFilter | null | undefined>(undefined);
   const [deleteError, setDeleteError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (filter: MenuFilter) => {
-    if (!confirm(`Delete filter "${filter.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete filter "${filter.name.en}"? This cannot be undone.`)) return;
     setDeletingId(filter._id);
     setDeleteError("");
     try {
@@ -98,7 +99,7 @@ export default function FiltersTab({ filters, loading, onFiltersChange }: Props)
                 {filter.imageUrl ? (
                   <img
                     src={filter.imageUrl}
-                    alt={filter.name}
+                    alt={filter.name.en}
                     className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-gray-100"
                   />
                 ) : (
@@ -107,7 +108,7 @@ export default function FiltersTab({ filters, loading, onFiltersChange }: Props)
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="font-medium text-gray-800 text-sm truncate">{filter.name}</p>
+                  <p className="font-medium text-gray-800 text-sm truncate">{filter.name.en}</p>
                   <span
                     className={`inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium ${
                       filter.isActive
@@ -142,6 +143,7 @@ export default function FiltersTab({ filters, loading, onFiltersChange }: Props)
       {modalTarget !== undefined && (
         <AddEditFilterModal
           filter={modalTarget}
+          kioskLanguages={kioskLanguages}
           onClose={() => setModalTarget(undefined)}
           onSuccess={handleSuccess}
         />

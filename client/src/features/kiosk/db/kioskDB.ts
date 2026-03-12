@@ -6,8 +6,8 @@ let dbInstance: IDBDatabase | null = null;
 
 export interface CachedItem {
   _id: string; 
-  name: string;
-  description?: string;
+  name: string | { en: string; [k: string]: string };
+  description?: string | { en: string; [k: string]: string };
   status: boolean;
   defaultAmount: number;
   filters: string[]; 

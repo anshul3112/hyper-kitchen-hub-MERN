@@ -5,18 +5,29 @@ import {
   uploadItemImage,
   compressImage,
   type MenuFilter,
+  type MultiLangString,
 } from "../api";
+import { LANGUAGE_META } from "../../../common/utils/languages";
 
 interface Props {
   filter?: MenuFilter | null; // null = create, MenuFilter = edit
+  kioskLanguages: string[];
   onClose: () => void;
   onSuccess: (saved: MenuFilter) => void;
 }
 
-export default function AddEditFilterModal({ filter, onClose, onSuccess }: Props) {
+export default function AddEditFilterModal({ filter, kioskLanguages, onClose, onSuccess }: Props) {
   const isEdit = Boolean(filter);
 
-  const [name, setName] = useState(filter?.name ?? "");
+  // English name is always required; other language names are optional
+  const [nameEn, setNameEn] = useState(
+    filter?.name ? (filter.name.en ?? "") : ""
+  );
+  const [nameTrans, setNameTrans] = useState<Record<string, string>>(
+    filter?.name
+      ? Object.fromEntries(Object.entries(filter.name).filter(([k]) => k !== "en"))
+      : {}
+  );
   const [isActive, setIsActive] = useState(filter?.isActive ?? true);
 
   // Image state – mirrors AddEditItemModal pattern
@@ -33,7 +44,7 @@ export default function AddEditFilterModal({ filter, onClose, onSuccess }: Props
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setError("Filter name is required"); return; }
+    if (!nameEn.trim()) { setError("Filter name (English) is required"); return; }
     setLoading(true);
     setError("");
     try {
@@ -63,16 +74,26 @@ export default function AddEditFilterModal({ filter, onClose, onSuccess }: Props
         ? ""
         : undefined;
 
+      // Build multilingual name object
+      const namePayload: MultiLangString = { en: nameEn.trim() };
+      for (const lang of kioskLanguages) {
+        if (lang === "English") continue;
+        const meta = LANGUAGE_META[lang];
+        if (meta && nameTrans[meta.code]?.trim()) {
+          namePayload[meta.code] = nameTrans[meta.code].trim();
+        }
+      }
+
       let saved: MenuFilter;
       if (isEdit && filter) {
         saved = await updateFilter(filter._id, {
-          name: name.trim(),
+          name: namePayload,
           ...(resolvedImageUrl !== undefined && { imageUrl: resolvedImageUrl }),
           isActive,
         });
       } else {
         saved = await createFilter({
-          name: name.trim(),
+          name: namePayload,
           ...(resolvedImageUrl !== undefined && { imageUrl: resolvedImageUrl }),
         });
       }
@@ -100,17 +121,40 @@ export default function AddEditFilterModal({ filter, onClose, onSuccess }: Props
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name (English) *</label>
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={nameEn}
+                onChange={(e) => setNameEn(e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                 placeholder="e.g. Veg, Non-Veg, Spicy"
                 required
                 autoFocus
               />
             </div>
+            {/* Translation inputs for enabled kiosk languages */}
+            {kioskLanguages
+              .filter((lang) => lang !== "English")
+              .map((lang) => {
+                const meta = LANGUAGE_META[lang];
+                if (!meta) return null;
+                return (
+                  <div key={lang}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name ({meta.nativeLabel})
+                    </label>
+                    <input
+                      type="text"
+                      value={nameTrans[meta.code] ?? ""}
+                      onChange={(e) =>
+                        setNameTrans((prev) => ({ ...prev, [meta.code]: e.target.value }))
+                      }
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                      placeholder={`Translation in ${meta.nativeLabel}`}
+                    />
+                  </div>
+                );
+              })}
             {/* Image upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
