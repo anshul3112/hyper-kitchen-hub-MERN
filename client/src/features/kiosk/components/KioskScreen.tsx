@@ -303,21 +303,23 @@ export default function KioskScreen({
       // NOTE: we intentionally keep showing the suggestion even when the combo
       // is already in the cart — the customer may have added standalone component
       // items on top of an existing combo and could bundle them again.
-      const comboItemIds = item.comboItems ?? [];
-      const matchingItemIds = comboItemIds.filter((id) => cartItemIds.has(id));
+      const comboEntries = item.comboItems ?? [];
+      const matchingItemIds = comboEntries
+        .filter((ci) => cartItemIds.has(ci.item))
+        .map((ci) => ci.item);
       if (matchingItemIds.length >= (item.minMatchCount ?? 1)) {
-        // savings = sum of individual unit prices for all combo items vs combo price
-        const individualTotal = comboItemIds.reduce((sum, id) => {
-          const found = items.find((i) => i._id === id);
-          return sum + (found?.displayPrice ?? 0);
+        // savings = sum of (component price × required quantity) vs combo price
+        const individualTotal = comboEntries.reduce((sum, ci) => {
+          const found = items.find((i) => i._id === ci.item);
+          return sum + (found?.displayPrice ?? 0) * ci.quantity;
         }, 0);
         const savings = Math.max(0, individualTotal - item.displayPrice);
         if (savings > 0) {
-          const comboItemNames = comboItemIds.map((id) => {
-            const found = items.find((i) => i._id === id);
-            return found?.name ?? 'Unknown';
+          const comboItemDetails = comboEntries.map((ci) => {
+            const found = items.find((i) => i._id === ci.item);
+            return { name: found?.name ?? 'Unknown', quantity: ci.quantity };
           });
-          suggestions.push({ combo: item, matchingItemIds, savings, comboItemNames });
+          suggestions.push({ combo: item, matchingItemIds, savings, comboItemDetails });
         }
       }
     }
@@ -707,12 +709,15 @@ export default function KioskScreen({
                                 )}
                               </p>
                               {/* Items in this combo */}
-                              {s.comboItemNames.length > 0 && (
+                              {s.comboItemDetails.length > 0 && (
                                 <ul className="mt-1.5 space-y-0.5">
-                                  {s.comboItemNames.map((name, i) => (
+                                  {s.comboItemDetails.map((detail, i) => (
                                     <li key={i} className="flex items-center gap-1 text-xs text-gray-600">
                                       <span className="text-purple-400">•</span>
-                                      {name}
+                                      {detail.quantity > 1 && (
+                                        <span className="font-semibold text-purple-700">{detail.quantity}×</span>
+                                      )}
+                                      {detail.name}
                                     </li>
                                   ))}
                                 </ul>

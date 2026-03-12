@@ -52,8 +52,8 @@ export type MenuItem = {
   filters: MenuFilter[];
   /** 'single' = standard item; 'combo' = derived stock from components */
   type?: 'single' | 'combo';
-  /** Component item IDs (only present when type = 'combo') */
-  comboItems?: string[];
+  /** Component items with required quantities (only present when type = 'combo') */
+  comboItems?: { item: string; quantity: number }[];
   createdAt?: string;
   updatedAt?: string;
 };

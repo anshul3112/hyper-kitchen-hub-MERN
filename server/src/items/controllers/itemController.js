@@ -72,8 +72,15 @@ export const addItem = asyncHandler(async (req, res) => {
     if (!Array.isArray(comboItems) || comboItems.length === 0) {
       throw new ApiError(400, "A combo item must include at least one item in comboItems");
     }
-    const foundComboItems = await Items.find({ _id: { $in: comboItems }, tenantId }).select('_id').lean();
-    if (foundComboItems.length !== comboItems.length) {
+    // Each entry must be { item: <id>, quantity: <positive number> }
+    for (const entry of comboItems) {
+      if (!entry.item) throw new ApiError(400, "Each comboItems entry must have an 'item' field");
+      const qty = Number(entry.quantity);
+      if (!Number.isInteger(qty) || qty < 1) throw new ApiError(400, "Each comboItems entry must have a positive integer 'quantity'");
+    }
+    const comboItemIds = comboItems.map((c) => c.item);
+    const foundComboItems = await Items.find({ _id: { $in: comboItemIds }, tenantId }).select('_id').lean();
+    if (foundComboItems.length !== comboItemIds.length) {
       throw new ApiError(404, "One or more comboItems IDs are invalid or do not belong to your tenant");
     }
     if (typeof minMatchCount !== 'number' || minMatchCount < 1) {
@@ -91,7 +98,7 @@ export const addItem = asyncHandler(async (req, res) => {
     tenantId,
     status: true,
     type,
-    comboItems: type === 'combo' ? comboItems : [],
+    comboItems: type === 'combo' ? comboItems.map((c) => ({ item: c.item, quantity: Number(c.quantity) })) : [],
     minMatchCount: type === 'combo' ? minMatchCount : 1,
   });
 
@@ -258,11 +265,18 @@ export const editItem = asyncHandler(async (req, res) => {
     if (!Array.isArray(comboItems) || comboItems.length === 0) {
       throw new ApiError(400, "A combo item must include at least one item in comboItems");
     }
-    const foundComboItems = await Items.find({ _id: { $in: comboItems }, tenantId }).select('_id').lean();
-    if (foundComboItems.length !== comboItems.length) {
+    // Each entry must be { item: <id>, quantity: <positive number> }
+    for (const entry of comboItems) {
+      if (!entry.item) throw new ApiError(400, "Each comboItems entry must have an 'item' field");
+      const qty = Number(entry.quantity);
+      if (!Number.isInteger(qty) || qty < 1) throw new ApiError(400, "Each comboItems entry must have a positive integer 'quantity'");
+    }
+    const comboItemIds = comboItems.map((c) => c.item);
+    const foundComboItems = await Items.find({ _id: { $in: comboItemIds }, tenantId }).select('_id').lean();
+    if (foundComboItems.length !== comboItemIds.length) {
       throw new ApiError(404, "One or more comboItems IDs are invalid or do not belong to your tenant");
     }
-    item.comboItems = comboItems;
+    item.comboItems = comboItems.map((c) => ({ item: c.item, quantity: Number(c.quantity) }));
   }
   if (item.type === 'combo' && minMatchCount !== undefined) {
     if (typeof minMatchCount !== 'number' || minMatchCount < 1) {

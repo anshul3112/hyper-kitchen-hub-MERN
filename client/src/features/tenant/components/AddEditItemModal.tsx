@@ -55,14 +55,25 @@ export default function AddEditItemModal({
 
   // ── Combo fields ─────────────────────────────────────────────────────────────
   const [itemType, setItemType] = useState<'single' | 'combo'>(item?.type ?? 'single');
-  const [selectedComboItemIds, setSelectedComboItemIds] = useState<string[]>(item?.comboItems ?? []);
+  const [comboEntries, setComboEntries] = useState<{ item: string; quantity: number }[]>(
+    item?.comboItems?.map((c) => ({ item: c.item, quantity: c.quantity })) ?? []
+  );
   const [minMatchCount, setMinMatchCount] = useState<string>(
     item?.minMatchCount !== undefined ? String(item.minMatchCount) : "1"
   );
 
+  /** Toggle an item in/out of the combo entry list. Adding defaults to quantity 1. */
   const toggleComboItem = (id: string) =>
-    setSelectedComboItemIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    setComboEntries((prev) =>
+      prev.some((e) => e.item === id)
+        ? prev.filter((e) => e.item !== id)
+        : [...prev, { item: id, quantity: 1 }]
+    );
+
+  /** Update the required quantity for a specific combo component */
+  const setComboItemQuantity = (id: string, qty: number) =>
+    setComboEntries((prev) =>
+      prev.map((e) => (e.item === id ? { ...e, quantity: Math.max(1, qty) } : e))
     );
 
   const toggleCategory = (id: string) =>
@@ -79,12 +90,12 @@ export default function AddEditItemModal({
     const amount = parseFloat(defaultAmount);
     if (isNaN(amount) || amount < 0) { setError("A valid non-negative price is required"); return; }
     if (!selectedCategoryId) { setError("Please select a category"); return; }
-    if (itemType === 'combo' && selectedComboItemIds.length === 0) {
+    if (itemType === 'combo' && comboEntries.length === 0) {
       setError("Please select at least one item for the combo"); return;
     }
     const matchCount = parseInt(minMatchCount, 10);
-    if (itemType === 'combo' && (isNaN(matchCount) || matchCount < 1 || matchCount > selectedComboItemIds.length)) {
-      setError(`Min match count must be between 1 and ${selectedComboItemIds.length}`); return;
+    if (itemType === 'combo' && (isNaN(matchCount) || matchCount < 1 || matchCount > comboEntries.length)) {
+      setError(`Min match count must be between 1 and ${comboEntries.length}`); return;
     }
 
     setLoading(true);
@@ -124,7 +135,7 @@ export default function AddEditItemModal({
         category: selectedCategoryId,
         filters: selectedFilterIds,
         type: itemType,
-        comboItems: itemType === 'combo' ? selectedComboItemIds : [],
+        comboItems: itemType === 'combo' ? comboEntries : [],
         minMatchCount: itemType === 'combo' ? parseInt(minMatchCount, 10) : 1,
       };
 
@@ -349,22 +360,21 @@ export default function AddEditItemModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Combo Items <span className="text-red-500">*</span>
-                    <span className="text-xs text-gray-400 font-normal ml-1">— select items that make up this combo</span>
+                    <span className="text-xs text-gray-400 font-normal ml-1">— select items and set required quantity each</span>
                   </label>
                   {items.filter((i) => i._id !== item?._id).length === 0 ? (
                     <p className="text-sm text-gray-400 italic">No other items available.</p>
                   ) : (
-                    <div className="border border-gray-200 rounded-lg max-h-44 overflow-y-auto divide-y divide-gray-100">
+                    <div className="border border-gray-200 rounded-lg max-h-52 overflow-y-auto divide-y divide-gray-100">
                       {items
                         .filter((i) => i._id !== item?._id)
                         .map((i) => {
-                          const checked = selectedComboItemIds.includes(i._id);
+                          const entry = comboEntries.find((e) => e.item === i._id);
+                          const checked = Boolean(entry);
                           return (
-                            <label
+                            <div
                               key={i._id}
-                              className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors ${
-                                checked ? "bg-blue-50" : ""
-                              }`}
+                              className={`flex items-center gap-3 px-3 py-2 ${checked ? 'bg-blue-50' : 'hover:bg-gray-50'} transition-colors`}
                             >
                               <input
                                 type="checkbox"
@@ -374,7 +384,21 @@ export default function AddEditItemModal({
                               />
                               <span className="text-sm text-gray-800 flex-1 line-clamp-1">{i.name}</span>
                               <span className="text-xs text-gray-400 flex-shrink-0">₹{i.defaultAmount}</span>
-                            </label>
+                              {checked && (
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <label className="text-xs text-gray-500">Qty:</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={entry?.quantity ?? 1}
+                                    onChange={(e) => setComboItemQuantity(i._id, parseInt(e.target.value, 10) || 1)}
+                                    className="w-14 border border-gray-300 rounded px-1.5 py-0.5 text-xs text-center focus:outline-none focus:border-blue-500"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                     </div>
@@ -389,15 +413,15 @@ export default function AddEditItemModal({
                   <input
                     type="number"
                     min="1"
-                    max={selectedComboItemIds.length || 1}
+                    max={comboEntries.length || 1}
                     value={minMatchCount}
                     onChange={(e) => setMinMatchCount(e.target.value)}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                     placeholder="e.g. 2"
                   />
-                  {selectedComboItemIds.length > 0 && (
+                  {comboEntries.length > 0 && (
                     <p className="text-xs text-gray-400 mt-1">
-                      {selectedComboItemIds.length} item{selectedComboItemIds.length !== 1 ? "s" : ""} selected — suggestion triggers when ≥ {minMatchCount} {Number(minMatchCount) === 1 ? "is" : "are"} in cart.
+                      {comboEntries.length} item{comboEntries.length !== 1 ? "s" : ""} selected — suggestion triggers when ≥ {minMatchCount} {Number(minMatchCount) === 1 ? "is" : "are"} in cart.
                     </p>
                   )}
                 </div>

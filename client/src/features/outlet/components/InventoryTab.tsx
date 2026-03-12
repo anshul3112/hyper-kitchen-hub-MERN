@@ -348,12 +348,13 @@ export default function InventoryTab({ socketRef }: Props) {
               const inv = inventoryMap[item._id];
               const row = getRow(item._id);
               const isCombo = item.type === 'combo';
-              // Derived quantity for combos = min of all component items' stock.
+              // Derived quantity for combos = min of floor(componentStock / requiredQty).
               // This is read-only; combos have no independent inventory record.
               const comboQty = isCombo && item.comboItems && item.comboItems.length > 0
-                ? item.comboItems.reduce((min, id) => {
-                    const rec = inventoryMap[id];
-                    return Math.min(min, rec ? rec.quantity : 0);
+                ? item.comboItems.reduce((min, ci) => {
+                    const rec = inventoryMap[ci.item];
+                    const available = rec ? Math.floor(rec.quantity / ci.quantity) : 0;
+                    return Math.min(min, available);
                   }, Infinity)
                 : null;
               const derivedQty = isCombo

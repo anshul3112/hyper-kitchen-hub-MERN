@@ -42,32 +42,35 @@ async function expandOrderItemsWithCombos(orderItems) {
   const potentialComboIds = orderItems.map((it) => it.id);
 
   // Fetch only docs that exist and are combos
+  // comboItems is now [{ item: ObjectId, quantity: Number }]
   const comboDocs = await Items.find(
     { _id: { $in: potentialComboIds }, type: 'combo' }
   ).select('_id comboItems').lean();
 
   if (comboDocs.length === 0) return orderItems; // no combos — fast path
 
+  // Map: comboId → [{item, quantity}]
   const comboMap = new Map(comboDocs.map((d) => [d._id.toString(), d.comboItems]));
 
-  // Collect all component IDs so we can look up their names for error messages
-  const allComponentIds = comboDocs.flatMap((d) => d.comboItems.map((id) => id.toString()));
+  // Collect all component item IDs so we can look up their names
+  const allComponentIds = comboDocs.flatMap((d) => d.comboItems.map((c) => c.item.toString()));
   const componentDocs = await Items.find({ _id: { $in: allComponentIds } })
     .select('_id name').lean();
   const componentNameMap = new Map(componentDocs.map((d) => [d._id.toString(), d.name]));
 
   const expanded = [];
   for (const it of orderItems) {
-    const componentIds = comboMap.get(it.id);
-    if (componentIds && componentIds.length > 0) {
-      // Replace the combo entry with one entry per component item
-      for (const componentId of componentIds) {
-        const idStr = componentId.toString();
+    const componentEntries = comboMap.get(it.id);
+    if (componentEntries && componentEntries.length > 0) {
+      // Replace the combo entry with one entry per component item.
+      // Total quantity for each component = (order quantity) × (component quantity in combo definition).
+      for (const entry of componentEntries) {
+        const idStr = entry.item.toString();
         expanded.push({
           id: idStr,
           name: componentNameMap.get(idStr) ?? idStr,
           price: 0,           // price not used for inventory ops
-          quantity: it.quantity,
+          quantity: it.quantity * entry.quantity,
         });
       }
     } else {

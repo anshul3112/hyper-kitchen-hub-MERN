@@ -6,7 +6,8 @@ export type ComboSuggestion = {
   combo: EnrichedMenuItem;
   matchingItemIds: string[];
   savings: number;
-  comboItemNames: string[];
+  /** Each component item with how many are needed per combo unit */
+  comboItemDetails: { name: string; quantity: number }[];
 };
 
 type Props = {
@@ -65,12 +66,15 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
                   )}
                 </p>
                 {/* Items in this combo */}
-                {s.comboItemNames.length > 0 && (
+                {s.comboItemDetails.length > 0 && (
                   <ul className="mt-1.5 space-y-0.5">
-                    {s.comboItemNames.map((name, i) => (
+                    {s.comboItemDetails.map((detail, i) => (
                       <li key={i} className="flex items-center gap-1 text-xs text-gray-600">
                         <span className="text-purple-400">•</span>
-                        {name}
+                        {detail.quantity > 1 && (
+                          <span className="font-semibold text-purple-700">{detail.quantity}×</span>
+                        )}
+                        {detail.name}
                       </li>
                     ))}
                   </ul>

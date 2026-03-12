@@ -159,8 +159,8 @@ export type MenuItem = {
 	filters: MenuItemFilter[];
 	/** 'single' = standard item; 'combo' = a meal that bundles other items */
 	type?: 'single' | 'combo';
-	/** IDs of items that form this combo (only used when type = 'combo') */
-	comboItems?: string[];
+	/** Items that form this combo with their required quantities (only used when type = 'combo') */
+	comboItems?: { item: string; quantity: number }[];
 	/** Minimum number of comboItems that must be in the cart to trigger an upgrade suggestion */
 	minMatchCount?: number;
 	createdAt?: string;
@@ -269,7 +269,7 @@ export type CreateItemInput = {
 	category: string;
 	filters?: string[];
 	type?: 'single' | 'combo';
-	comboItems?: string[];
+	comboItems?: { item: string; quantity: number }[];
 	minMatchCount?: number;
 };
 

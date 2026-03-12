@@ -29,8 +29,8 @@ export type MenuItem = {
   filters: MenuFilter[];
   /** 'single' = standard item; 'combo' = a meal that bundles other items */
   type?: 'single' | 'combo';
-  /** IDs of items that form this combo (only used when type = 'combo') */
-  comboItems?: string[];
+  /** Items that form this combo with their required quantities (only used when type = 'combo') */
+  comboItems?: { item: string; quantity: number }[];
   /** Minimum number of comboItems that must be in the cart to trigger an upgrade suggestion */
   minMatchCount?: number;
 };
@@ -204,14 +204,15 @@ export function mergeMenuWithInventory(
       item.defaultAmount;
     const orderType: 'dineIn' | 'takeAway' | 'both' = rec?.orderType ?? 'both';
 
-    // Combos have no independent inventory — their stock is the min of their
-    // component items' quantities so that ordering the combo always has enough
-    // of each component available.
+    // Combos have no independent inventory — their stock is limited by whichever
+    // component item runs out first, accounting for how many of each are required
+    // per combo unit (e.g. if a combo needs 2× Bread, available combos = floor(breadQty / 2)).
     let stockQuantity: number;
     if (item.type === 'combo' && item.comboItems && item.comboItems.length > 0) {
-      stockQuantity = item.comboItems.reduce((min, id) => {
-        const compRec = invMap.get(id);
-        return Math.min(min, compRec ? compRec.quantity : 0);
+      stockQuantity = item.comboItems.reduce((min, ci) => {
+        const compRec = invMap.get(ci.item);
+        const available = compRec ? Math.floor(compRec.quantity / ci.quantity) : 0;
+        return Math.min(min, available);
       }, Infinity);
       if (!isFinite(stockQuantity)) stockQuantity = 0;
     } else {

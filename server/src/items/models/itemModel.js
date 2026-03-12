@@ -44,10 +44,10 @@ const itemsSchema = new Schema({
     enum: ['single', 'combo'],
     default: 'single'
   },
-  /** IDs of items that form this combo (only used when type = 'combo') */
+  /** Items that form this combo with their required quantities (only used when type = 'combo') */
   comboItems: [{
-    type: Schema.Types.ObjectId,
-    ref: 'Items'
+    item: { type: Schema.Types.ObjectId, ref: 'Items', required: true },
+    quantity: { type: Number, default: 1, min: 1 }
   }],
   /**
    * Minimum number of comboItems that must be present in the cart before
