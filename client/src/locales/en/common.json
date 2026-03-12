@@ -59,5 +59,6 @@
   "bundleDeal": "Items in your cart can be bundled for a better deal!",
   "addCombo": "Add Combo",
   "stockLimitToast": "Only {{count}} of \"{{name}}\" available",
-  "upgradedToCombo": "Upgraded to {{name}}! 🎉"
+  "upgradedToCombo": "Upgraded to {{name}}!",
+  "recommendedForYou": "Recommended For You"
 }

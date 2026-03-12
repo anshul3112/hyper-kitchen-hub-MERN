@@ -18,12 +18,14 @@ import InventoryTab from "../components/InventoryTab";
 import OutletUsersTab from "../components/OutletUsersTab";
 import DisplaysTab from "../components/DisplaysTab";
 import OutletOrderHistoryTab from "../components/OutletOrderHistoryTab";
+import RecommendationsTab from "../components/RecommendationsTab";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "menu", label: "Menu" },
   { key: "inventory", label: "Inventory" },
   { key: "kiosks", label: "Kiosks" },
+  { key: "recommendations", label: "Recommendations" },
   { key: "displays", label: "Displays" },
   { key: "users", label: "Users" },
   { key: "orders", label: "Orders" },
@@ -283,6 +285,9 @@ export default function OutletAdminPage() {
 
         {/* ── Displays ── */}
         {activeSection === "displays" && <DisplaysTab />}
+
+        {/* ── Recommendations ── */}
+        {activeSection === "recommendations" && <RecommendationsTab />}
 
         {/* ── Users ── */}
         {activeSection === "users" && <OutletUsersTab />}

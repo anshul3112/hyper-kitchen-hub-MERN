@@ -497,3 +497,81 @@ export async function fetchOutletHourlyHistory(date?: string): Promise<{ date: s
   return parsed.data;
 }
 
+// ── Recommendation slots ──────────────────────────────────────────────────────
+
+export type RecommendationSlotItem = {
+  itemId: string;
+  priority: number;
+};
+
+export type RecommendationSlot = {
+  _id: string;
+  tenantId: string;
+  outletId: string;
+  name?: string;
+  /** Minutes of day (0–1439). Same convention as inventory schedule slots. */
+  startTime: number;
+  endTime: number;
+  isActive: boolean;
+  items: RecommendationSlotItem[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type RecommendationSlotInput = {
+  name?: string;
+  startTime: number;
+  endTime: number;
+  isActive?: boolean;
+  items: RecommendationSlotItem[];
+};
+
+/** GET /api/v1/kiosks/admin/recommendations */
+export async function fetchRecommendationSlots(): Promise<RecommendationSlot[]> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/kiosks/admin/recommendations`, {
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const parsed = await parseOrThrow<ApiResponse<RecommendationSlot[]>>(res);
+  return parsed.data;
+}
+
+/** POST /api/v1/kiosks/admin/recommendations */
+export async function createRecommendationSlot(
+  input: RecommendationSlotInput
+): Promise<RecommendationSlot> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/kiosks/admin/recommendations`, {
+    method: "POST",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(input),
+  });
+  const parsed = await parseOrThrow<ApiResponse<RecommendationSlot>>(res);
+  return parsed.data;
+}
+
+/** PUT /api/v1/kiosks/admin/recommendations/:id */
+export async function updateRecommendationSlot(
+  id: string,
+  input: Partial<RecommendationSlotInput>
+): Promise<RecommendationSlot> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/kiosks/admin/recommendations/${id}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(input),
+  });
+  const parsed = await parseOrThrow<ApiResponse<RecommendationSlot>>(res);
+  return parsed.data;
+}
+
+/** DELETE /api/v1/kiosks/admin/recommendations/:id */
+export async function deleteRecommendationSlot(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/kiosks/admin/recommendations/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  await parseOrThrow<ApiResponse<null>>(res);
+}
+

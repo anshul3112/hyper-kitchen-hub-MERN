@@ -59,5 +59,6 @@
   "bundleDeal": "कार्ट के आइटम बंडल करने पर बेहतर डील मिलेगी!",
   "addCombo": "कॉम्बो जोड़ें",
   "stockLimitToast": "\"{{name}}\" केवल {{count}} उपलब्ध",
-  "upgradedToCombo": "{{name}} में अपग्रेड हो गया! 🎉"
+  "upgradedToCombo": "{{name}} में अपग्रेड किया!",
+  "recommendedForYou": "आपके लिए सुझाव"
 }

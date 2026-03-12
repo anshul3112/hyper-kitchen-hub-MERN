@@ -7,6 +7,7 @@ import {
   API_BASE_URL,
   fetchKioskMenu,
   fetchKioskInventory,
+  fetchRecommendations,
   mergeMenuWithInventory,
   getKioskSession,
   clearKioskSession,
@@ -14,6 +15,7 @@ import {
   type MenuFilter,
   type MenuItem,
   type EnrichedMenuItem,
+  type RecommendedItemRef,
 } from "../api";
 import KioskScreen from "../components/KioskScreen";
 import initKioskDB, { addItemsToCache, type CachedItem } from "../db/kioskDB";
@@ -32,6 +34,7 @@ export default function KioskPage() {
   const [data, setData] = useState<KioskData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [recommendedIds, setRecommendedIds] = useState<RecommendedItemRef[]>([]);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   // Refs to allow stable access inside socket callbacks without stale closures
   const loadAllRef = useRef<() => Promise<void>>(async () => {});
@@ -136,6 +139,10 @@ export default function KioskPage() {
         items: enrichedItems,
       });
 
+      // Fetch recommendations separately — non-blocking so the menu renders
+      // immediately and the recommended section appears once the call resolves.
+      fetchRecommendations().then(setRecommendedIds).catch(() => {});
+
       // Populate items_cache in IndexedDB on first load
       const toCache: CachedItem[] = menu.items.map((item: MenuItem) => ({
         _id: item._id,
@@ -239,6 +246,7 @@ export default function KioskPage() {
       socketRef={socketRef}
       onItemsPatched={handleItemsPatched}
       onNewOrder={handleNewOrder}
+      recommendedIds={recommendedIds}
     />
   );
 }

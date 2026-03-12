@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import "../../../i18n";
 import type { Socket } from "socket.io-client";
-import type { MenuCategory, MenuFilter, EnrichedMenuItem } from "../api";
+import type { MenuCategory, MenuFilter, EnrichedMenuItem, RecommendedItemRef } from "../api";
 import { placeOrder, fetchKioskInventory } from "../api";
 import { useCart } from "../hooks/useCart";
 import { localised } from "../../../common/utils/languages";
@@ -22,6 +22,8 @@ type Props = {
   onItemsPatched: (patches: Record<string, { price?: number; quantity?: number; status?: boolean; orderType?: "dineIn" | "takeAway" | "both" }>) => void;
   /** Called when customer clicks "New Order" after a successful checkout — resets to welcome screen. */
   onNewOrder?: () => void;
+  /** Recommended item references fetched from the server, sorted by priority descending. */
+  recommendedIds?: RecommendedItemRef[];
 };
 
 export default function KioskScreen({
@@ -32,6 +34,7 @@ export default function KioskScreen({
   socketRef,
   onItemsPatched,
   onNewOrder,
+  recommendedIds = [],
 }: Props) {
   const { t, i18n } = useTranslation("common");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -317,6 +320,22 @@ export default function KioskScreen({
     increment(item._id);
   };
 
+  // ── Recommended items ──────────────────────────────────────────────────────
+  const recommendedItems = useMemo<EnrichedMenuItem[]>(() => {
+    if (!recommendedIds || recommendedIds.length === 0) return [];
+    const result: EnrichedMenuItem[] = [];
+    for (const ref of recommendedIds) {
+      const item = items.find((i) => i._id === ref.itemId);
+      if (!item) continue;
+      if (item.status === false) continue;
+      const matchesOrderType = item.orderType === "both" || item.orderType === orderType;
+      if (!matchesOrderType) continue;
+      result.push(item);
+      if (result.length === 4) break;
+    }
+    return result;
+  }, [recommendedIds, items, orderType]);
+
   // ── Combo suggestion logic ─────────────────────────────────────────────────
   const [comboDismissed, setComboDismissed] = useState(false);
   const prevComboCountRef = useRef(0);
@@ -539,6 +558,101 @@ export default function KioskScreen({
 
         {/* ── Main Content: Item Grid ──────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto p-5">
+
+          {/* ── Recommended For You section ──────────────────────────────── */}
+          {recommendedItems.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="text-base font-bold text-gray-800 tracking-tight">
+                  {t("recommendedForYou")}
+                </h2>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+                {recommendedItems.map((item) => {
+                  const qty = cart[item._id]?.quantity ?? 0;
+                  return (
+                    <div
+                      key={item._id}
+                      className={`bg-white rounded-2xl overflow-hidden shadow-sm flex-shrink-0 w-44 flex flex-col border ${
+                        item.inStock ? "border-purple-100" : "border-gray-200 opacity-70"
+                      }`}
+                    >
+                      {/* Image */}
+                      <div className="relative h-32 bg-white flex-shrink-0">
+                        {item.imageUrl ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={localised(item.name, i18n.language)}
+                            className={`w-full h-full object-contain ${
+                              !item.inStock ? "grayscale" : ""
+                            }`}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-5xl">{item.inStock ? "🍴" : "🚫"}</span>
+                          </div>
+                        )}
+                        {!item.inStock && (
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                            <span className="bg-white/90 text-gray-700 text-xs font-bold px-2 py-1 rounded-full">
+                              {t("outOfStock")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Details */}
+                      <div className="p-3 flex flex-col gap-1 flex-1">
+                        <p className="text-sm font-bold text-gray-900 leading-tight line-clamp-2">
+                          {localised(item.name, i18n.language)}
+                        </p>
+                        <div className="mt-auto pt-2 flex items-center justify-between gap-1">
+                          <span className="text-base font-extrabold text-gray-900">
+                            ₹{item.displayPrice}
+                          </span>
+                          {!item.inStock ? (
+                            <span className="text-xs font-semibold text-gray-400 bg-gray-100 py-1 px-2 rounded-xl">
+                              {t("unavailable")}
+                            </span>
+                          ) : qty === 0 ? (
+                            <button
+                              onClick={() => handleAddToCart(item)}
+                              className="bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs font-bold py-1.5 px-2.5 rounded-xl transition-all"
+                            >
+                              {t("addToCart")}
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-0.5 bg-purple-50 border border-purple-200 rounded-xl px-1 py-0.5">
+                              <button
+                                onClick={() => decrement(item._id)}
+                                className="w-6 h-6 rounded-lg bg-purple-600 text-white font-bold text-sm flex items-center justify-center hover:bg-purple-700 active:scale-95 transition-all"
+                              >
+                                −
+                              </button>
+                              <span className="w-5 text-center text-sm font-bold text-purple-700">
+                                {qty}
+                              </span>
+                              <button
+                                onClick={() => handleIncrement(item)}
+                                disabled={qty >= item.stockQuantity}
+                                className={`w-6 h-6 rounded-lg text-white font-bold text-sm flex items-center justify-center transition-all ${
+                                  qty >= item.stockQuantity
+                                    ? "bg-purple-300 cursor-not-allowed"
+                                    : "bg-purple-600 hover:bg-purple-700 active:scale-95"
+                                }`}
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="border-t border-gray-200 mt-2" />
+            </div>
+          )}
 
           {visibleItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-400">

@@ -276,3 +276,30 @@ export async function fetchKioskLanguages(): Promise<string[]> {
   const parsed = await parseOrThrow<{ data: { kioskLanguages: string[] } }>(res);
   return parsed.data.kioskLanguages;
 }
+
+// ── Kiosk recommendations ─────────────────────────────────────────────────────
+
+/** A single recommended item reference returned by the recommendations API. */
+export type RecommendedItemRef = {
+  itemId: string;
+  priority: number;
+};
+
+/**
+ * GET /api/v1/kiosks/recommendations
+ * Returns the active recommendation slot's items for the kiosk's outlet,
+ * filtered for availability. Sorted by priority (descending).
+ * Returns [] when no active slot exists or the outlet has no recommendations configured.
+ */
+export async function fetchRecommendations(): Promise<RecommendedItemRef[]> {
+  const token = localStorage.getItem("kioskToken");
+  const res = await fetch(`${API_BASE_URL}/api/v1/kiosks/recommendations`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: token ? `Bearer ${token}` : "",
+    },
+  });
+  const parsed = await parseOrThrow<{ data: RecommendedItemRef[] }>(res);
+  return parsed.data;
+}
