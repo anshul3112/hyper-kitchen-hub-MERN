@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import "../../../i18n";
 import type { Socket } from "socket.io-client";
 import type { MenuCategory, MenuFilter, EnrichedMenuItem } from "../api";
 import { placeOrder, fetchKioskInventory } from "../api";
@@ -30,6 +32,7 @@ export default function KioskScreen({
   onItemsPatched,
   onNewOrder,
 }: Props) {
+  const { t } = useTranslation("common");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
 
@@ -270,7 +273,7 @@ export default function KioskScreen({
   const handleAddToCart = (item: EnrichedMenuItem) => {
     const qty = cart[item._id]?.quantity ?? 0;
     if (qty >= item.stockQuantity) {
-      showToast(`Only ${item.stockQuantity} of "${item.name}" available`);
+      showToast(t("stockLimitToast", { count: item.stockQuantity, name: item.name }));
       return;
     }
     addToCart(item);
@@ -279,7 +282,7 @@ export default function KioskScreen({
   const handleIncrement = (item: EnrichedMenuItem) => {
     const qty = cart[item._id]?.quantity ?? 0;
     if (qty >= item.stockQuantity) {
-      showToast(`Only ${item.stockQuantity} of "${item.name}" available`);
+      showToast(t("stockLimitToast", { count: item.stockQuantity, name: item.name }));
       return;
     }
     increment(item._id);
@@ -334,7 +337,7 @@ export default function KioskScreen({
   const handleUpgradeToCombo = (suggestion: { combo: EnrichedMenuItem; matchingItemIds: string[] }) => {
     suggestion.matchingItemIds.forEach((id) => removeItem(id));
     addToCart(suggestion.combo);
-    showToast(`Upgraded to ${suggestion.combo.name}! 🎉`);
+    showToast(t("upgradedToCombo", { name: suggestion.combo.name }));
   };
 
   const visibleItems = items.filter((item) => {
@@ -385,13 +388,13 @@ export default function KioskScreen({
               ? "bg-green-100 text-green-700"
               : "bg-purple-100 text-purple-700"
           }`}>
-            {orderType === "dineIn" ? "🍽️ Dine In" : "🛍️ Take Away"}
+            {orderType === "dineIn" ? `🍽️ ${t("dineIn")}` : `🛍️ ${t("takeAway")}`}
           </span>
           <button
             onClick={() => { clearCart(); onNewOrder?.(); }}
             className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 bg-white px-3 py-1.5 rounded-full transition-colors"
           >
-            ↺ Start Over
+            ↺ {t("startOver")}
           </button>
         </div>
 
@@ -405,7 +408,7 @@ export default function KioskScreen({
                 : "bg-white text-gray-600 border-gray-300 hover:border-purple-400 hover:text-purple-600"
             }`}
           >
-            All
+            {t("all")}
           </button>
           {activeFilters.map((f) => (
             <button
@@ -437,7 +440,7 @@ export default function KioskScreen({
             <>
               <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2">
                 <span className="text-purple-700 text-sm font-bold">
-                  🛒 {cartCount} item{cartCount > 1 ? "s" : ""}
+                  🛒 {cartCount} {cartCount > 1 ? t("items") : t("item")}
                 </span>
                 <span className="text-purple-700 font-bold text-sm">— ₹{cartTotal}</span>
               </div>
@@ -445,11 +448,11 @@ export default function KioskScreen({
                 onClick={openCheckout}
                 className="bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold text-sm px-5 py-2 rounded-xl transition-all shadow-sm"
               >
-                Checkout →
+                {t("checkout")} →
               </button>
             </>
           ) : (
-            <div className="text-gray-400 text-sm">Cart is empty</div>
+            <div className="text-gray-400 text-sm">{t("cartEmpty")}</div>
           )}
         </div>
       </header>
@@ -459,7 +462,7 @@ export default function KioskScreen({
         {/* ── Left Sidebar: Categories ─────────────────────────────────── */}
         <aside className="w-52 bg-white border-r border-gray-200 flex flex-col overflow-y-auto flex-shrink-0 py-3">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
-            Categories
+            {t("categories")}
           </p>
 
           <button
@@ -471,7 +474,7 @@ export default function KioskScreen({
             }`}
           >
             <span className="text-base">🍽️</span>
-            <span>All Items</span>
+            <span>{t("allItems")}</span>
           </button>
 
           {activeCategories.map((cat) => (
@@ -509,8 +512,8 @@ export default function KioskScreen({
           {visibleItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
               <p className="text-5xl mb-4">🍽️</p>
-              <p className="text-base font-medium">No items in this category</p>
-              <p className="text-sm mt-1">Try selecting a different category or filter</p>
+              <p className="text-base font-medium">{t("noItemsInCategory")}</p>
+              <p className="text-sm mt-1">{t("tryDifferentCategory")}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -541,7 +544,7 @@ export default function KioskScreen({
                       {!item.inStock && (
                         <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                           <span className="bg-white/90 text-gray-700 text-xs font-bold px-2 py-1 rounded-full">
-                            Out of Stock
+                            {t("outOfStock")}
                           </span>
                         </div>
                       )}
@@ -564,7 +567,7 @@ export default function KioskScreen({
                       {item.inStock && item.stockQuantity <= 5 && (
                         <div className="absolute top-2 right-2">
                           <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                            Only {item.stockQuantity} left
+                            {t("onlyLeft", { count: item.stockQuantity })}
                           </span>
                         </div>
                       )}
@@ -577,7 +580,7 @@ export default function KioskScreen({
                       </p>
                       {item.type === 'combo' && (
                         <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                           Combo
+                           {t("combo")}
                         </span>
                       )}
                       {item.description && (
@@ -594,14 +597,14 @@ export default function KioskScreen({
                         {/* Add to Cart / Quantity Control */}
                         {!item.inStock ? (
                           <span className="flex-1 text-center text-sm font-semibold text-gray-400 bg-gray-100 py-2 px-2 rounded-xl">
-                            Unavailable
+                            {t("unavailable")}
                           </span>
                         ) : qty === 0 ? (
                           <button
                             onClick={() => handleAddToCart(item)}
                             className="flex-1 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-sm font-bold py-2 px-3 rounded-xl transition-all"
                           >
-                            Add to Cart
+                            {t("addToCart")}
                           </button>
                         ) : (
                           <div className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded-xl px-1 py-0.5">
@@ -655,14 +658,14 @@ export default function KioskScreen({
             {payStep === "cart" && (
               <>
                 <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900">🛒 Your Order</h2>
+                  <h2 className="text-lg font-bold text-gray-900">🛒 {t("yourOrder")}</h2>
                   <button onClick={closeCheckout} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">&times;</button>
                 </div>
 
                 {/* Inventory change notices */}
                 {checkoutNotices.length > 0 && (
                   <div className="mx-6 mt-4 rounded-xl bg-amber-50 border border-amber-300 px-4 py-3 space-y-1">
-                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">⚠️ Price / Stock Updates</p>
+                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">⚠️ {t("priceStockUpdates")}</p>
                     {checkoutNotices.map((msg, i) => (
                       <p key={i} className="text-xs text-amber-800 leading-snug">{msg}</p>
                     ))}
@@ -683,7 +686,7 @@ export default function KioskScreen({
                   {/* Combo upgrade suggestions */}
                   {comboSuggestions.length > 0 && (
                     <div className="mt-2 rounded-xl bg-purple-50 border border-purple-200 px-4 py-3 space-y-3">
-                      <p className="text-xs font-bold text-purple-700 uppercase tracking-wide">💡 Upgrade Suggestions</p>
+                      <p className="text-xs font-bold text-purple-700 uppercase tracking-wide">💡 {t("upgradeSuggestions")}</p>
                       {comboSuggestions.map((s) => (
                         <div key={s.combo._id} className="flex flex-col gap-2 pb-3 border-b border-purple-100 last:border-0 last:pb-0">
                           {/* Combo image */}
@@ -700,7 +703,7 @@ export default function KioskScreen({
                               <p className="text-xs text-gray-500">
                                 ₹{s.combo.displayPrice}
                                 {s.savings > 0 && (
-                                  <span className="ml-1.5 text-green-600 font-semibold">· Save ₹{s.savings}</span>
+                                  <span className="ml-1.5 text-green-600 font-semibold">· {t("saveAmount", { amount: s.savings })}</span>
                                 )}
                               </p>
                               {/* Items in this combo */}
@@ -719,7 +722,7 @@ export default function KioskScreen({
                               onClick={() => handleUpgradeToCombo(s)}
                               className="flex-shrink-0 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors"
                             >
-                              Upgrade →
+                              {t("upgrade")} →
                             </button>
                           </div>
                         </div>
@@ -736,30 +739,30 @@ export default function KioskScreen({
                       className="w-full flex items-center justify-center gap-2 bg-purple-300 cursor-not-allowed text-white font-bold py-3 rounded-2xl text-base"
                     >
                       <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Checking stock…
+                      {t("checkingStock")}
                     </button>
                   ) : cartItems.length === 0 ? (
                     /* All items were removed by inventory patches */
                     <div className="space-y-3">
-                      <p className="text-center text-sm text-gray-500">Your cart is empty — all items were removed due to stock or availability changes.</p>
+                      <p className="text-center text-sm text-gray-500">{t("cartEmptyRemoved")}</p>
                       <button
                         onClick={closeCheckout}
                         className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-2xl transition-all text-base"
                       >
-                        Back to Menu
+                        {t("backToMenu")}
                       </button>
                     </div>
                   ) : (
                     <>
                       <div className="flex items-center justify-between mb-4">
-                        <span className="text-base font-semibold text-gray-600">Total</span>
+                        <span className="text-base font-semibold text-gray-600">{t("total")}</span>
                         <span className="text-xl font-extrabold text-gray-900">₹{cartTotal}</span>
                       </div>
                       <button
                         onClick={() => setPayStep("payment")}
                         className="w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
                       >
-                        Proceed to Pay →
+                        {t("proceedToPay")} →
                       </button>
                     </>
                   )}
@@ -771,18 +774,18 @@ export default function KioskScreen({
             {payStep === "payment" && (
               <>
                 <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900">💳 Payment Details</h2>
+                  <h2 className="text-lg font-bold text-gray-900">💳 {t("paymentDetails")}</h2>
                   <button onClick={closeCheckout} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">&times;</button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Your Name</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">{t("yourName")}</label>
                     <input
                       type="text"
                       value={payerName}
                       onChange={(e) => setPayerName(e.target.value)}
-                      placeholder="e.g. Raj Kumar"
+                      placeholder={t("nameHint")}
                       className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                     />
                   </div>
@@ -792,11 +795,11 @@ export default function KioskScreen({
                       type="text"
                       value={upiId}
                       onChange={(e) => setUpiId(e.target.value)}
-                      placeholder="e.g. raj@upi"
+                      placeholder={t("upiHint")}
                       className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                     />
                   </div>
-                  <p className="text-xs text-gray-400">Total to pay: <span className="font-bold text-gray-700">₹{cartTotal}</span></p>
+                  <p className="text-xs text-gray-400">{t("totalToPay")}: <span className="font-bold text-gray-700">₹{cartTotal}</span></p>
                 </div>
 
                 <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
@@ -804,14 +807,14 @@ export default function KioskScreen({
                     onClick={() => setPayStep("cart")}
                     className="flex-1 border border-gray-300 text-gray-600 font-semibold py-3 rounded-2xl hover:bg-gray-50 transition-all text-sm"
                   >
-                    ← Back
+                    ← {t("back")}
                   </button>
                   <button
                     onClick={handlePlaceOrder}
                     disabled={!payerName.trim() || !upiId.trim()}
                     className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-sm"
                   >
-                    Place Order
+                    {t("placeOrder")}
                   </button>
                 </div>
               </>
@@ -822,8 +825,8 @@ export default function KioskScreen({
               <div className="flex flex-col items-center justify-center py-16 px-6 gap-5">
                 <div className="w-14 h-14 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin" />
                 <div className="text-center">
-                  <p className="text-base font-bold text-gray-800">Processing Payment…</p>
-                  <p className="text-sm text-gray-400 mt-1">Please do not close this window</p>
+                  <p className="text-base font-bold text-gray-800">{t("processingPayment")}</p>
+                  <p className="text-sm text-gray-400 mt-1">{t("doNotClose")}</p>
                 </div>
               </div>
             )}
@@ -835,10 +838,10 @@ export default function KioskScreen({
                   <span className="text-3xl">✅</span>
                 </div>
                 <div>
-                  <p className="text-xl font-extrabold text-gray-900">Order Placed!</p>
-                  <p className="text-sm text-gray-500 mt-2">Your order is being prepared</p>
+                  <p className="text-xl font-extrabold text-gray-900">{t("orderPlaced")}</p>
+                  <p className="text-sm text-gray-500 mt-2">{t("orderBeingPrepared")}</p>
                   <p className="text-sm text-gray-500 mt-1">
-                    Amount paid: <span className="font-semibold">₹{submittedAmount}</span>
+                    {t("amountPaid")}: <span className="font-semibold">₹{submittedAmount}</span>
                   </p>
                   {confirmedEta != null && confirmedEta > 0 && (() => {
                     const lo = confirmedEta;
@@ -848,7 +851,7 @@ export default function KioskScreen({
                       <div className="mt-3 inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
                         <span className="text-lg">⏱️</span>
                         <div className="text-left">
-                          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Estimated wait</p>
+                          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">{t("estimatedWait")}</p>
                           <p className="text-base font-extrabold text-amber-900">
                             {lo === hi ? `${lo} min` : `${lo}–${hi} min`}
                           </p>
@@ -861,7 +864,7 @@ export default function KioskScreen({
                   onClick={() => { closeCheckout(); onNewOrder?.(); }}
                   className="mt-2 w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white font-bold py-3 rounded-2xl transition-all text-base"
                 >
-                  New Order
+                  {t("newOrder")}
                 </button>
               </div>
             )}
@@ -895,13 +898,13 @@ export default function KioskScreen({
                         onClick={openCheckout}
                         className="flex-1 bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white font-semibold py-3 rounded-2xl transition-all text-sm"
                       >
-                        Update &amp; Retry
+                        {t("updateAndRetry")}
                       </button>
                       <button
                         onClick={closeCheckout}
                         className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-2xl transition-all text-sm"
                       >
-                        Cancel
+                        {t("cancel")}
                       </button>
                     </>
                   ) : (
@@ -910,13 +913,13 @@ export default function KioskScreen({
                         onClick={() => setPayStep("payment")}
                         className="flex-1 border border-gray-300 text-gray-600 font-semibold py-3 rounded-2xl hover:bg-gray-50 transition-all text-sm"
                       >
-                        Try Again
+                        {t("tryAgain")}
                       </button>
                       <button
                         onClick={closeCheckout}
                         className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-2xl transition-all text-sm"
                       >
-                        Cancel
+                        {t("cancel")}
                       </button>
                     </>
                   )}

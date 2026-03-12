@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import "../../../i18n";
 import { io } from "socket.io-client";
 import {
   API_BASE_URL,
@@ -25,6 +27,7 @@ type KioskData = {
 export default function KioskPage() {
   const navigate = useNavigate();
   const session = getKioskSession();
+  const { t } = useTranslation("common");
 
   const [data, setData] = useState<KioskData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -166,7 +169,7 @@ export default function KioskPage() {
       <div className="flex h-screen items-center justify-center bg-white">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-purple-600 font-medium">Loading menu…</p>
+          <p className="text-purple-600 font-medium">{t("loadingMenu")}</p>
         </div>
       </div>
     );
@@ -177,13 +180,13 @@ export default function KioskPage() {
       <div className="flex h-screen items-center justify-center bg-white">
         <div className="bg-white rounded-2xl shadow-md border border-purple-100 p-8 max-w-sm w-full text-center">
           <p className="text-4xl mb-4">⚠️</p>
-          <p className="text-gray-800 font-semibold mb-1">Failed to load menu</p>
+          <p className="text-gray-800 font-semibold mb-1">{t("failedToLoadMenu")}</p>
           <p className="text-sm text-gray-500 mb-6">{error}</p>
           <button
             onClick={loadAll}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-xl transition-colors"
           >
-            Retry
+            {t("retry")}
           </button>
         </div>
       </div>

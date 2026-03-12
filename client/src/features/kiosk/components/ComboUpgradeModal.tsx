@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import "../../../i18n";
 import type { EnrichedMenuItem } from "../api";
 
 export type ComboSuggestion = {
@@ -14,6 +16,7 @@ type Props = {
 };
 
 export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: Props) {
+  const { t } = useTranslation("common");
   if (suggestions.length === 0) return null;
 
   return (
@@ -22,7 +25,7 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-purple-600">
-          <p className="text-sm font-bold text-white">💡 Bundle &amp; Save</p>
+          <p className="text-sm font-bold text-white">💡 {t("bundleAndSave")}</p>
           <button
             onClick={onClose}
             className="text-white/80 hover:text-white text-2xl leading-none font-bold transition-colors"
@@ -33,7 +36,7 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
         </div>
 
         <p className="text-xs text-gray-500 px-4 pt-3">
-          Items in your cart can be bundled for a better deal!
+          {t("bundleDeal")}
         </p>
 
         {/* Suggestions */}
@@ -57,7 +60,7 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
                   ₹{s.combo.displayPrice}
                   {s.savings > 0 && (
                     <span className="ml-1.5 text-green-600 font-semibold">
-                      · Save ₹{s.savings}
+                      · {t("saveAmount", { amount: s.savings })}
                     </span>
                   )}
                 </p>
@@ -77,7 +80,7 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
                 onClick={() => onUpgrade(s)}
                 className="w-full text-xs font-bold bg-purple-600 hover:bg-purple-700 active:scale-95 text-white px-3 py-1.5 rounded-xl transition-all"
               >
-                Add Combo →
+                {t("addCombo")} →
               </button>
             </div>
           ))}
