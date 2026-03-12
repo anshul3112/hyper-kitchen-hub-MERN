@@ -433,10 +433,10 @@ export default function KioskScreen({
   return (
     <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
       {/* ── Top Bar ─────────────────────────────────────────────────────── */}
-      <header className="bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-6 py-3 flex-shrink-0">
+      <header className="bg-white border-b border-gray-200 shadow-sm flex items-center px-3 sm:px-6 py-2 sm:py-3 flex-shrink-0 gap-2 min-w-0">
         {/* Left: Order type badge + Start Over */}
-        <div className="flex items-center gap-3">
-          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full ${
             orderType === "dineIn"
               ? "bg-green-100 text-green-700"
               : "bg-purple-100 text-purple-700"
@@ -445,17 +445,17 @@ export default function KioskScreen({
           </span>
           <button
             onClick={() => { clearCart(); onNewOrder?.(); }}
-            className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 bg-white px-3 py-1.5 rounded-full transition-colors"
+            className="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-semibold text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 bg-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-full transition-colors"
           >
             ↺ {t("startOver")}
           </button>
         </div>
 
         {/* Center: Filter chips */}
-        <div className="flex items-center gap-2 flex-wrap justify-center">
+        <div className="flex items-center justify-center gap-1.5 sm:gap-2 flex-1 min-w-0 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setSelectedFilter("all")}
-            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+            className={`flex-shrink-0 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors ${
               selectedFilter === "all"
                 ? "bg-purple-600 text-white border-purple-600"
                 : "bg-white text-gray-600 border-gray-300 hover:border-purple-400 hover:text-purple-600"
@@ -469,7 +469,7 @@ export default function KioskScreen({
               onClick={() =>
                 setSelectedFilter(f._id === selectedFilter ? "all" : f._id)
               }
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+              className={`flex-shrink-0 flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold border transition-colors ${
                 selectedFilter === f._id
                   ? "bg-purple-600 text-white border-purple-600"
                   : "bg-white text-gray-600 border-gray-300 hover:border-purple-400 hover:text-purple-600"
@@ -488,24 +488,28 @@ export default function KioskScreen({
         </div>
 
         {/* Right: Cart summary + Checkout */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {cartCount > 0 ? (
             <>
-              <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2">
+              <div className="hidden sm:flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2">
                 <span className="text-purple-700 text-sm font-bold">
                   🛒 {cartCount} {cartCount > 1 ? t("items") : t("item")}
                 </span>
                 <span className="text-purple-700 font-bold text-sm">— ₹{cartTotal}</span>
               </div>
+              <div className="flex sm:hidden items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-xl px-2 py-1.5">
+                <span className="text-purple-700 text-xs font-bold">🛒 {cartCount}</span>
+                <span className="text-purple-700 text-xs font-bold">₹{cartTotal}</span>
+              </div>
               <button
                 onClick={openCheckout}
-                className="bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold text-sm px-5 py-2 rounded-xl transition-all shadow-sm"
+                className="bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold text-xs sm:text-sm px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl transition-all shadow-sm"
               >
                 {t("checkout")} →
               </button>
             </>
           ) : (
-            <div className="text-gray-400 text-sm">{t("cartEmpty")}</div>
+            <div className="text-gray-400 text-xs sm:text-sm whitespace-nowrap">{t("cartEmpty")}</div>
           )}
         </div>
       </header>
@@ -513,14 +517,14 @@ export default function KioskScreen({
       {/* ── Body ────────────────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
         {/* ── Left Sidebar: Categories ─────────────────────────────────── */}
-        <aside className="w-52 bg-white border-r border-gray-200 flex flex-col overflow-y-auto flex-shrink-0 py-3 scrollbar-none">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">
+        <aside className="w-36 sm:w-44 lg:w-52 bg-white border-r border-gray-200 flex flex-col overflow-y-auto flex-shrink-0 py-3 scrollbar-none">
+          <p className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 sm:px-4 mb-2">
             {t("categories")}
           </p>
 
           <button
             onClick={() => setSelectedCategory("all")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors text-left ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium transition-colors text-left ${
               selectedCategory === "all"
                 ? "bg-purple-50 text-purple-700 border-r-2 border-purple-600"
                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -543,7 +547,7 @@ export default function KioskScreen({
               }`}
             >
               {cat.imageUrl && (
-                <div className="w-full h-[138px] bg-gray-50 flex items-center justify-center flex-shrink-0">
+                <div className="w-full h-20 sm:h-[110px] lg:h-[138px] bg-gray-50 flex items-center justify-center flex-shrink-0">
                   <img
                     src={cat.imageUrl}
                     alt={localised(cat.name, i18n.language)}
@@ -551,7 +555,7 @@ export default function KioskScreen({
                   />
                 </div>
               )}
-              <div className={`flex items-center gap-2 px-4 text-sm font-medium ${cat.imageUrl ? "py-2" : "py-3"}`}>
+              <div className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm font-medium ${cat.imageUrl ? "py-1.5 sm:py-2" : "py-2 sm:py-3"}`}>
                 {!cat.imageUrl && <span className="text-base flex-shrink-0">🍴</span>}
                 <span className="line-clamp-2 leading-tight">{localised(cat.name, i18n.language)}</span>
               </div>
@@ -560,7 +564,7 @@ export default function KioskScreen({
         </aside>
 
         {/* ── Main Content: Item Grid ──────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto p-5 scrollbar-none">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 scrollbar-none">
 
           {/* ── Recommended For You section ──────────────────────────────── */}
           {recommendedItems.length > 0 && (
@@ -665,7 +669,7 @@ export default function KioskScreen({
               <p className="text-sm mt-1">{t("tryDifferentCategory")}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
               {visibleItems.map((item) => {
                 const qty = cart[item._id]?.quantity ?? 0;
                 return (
@@ -677,7 +681,7 @@ export default function KioskScreen({
                     }`}
                   >
                     {/* Image */}
-                    <div className="relative h-[173px] bg-white flex-shrink-0">
+                    <div className="relative h-[180px] bg-white flex-shrink-0">
                       {item.imageUrl ? (
                         <img
                           src={item.imageUrl}
@@ -698,34 +702,32 @@ export default function KioskScreen({
                           </span>
                         </div>
                       )}
+                    </div>
 
-                      {/* Filter badges */}
-                      {item.filters.length > 0 && item.inStock && (
-                        <div className="absolute top-2 left-2 flex gap-1 flex-wrap max-w-[90%]">
+                    {/* Badges row — below image, never overlapping */}
+                    {((item.filters.length > 0 && item.inStock) || (item.inStock && item.stockQuantity <= 5)) && (
+                      <div className="flex items-center justify-between gap-1 px-3 pt-2">
+                        <div className="flex gap-1 flex-wrap">
                           {item.filters.slice(0, 2).map((f) => (
                             <span
                               key={f._id}
-                              className="bg-white/90 text-purple-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm"
+                              className="bg-purple-50 text-purple-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
                             >
                               {localised(f.name, i18n.language)}
                             </span>
                           ))}
                         </div>
-                      )}
-
-                      {/* Low stock warning */}
-                      {item.inStock && item.stockQuantity <= 5 && (
-                        <div className="absolute top-2 right-2">
-                          <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                        {item.inStock && item.stockQuantity <= 5 && (
+                          <span className="flex-shrink-0 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                             {t("onlyLeft", { count: item.stockQuantity })}
                           </span>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Details */}
-                    <div className="p-4 flex flex-col gap-1 flex-1">
-                      <p className="text-base font-bold text-gray-900 leading-tight line-clamp-2">
+                    <div className="p-3 pt-2 flex flex-col gap-1 flex-1">
+                      <p className="text-sm font-bold text-gray-900 leading-tight line-clamp-2">
                         {localised(item.name, i18n.language)}
                       </p>
                       {item.type === 'combo' && (
@@ -750,25 +752,25 @@ export default function KioskScreen({
                         </>
                       )}
                       {item.description && (
-                        <p className="text-sm text-gray-400 line-clamp-2 leading-snug">
+                        <p className="text-xs text-gray-400 line-clamp-1 leading-snug">
                           {localised(item.description, i18n.language)}
                         </p>
                       )}
 
-                      <div className="mt-auto pt-2 flex items-center justify-between gap-2">
+                      {/* Price centred + full-width cart button stacked vertically */}
+                      <div className="mt-auto pt-2 flex flex-col items-center gap-2">
                         <span className="text-lg font-extrabold text-gray-900">
                           ₹{item.displayPrice}
                         </span>
 
-                        {/* Add to Cart / Quantity Control */}
                         {!item.inStock ? (
-                          <span className="flex-1 text-center text-sm font-semibold text-gray-400 bg-gray-100 py-2 px-2 rounded-xl">
+                          <span className="w-full text-center text-sm font-semibold text-gray-400 bg-gray-100 py-2 rounded-xl">
                             {t("unavailable")}
                           </span>
                         ) : qty === 0 ? (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleAddToCart(item); }}
-                            className="flex-1 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-sm font-bold py-2 px-3 rounded-xl transition-all"
+                            className="w-full bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-sm font-bold py-2 rounded-xl transition-all whitespace-nowrap"
                           >
                             {t("addToCart")}
                           </button>
