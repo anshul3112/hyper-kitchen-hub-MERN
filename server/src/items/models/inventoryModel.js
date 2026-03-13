@@ -43,6 +43,14 @@ const inventorySchema = new Schema({
     default: null,
     min: 0
   },
+  // outlet-level cost basis for margin-weighted recommendations.
+  // Set by outlet admin; used only for recommendation scoring (not shown to customers).
+  // null means margin scoring is disabled for this item.
+  baseCost: {
+    type: Number,
+    default: null,
+    min: 0
+  },
   // estimated minutes the kitchen needs to prepare one serving of this item
   // outlet admin can override this per-item; default is 3 minutes
   // 0 = no prep needed (e.g. packaged drinks — served instantly)

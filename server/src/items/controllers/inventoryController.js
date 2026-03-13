@@ -355,6 +355,45 @@ export const updateInventoryThreshold = asyncHandler(async (req, res) => {
   );
 });
 
+/**
+ * PATCH /api/v1/items/inventory/:itemId/basecost
+ * Set or clear the outlet-level cost basis used for margin-weighted recommendations.
+ * Body: { baseCost: number | null }
+ *   - Pass a non-negative number to enable margin scoring for this item.
+ *   - Pass null to disable margin scoring (falls back to frequency score only).
+ */
+export const updateInventoryBaseCost = asyncHandler(async (req, res) => {
+  requireOutletAdmin(req.user);
+  const outletId = resolveOutlet(req.user);
+  const tenantId = req.user.tenant?.tenantId;
+  const { itemId } = req.params;
+  const { baseCost } = req.body;
+
+  if (baseCost !== null && baseCost !== undefined) {
+    if (typeof baseCost !== "number" || baseCost < 0) {
+      throw new ApiError(400, "baseCost must be a non-negative number or null");
+    }
+  }
+
+  await validateItem(itemId, tenantId);
+
+  const record = await Inventory.findOneAndUpdate(
+    { itemId, outletId },
+    { baseCost: baseCost ?? null, editedBy: req.user._id },
+    { new: true, upsert: true, runValidators: true }
+  );
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      record,
+      baseCost == null
+        ? "Base cost cleared — margin scoring disabled for this item"
+        : `Base cost set to ${baseCost}`
+    )
+  );
+});
+
 // ── Allowed slot-type keys (allowlist for $set injection safety) ──────────────
 const ALLOWED_SLOT_TYPES = new Set([
   "prioritySlots",

@@ -31,6 +31,7 @@ import {
   updateInventoryThreshold,
   updateInventoryPrepTime,
   scheduleInventory,
+  updateInventoryBaseCost,
 } from "../controllers/inventoryController.js";
 
 const router = Router();
@@ -71,6 +72,7 @@ router.route("/menu/all").get(getMenuDetails);
 // PATCH  /api/v1/items/inventory/:itemId/orderType        → set dineIn / takeAway / both
 // PATCH  /api/v1/items/inventory/:itemId/threshold        → set / clear low-stock alert threshold
 // PATCH  /api/v1/items/inventory/:itemId/preptime         → set estimated prep time (minutes)
+// PATCH  /api/v1/items/inventory/:itemId/basecost         → set / clear outlet cost basis for margin scoring
 router.route("/inventory").get(getOutletInventory);
 router.route("/inventory/:itemId").put(upsertInventoryItem);
 router.route("/inventory/:itemId/price").patch(updateInventoryPrice);
@@ -79,6 +81,7 @@ router.route("/inventory/:itemId/status").patch(toggleInventoryStatus);
 router.route("/inventory/:itemId/orderType").patch(updateInventoryOrderType);
 router.route("/inventory/:itemId/threshold").patch(updateInventoryThreshold);
 router.route("/inventory/:itemId/preptime").patch(updateInventoryPrepTime);
+router.route("/inventory/:itemId/basecost").patch(updateInventoryBaseCost);
 // PATCH  /api/v1/items/inventory/:itemId/schedule  → replace a full slot-type array
 router.route("/inventory/:itemId/schedule").patch(scheduleInventory);
 

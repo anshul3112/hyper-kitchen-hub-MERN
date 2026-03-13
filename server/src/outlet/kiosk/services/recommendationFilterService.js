@@ -31,7 +31,7 @@ function isItemAvailableForRecommendation(itemId, enabledItemIds, comboItemIds, 
 
 /**
  * Filters merged recommendation scores by item/inventory availability and
- * returns [{ itemId, priority }] sorted by score descending.
+ * Returns [{ itemId, priority }] sorted by score descending.
  */
 export async function filterRecommendationScores(outletId, mergedScores, now = new Date()) {
   if (!mergedScores?.length) return [];

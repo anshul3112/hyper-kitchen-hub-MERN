@@ -172,6 +172,8 @@ export type InventoryRecord = {
   lowStockThreshold: number | null;
   /** Estimated minutes kitchen needs to prepare this item; 0 = instant/packaged */
   prepTime: number;
+  /** Outlet-level cost basis for margin-weighted recommendations; null means disabled */
+  baseCost: number | null;
   /** Schedule slot arrays */
   prioritySlots: PrioritySlot[];
   priceSlots: PriceSlot[];
@@ -296,6 +298,22 @@ export async function updateInventoryPrepTime(
     credentials: "include",
     headers: getAuthHeaders(),
     body: JSON.stringify({ prepTime }),
+  });
+  const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
+  return parsed.data;
+}
+
+/** PATCH: set (or clear) the outlet-level cost basis used for margin-weighted recommendations.
+ *  Pass null to disable margin scoring for this item. */
+export async function updateInventoryBaseCost(
+  itemId: string,
+  baseCost: number | null
+): Promise<InventoryRecord> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}/basecost`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ baseCost }),
   });
   const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
   return parsed.data;

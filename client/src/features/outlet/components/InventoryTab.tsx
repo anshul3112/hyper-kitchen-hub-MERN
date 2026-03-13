@@ -11,6 +11,7 @@ import {
   updateInventoryOrderType,
   updateInventoryThreshold,
   updateInventoryPrepTime,
+  updateInventoryBaseCost,
   updateInventorySchedule,
   type InventoryRecord,
   type MenuItem,
@@ -44,6 +45,11 @@ type RowState = {
   prepTimeInput: string;
   prepTimeSaving: boolean;
   prepTimeError: string;
+  // base cost editing
+  baseCostEditing: boolean;
+  baseCostInput: string;
+  baseCostSaving: boolean;
+  baseCostError: string;
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -66,6 +72,10 @@ function emptyRow(): RowState {
     prepTimeInput: "",
     prepTimeSaving: false,
     prepTimeError: "",
+    baseCostEditing: false,
+    baseCostInput: "",
+    baseCostSaving: false,
+    baseCostError: "",
   };
 }
 
@@ -299,6 +309,41 @@ export default function InventoryTab({ socketRef }: Props) {
     }
   };
 
+  const openBaseCostEdit = (itemId: string) => {
+    const inv = inventoryMap[itemId];
+    setRow(itemId, {
+      baseCostEditing: true,
+      baseCostInput: inv?.baseCost != null ? String(inv.baseCost) : "",
+      baseCostError: "",
+    });
+  };
+
+  const cancelBaseCostEdit = (itemId: string) =>
+    setRow(itemId, { baseCostEditing: false, baseCostInput: "", baseCostError: "" });
+
+  const saveBaseCost = async (itemId: string) => {
+    const row = getRow(itemId);
+    const raw = row.baseCostInput.trim();
+    const value = raw === "" ? null : parseFloat(raw);
+
+    if (value !== null && (isNaN(value) || value < 0)) {
+      setRow(itemId, { baseCostError: "Must be a non-negative number (or blank to disable)" });
+      return;
+    }
+
+    setRow(itemId, { baseCostSaving: true, baseCostError: "" });
+    try {
+      const updated = await updateInventoryBaseCost(itemId, value);
+      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
+      setRow(itemId, { baseCostEditing: false, baseCostSaving: false, baseCostInput: "" });
+    } catch (err: unknown) {
+      setRow(itemId, {
+        baseCostSaving: false,
+        baseCostError: err instanceof Error ? err.message : "Failed to save base cost",
+      });
+    }
+  };
+
   // ── render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -339,6 +384,7 @@ export default function InventoryTab({ socketRef }: Props) {
               <th className="text-left px-5 py-3 font-medium text-gray-600">Quantity</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Low-Stock Alert</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Prep Time</th>
+              <th className="text-left px-5 py-3 font-medium text-gray-600">Base Cost</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Kiosk Visible</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Order Type</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Actions</th>
@@ -594,6 +640,84 @@ export default function InventoryTab({ socketRef }: Props) {
                     )}
                   </td>
 
+                  {/* Base Cost (for margin-weighted recommendations) */}
+                  <td className="px-5 py-3">
+                    {row.baseCostEditing ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-500">₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            placeholder="e.g. 80"
+                            value={row.baseCostInput}
+                            onChange={(e) => setRow(item._id, { baseCostInput: e.target.value })}
+                            className="w-20 px-2 py-1 border border-teal-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+                            autoFocus
+                          />
+                        </div>
+                        {row.baseCostError && (
+                          <p className="text-xs text-red-500">{row.baseCostError}</p>
+                        )}
+                        <div className="flex gap-1 mt-0.5">
+                          <button
+                            onClick={() => saveBaseCost(item._id)}
+                            disabled={row.baseCostSaving}
+                            className="px-2 py-0.5 bg-teal-600 text-white text-xs rounded hover:bg-teal-700 disabled:opacity-50"
+                          >
+                            {row.baseCostSaving ? "..." : "Set"}
+                          </button>
+                          <button
+                            onClick={() => cancelBaseCostEdit(item._id)}
+                            disabled={row.baseCostSaving}
+                            className="px-2 py-0.5 border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-100 disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        {inv?.baseCost != null ? (
+                          <span className="text-sm font-medium text-teal-700">
+                            ₹{inv.baseCost}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Not set</span>
+                        )}
+                        <button
+                          onClick={() => openBaseCostEdit(item._id)}
+                          className="text-xs text-teal-500 hover:text-teal-700 underline"
+                          title="Set cost basis for margin-weighted recommendations"
+                        >
+                          {inv?.baseCost != null ? "Edit" : "Set"}
+                        </button>
+                        {inv?.baseCost != null && (
+                          <button
+                            onClick={async () => {
+                              setRow(item._id, { baseCostSaving: true, baseCostError: "" });
+                              try {
+                                const updated = await updateInventoryBaseCost(item._id, null);
+                                setInventoryMap((prev) => ({ ...prev, [item._id]: updated }));
+                              } catch (err: unknown) {
+                                setRow(item._id, {
+                                  baseCostError: err instanceof Error ? err.message : "Failed to clear",
+                                });
+                              } finally {
+                                setRow(item._id, { baseCostSaving: false });
+                              }
+                            }}
+                            className="text-xs text-gray-400 hover:text-red-500 underline"
+                            title="Clear base cost (disable margin scoring for this item)"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+
                   {/* Kiosk Visible toggle */}
                   <td className="px-5 py-3">
                     {(() => {
@@ -748,11 +872,10 @@ export default function InventoryTab({ socketRef }: Props) {
               orderType: "both",
               lowStockThreshold: null,
               prepTime: 3,
+              baseCost: null,
               prioritySlots: [],
-              weeklyPriceSlots: [],
-              dailyPriceSlots: [],
-              weeklyAvailabilitySlots: [],
-              dailyAvailabilitySlots: [],
+              priceSlots: [],
+              availabilitySlots: [],
               editedBy: "",
             }}
             defaultPrice={modalItem.defaultAmount}

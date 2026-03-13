@@ -11,10 +11,15 @@ export const RECOMMENDATION_WEIGHTS = {
       limit: 10,
     },
     inventoryAware: {
-      enabled: true,
+      enabled: false,
       bias: 0.2,
       limit: 10,
       fallbackMinQty: 5,
+    },
+    marginBased: {
+      enabled: true,
+      bias: 0.2,
+      limit: 10,
     },
   },
 };

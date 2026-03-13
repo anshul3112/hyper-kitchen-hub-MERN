@@ -1,6 +1,7 @@
 import { RecommendationSlot } from "../models/recommendationModel.js";
 import { getTopItemsForOutletHour } from "./outletTimeSlotFrequencyService.js";
 import { getTopInventoryAwareItems } from "./inventoryAwareRecommendationService.js";
+import { getTopMarginBasedItems } from "./marginBasedRecommendationService.js";
 import { RECOMMENDATION_WEIGHTS } from "../config/recommendationWeights.js";
 
 /**
@@ -64,10 +65,19 @@ export async function getMergedRecommendationScores(outletId, now = new Date()) 
       : Promise.resolve([]),
   ]);
 
+  const marginBasedItems = config.sources.marginBased?.enabled
+    ? await getTopMarginBasedItems(outletId, {
+        limit: config.sources.marginBased.limit,
+        now,
+        frequencyItems,
+      })
+    : [];
+
   const adminSlotItems = [...(slot?.items || [])].sort((a, b) => b.priority - a.priority);
   const normalizedAdminEntries = normalizeSourceEntries(adminSlotItems, "priority");
   const normalizedFrequencyEntries = normalizeSourceEntries(frequencyItems, "count");
   const normalizedInventoryAwareEntries = normalizeSourceEntries(inventoryAwareItems, "count");
+  const normalizedMarginBasedEntries = normalizeSourceEntries(marginBasedItems, "marginScore");
 
   const mergedScores = new Map();
 
@@ -87,6 +97,12 @@ export async function getMergedRecommendationScores(outletId, now = new Date()) 
   for (const entry of normalizedInventoryAwareEntries) {
     const itemId = entry.itemId.toString();
     const weightedScore = entry.normalizedScore * config.sources.inventoryAware.bias;
+    mergedScores.set(itemId, (mergedScores.get(itemId) || 0) + weightedScore);
+  }
+
+  for (const entry of normalizedMarginBasedEntries) {
+    const itemId = entry.itemId.toString();
+    const weightedScore = entry.normalizedScore * config.sources.marginBased.bias;
     mergedScores.set(itemId, (mergedScores.get(itemId) || 0) + weightedScore);
   }
 
