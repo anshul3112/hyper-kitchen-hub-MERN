@@ -299,8 +299,8 @@ export default function AddEditItemModal({
 
               {/* Preview */}
               {imagePreview && (
-                <div className="mb-2 relative w-full h-36 rounded overflow-hidden border border-gray-200 bg-gray-50">
-                  <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                <div className="mb-2 relative w-full h-56 rounded overflow-hidden border border-gray-200 bg-gray-50 p-3 flex items-center justify-center">
+                  <img src={imagePreview} alt="preview" className="max-w-full max-h-full object-contain rounded-lg" />
                   <button
                     type="button"
                     onClick={() => { setImagePreview(""); setImageUrl(""); setImageFile(null); setImageRemoved(true); }}

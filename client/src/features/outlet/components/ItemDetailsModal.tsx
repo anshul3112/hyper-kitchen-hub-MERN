@@ -5,10 +5,11 @@ type Props = {
   item: MenuItem;
   inv: InventoryRecord | undefined;
   derivedQty?: number | null;
+  itemNameMap: Record<string, string>;
   onClose: () => void;
 };
 
-export default function ItemDetailsModal({ item, inv, derivedQty, onClose }: Props) {
+export default function ItemDetailsModal({ item, inv, derivedQty, itemNameMap, onClose }: Props) {
   const isCombo = item.type === "combo";
 
   return (
@@ -72,11 +73,27 @@ export default function ItemDetailsModal({ item, inv, derivedQty, onClose }: Pro
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
           {/* Image */}
           {item.imageUrl && (
-            <img
-              src={item.imageUrl}
-              alt={localised(item.name, "en")}
-              className="w-full h-52 object-cover rounded-xl"
-            />
+            <div className="w-full h-56 rounded-xl border border-gray-200 bg-gray-50 p-3 flex items-center justify-center overflow-hidden">
+              <img
+                src={item.imageUrl}
+                alt={localised(item.name, "en")}
+                className="max-w-full max-h-full object-contain rounded-lg"
+              />
+            </div>
+          )}
+
+          {/* Category */}
+          {item.category && (
+            <div>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                Category
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 font-medium">
+                  {localised(item.category.name, "en")}
+                </span>
+              </div>
+            </div>
           )}
 
           {/* Description */}
@@ -225,14 +242,11 @@ export default function ItemDetailsModal({ item, inv, derivedQty, onClose }: Pro
                     key={i}
                     className="flex items-center gap-3 bg-blue-50 rounded-lg px-3 py-2"
                   >
-                    <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center bg-blue-200 text-blue-800 rounded-full text-xs font-bold">
-                      {ci.quantity}
+                    <span className="text-sm text-gray-700 truncate">
+                      {itemNameMap[ci.item] ?? "Unknown item"}
                     </span>
-                    <span className="text-sm text-gray-700">
-                      × Component item
-                    </span>
-                    <span className="ml-auto text-xs text-blue-500 font-mono truncate max-w-[8rem]">
-                      {ci.item}
+                    <span className="ml-auto text-[11px] text-blue-500 truncate max-w-[8rem]">
+                      × {ci.quantity}
                     </span>
                   </div>
                 ))}

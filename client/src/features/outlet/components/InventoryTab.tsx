@@ -177,6 +177,10 @@ export default function InventoryTab({ socketRef }: Props) {
     );
   }
 
+  const itemNameMap = Object.fromEntries(
+    items.map((menuItem) => [menuItem._id, localised(menuItem.name, "en")])
+  );
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
@@ -411,6 +415,7 @@ export default function InventoryTab({ socketRef }: Props) {
               item={modalItem}
               inv={inventoryMap[detailsModal.itemId]}
               derivedQty={modalDerivedQty}
+              itemNameMap={itemNameMap}
               onClose={closeDetails}
             />
           );
