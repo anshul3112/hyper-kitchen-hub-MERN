@@ -98,7 +98,7 @@ export default function KioskCard({ kiosk, onToggle }: Props) {
         ) : (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
             <p className="text-xs text-gray-400">No active login code.</p>
-            <p className="text-xs text-gray-400">Enable the kiosk to generate one.</p>
+            <p className="text-xs text-gray-400">Disable and re-enable to generate one.</p>
           </div>
         )
       ) : (
