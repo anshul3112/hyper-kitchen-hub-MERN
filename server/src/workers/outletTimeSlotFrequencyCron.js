@@ -5,15 +5,23 @@ import {
   createEmptyFrequency,
 } from "../outlet/kiosk/models/outletTimeSlotFrequencyModel.js";
 
-function getPreviousDayRange(now = new Date()) {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - 1);
+const CRON_TIMEZONE = process.env.OUTLET_FREQUENCY_TIMEZONE || "Asia/Kolkata";
 
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+function formatYmdInTimezone(date, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
 
-  return { start, end };
+  const byType = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${byType.year}-${byType.month}-${byType.day}`;
+}
+
+function getPreviousDayYmd(now = new Date(), timeZone = CRON_TIMEZONE) {
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  return formatYmdInTimezone(oneDayAgo, timeZone);
 }
 
 function normalizeFrequency(freq) {
@@ -34,10 +42,10 @@ function normalizeFrequency(freq) {
 
 async function runOutletTimeSlotFrequencyJob() {
   const startedAt = new Date();
-  const { start, end } = getPreviousDayRange(startedAt);
+  const previousDayYmd = getPreviousDayYmd(startedAt, CRON_TIMEZONE);
 
   console.log(
-    `[OutletTimeSlotFrequency Cron] Started at ${startedAt.toISOString()} for range ${start.toISOString()} - ${end.toISOString()}`,
+    `[OutletTimeSlotFrequency Cron] Started at ${startedAt.toISOString()} for date ${previousDayYmd} in timezone ${CRON_TIMEZONE}`,
   );
 
   try {
@@ -54,7 +62,23 @@ async function runOutletTimeSlotFrequencyJob() {
       },
       {
         $match: {
-          orderDate: { $gte: start, $lt: end },
+          orderDate: { $type: "date" },
+        },
+      },
+      {
+        $addFields: {
+          localOrderDate: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$orderDate",
+              timezone: CRON_TIMEZONE,
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          localOrderDate: previousDayYmd,
         },
       },
       { $unwind: "$itemsCart" },
@@ -62,7 +86,12 @@ async function runOutletTimeSlotFrequencyJob() {
         $project: {
           outletId: "$outlet.outletId",
           tenantId: "$tenant.tenantId",
-          hour: { $hour: "$orderDate" },
+          hour: {
+            $hour: {
+              date: "$orderDate",
+              timezone: CRON_TIMEZONE,
+            },
+          },
           itemId: "$itemsCart.itemId",
           qty: { $ifNull: ["$itemsCart.qty", 0] },
         },

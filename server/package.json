@@ -8,6 +8,7 @@
     "dev": "nodemon index.js",
     "seed:superAdmin": "node src/scripts/seedSuperAdmin.js",
     "seed:orders": "node src/scripts/seedOrders.js",
+    "seed:orders:outlet-24h": "node src/scripts/seedOutlet24HoursAgoOrders.js",
     "run:outlet-frequency-cron": "node src/scripts/runOutletTimeSlotFrequencyCron.js"
   },
   "keywords": [],
