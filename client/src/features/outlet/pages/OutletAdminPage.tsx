@@ -65,6 +65,8 @@ export default function OutletAdminPage() {
   // Load kiosks on mount
   useEffect(() => {
     loadKiosks();
+    menuFetched.current = true;
+    loadMenu();
   }, []);
 
   // ── Socket: low-stock alerts ────────────────────────────────────────────
@@ -143,6 +145,17 @@ export default function OutletAdminPage() {
     setKiosks((prev) => prev.map((k) => (k._id === updated._id ? updated : k)));
   };
 
+  const totalKiosks = kiosks.length;
+  const activeKiosks = kiosks.filter((k) => k.status === "ACTIVE").length;
+  const offlineKiosks = kiosks.filter((k) => k.status === "OFFLINE").length;
+  const maintenanceKiosks = kiosks.filter((k) => k.status === "MAINTENANCE").length;
+  const disabledKiosks = kiosks.filter((k) => k.status === "DISABLED").length;
+  const activeKioskPercent = totalKiosks > 0 ? Math.round((activeKiosks / totalKiosks) * 100) : 0;
+
+  const menuCoveragePercent = menu?.summary.totalItems
+    ? Math.round((menu.summary.activeItems / menu.summary.totalItems) * 100)
+    : 0;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader
@@ -157,7 +170,7 @@ export default function OutletAdminPage() {
         {activeSection === "overview" && (
           <div>
             <h2 className="text-xl font-semibold text-gray-800 mb-6">Overview</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
               <StatCard
                 label="Total Kiosks"
                 value={kiosksLoading ? "..." : kiosks.length}
@@ -168,6 +181,11 @@ export default function OutletAdminPage() {
                 color="green"
               />
               <StatCard
+                label="Offline Kiosks"
+                value={kiosksLoading ? "..." : offlineKiosks}
+                color="red"
+              />
+              <StatCard
                 label="Total Menu Items"
                 value={menu ? menu.summary.totalItems : "—"}
               />
@@ -176,6 +194,78 @@ export default function OutletAdminPage() {
                 value={menu ? menu.summary.activeItems : "—"}
                 color="green"
               />
+              <StatCard
+                label="Maintenance Kiosks"
+                value={kiosksLoading ? "..." : maintenanceKiosks}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 className="text-base font-semibold text-gray-800 mb-4">Kiosk Status Split</h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <span className="text-gray-600">Kiosk Active Rate</span>
+                      <span className="font-semibold text-gray-800">{activeKioskPercent}%</span>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full bg-green-500" style={{ width: `${activeKioskPercent}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3 pt-1">
+                    <div className="rounded-lg bg-green-50 border border-green-100 p-3 text-center">
+                      <p className="text-xs text-green-700">Active</p>
+                      <p className="text-xl font-bold text-green-700">{activeKiosks}</p>
+                    </div>
+                    <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-center">
+                      <p className="text-xs text-red-700">Offline</p>
+                      <p className="text-xl font-bold text-red-700">{offlineKiosks}</p>
+                    </div>
+                    <div className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-center">
+                      <p className="text-xs text-amber-700">Maintenance</p>
+                      <p className="text-xl font-bold text-amber-700">{maintenanceKiosks}</p>
+                    </div>
+                    <div className="rounded-lg bg-gray-100 border border-gray-200 p-3 text-center">
+                      <p className="text-xs text-gray-700">Disabled</p>
+                      <p className="text-xl font-bold text-gray-700">{disabledKiosks}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 className="text-base font-semibold text-gray-800 mb-4">Menu Health</h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <span className="text-gray-600">Active Item Coverage</span>
+                      <span className="font-semibold text-gray-800">{menu ? `${menuCoveragePercent}%` : "—"}</span>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500"
+                        style={{ width: `${menu ? menuCoveragePercent : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 pt-1">
+                    <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 text-center">
+                      <p className="text-xs text-blue-700">Total</p>
+                      <p className="text-xl font-bold text-blue-700">{menu?.summary.totalItems ?? "—"}</p>
+                    </div>
+                    <div className="rounded-lg bg-green-50 border border-green-100 p-3 text-center">
+                      <p className="text-xs text-green-700">Active</p>
+                      <p className="text-xl font-bold text-green-700">{menu?.summary.activeItems ?? "—"}</p>
+                    </div>
+                    <div className="rounded-lg bg-red-50 border border-red-100 p-3 text-center">
+                      <p className="text-xs text-red-700">Inactive</p>
+                      <p className="text-xl font-bold text-red-700">{menu?.summary.inactiveItems ?? "—"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
