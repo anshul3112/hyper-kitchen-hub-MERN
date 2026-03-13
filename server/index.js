@@ -6,6 +6,7 @@ import connectDB from "./src/utils/db.js";
 import { connectToRedis } from "./src/utils/redis.js";
 import { initSocket } from "./src/utils/socket.js";
 import { startOrderConsumer } from "./src/utils/orderConsumer.js";
+import { startOutletTimeSlotFrequencyCron } from "./src/workers/outletTimeSlotFrequencyCron.js";
 import userRouter from "./src/users/routes/userLoginRoutes.js";
 import tenantRouter from "./src/tenant/routes/tenantRoutes.js";
 import createUserRouter from "./src/users/routes/createUserRoutes.js";
@@ -33,6 +34,8 @@ initSocket(httpServer);
 startOrderConsumer().catch((err) =>
   console.error("[SQS consumer] Fatal startup error:", err.message)
 );
+
+startOutletTimeSlotFrequencyCron();
 
 app.use(cors({
   origin: [process.env.CORS_ORIGIN, "http://localhost:5173"], 

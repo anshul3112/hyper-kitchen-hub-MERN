@@ -22,8 +22,8 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
   if (suggestions.length === 0) return null;
 
   return (
-    <div className="fixed right-4 top-1/2 -translate-y-1/2 z-30 w-72 pointer-events-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-purple-200 overflow-hidden animate-slide-in-right">
+    <div className="fixed inset-0 z-60 flex items-center justify-center px-4 pointer-events-none">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-purple-200 overflow-hidden pointer-events-auto animate-slide-in-right">
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-purple-600">

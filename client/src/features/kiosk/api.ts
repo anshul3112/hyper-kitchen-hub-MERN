@@ -287,9 +287,10 @@ export type RecommendedItemRef = {
 
 /**
  * GET /api/v1/kiosks/recommendations
- * Returns the active recommendation slot's items for the kiosk's outlet,
- * filtered for availability. Sorted by priority (descending).
- * Returns [] when no active slot exists or the outlet has no recommendations configured.
+ * Returns merged weighted recommendations for the kiosk's outlet using
+ * admin-configured slots and outlet-hour historical frequency, filtered for
+ * availability and sorted by priority (descending).
+ * Returns [] when the outlet has no available recommendations.
  */
 export async function fetchRecommendations(): Promise<RecommendedItemRef[]> {
   const token = localStorage.getItem("kioskToken");
