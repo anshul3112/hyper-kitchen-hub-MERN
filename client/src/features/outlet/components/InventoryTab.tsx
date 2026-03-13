@@ -4,14 +4,7 @@ import { localised } from "../../../common/utils/languages";
 import {
   fetchOutletInventory,
   fetchMenuDetails,
-  upsertInventoryItem,
-  updateInventoryPrice,
-  updateInventoryQuantity,
   toggleInventoryStatus,
-  updateInventoryOrderType,
-  updateInventoryThreshold,
-  updateInventoryPrepTime,
-  updateInventoryBaseCost,
   updateInventorySchedule,
   type InventoryRecord,
   type MenuItem,
@@ -21,62 +14,20 @@ import {
   type AvailabilitySlot,
 } from "../api";
 import ScheduleModal from "./ScheduleModal";
+import ItemDetailsModal from "./ItemDetailsModal";
+import ItemOptionsModal from "./ItemOptionsModal";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-type EditMode = "price" | "quantity" | "both" | null;
-
 type RowState = {
-  editMode: EditMode;
-  priceInput: string;
-  quantityInput: string;
-  saving: boolean;
   toggling: boolean;
   error: string;
-  orderTypeUpdating: boolean;
-  orderTypeError: string;
-  // threshold editing
-  thresholdEditing: boolean;
-  thresholdInput: string;
-  thresholdSaving: boolean;
-  thresholdError: string;
-  // prep time editing
-  prepTimeEditing: boolean;
-  prepTimeInput: string;
-  prepTimeSaving: boolean;
-  prepTimeError: string;
-  // base cost editing
-  baseCostEditing: boolean;
-  baseCostInput: string;
-  baseCostSaving: boolean;
-  baseCostError: string;
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function emptyRow(): RowState {
-  return {
-    editMode: null,
-    priceInput: "",
-    quantityInput: "",
-    saving: false,
-    toggling: false,
-    error: "",
-    orderTypeUpdating: false,
-    orderTypeError: "",
-    thresholdEditing: false,
-    thresholdInput: "",
-    thresholdSaving: false,
-    thresholdError: "",
-    prepTimeEditing: false,
-    prepTimeInput: "",
-    prepTimeSaving: false,
-    prepTimeError: "",
-    baseCostEditing: false,
-    baseCostInput: "",
-    baseCostSaving: false,
-    baseCostError: "",
-  };
+  return { toggling: false, error: "" };
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -96,9 +47,27 @@ export default function InventoryTab({ socketRef }: Props) {
   const [scheduleModal, setScheduleModal] = useState<{ open: boolean; itemId: string | null }>(
     { open: false, itemId: null }
   );
-
   const openSchedule = (itemId: string) => setScheduleModal({ open: true, itemId });
   const closeSchedule = () => setScheduleModal({ open: false, itemId: null });
+
+  // Options modal (Low-Stock, Prep Time, Base Cost, Order Type, Quick Edit)
+  const [optionsModal, setOptionsModal] = useState<{ open: boolean; itemId: string | null }>(
+    { open: false, itemId: null }
+  );
+  const openOptions = (itemId: string) => setOptionsModal({ open: true, itemId });
+  const closeOptions = () => setOptionsModal({ open: false, itemId: null });
+
+  // Details modal (full item info)
+  const [detailsModal, setDetailsModal] = useState<{ open: boolean; itemId: string | null }>(
+    { open: false, itemId: null }
+  );
+  const openDetails = (itemId: string) => setDetailsModal({ open: true, itemId });
+  const closeDetails = () => setDetailsModal({ open: false, itemId: null });
+
+  // Callback used by both modals to sync updates back into inventoryMap
+  const handleInventoryUpdate = (updated: InventoryRecord) => {
+    setInventoryMap((prev) => ({ ...prev, [updated.itemId as string]: updated }));
+  };
 
   const handleSaveSchedule = async (
     itemId: string,
@@ -170,18 +139,6 @@ export default function InventoryTab({ socketRef }: Props) {
   const setRow = (itemId: string, patch: Partial<RowState>) =>
     setRows((prev) => ({ ...prev, [itemId]: { ...getRow(itemId), ...patch } }));
 
-  const openEdit = (itemId: string, mode: EditMode) => {
-    const inv = inventoryMap[itemId];
-    setRow(itemId, {
-      editMode: mode,
-      priceInput: inv ? String(inv.price) : "",
-      quantityInput: inv ? String(inv.quantity) : "",
-      error: "",
-    });
-  };
-
-  const cancelEdit = (itemId: string) => setRow(itemId, emptyRow());
-
   const toggle = async (itemId: string, newStatus: boolean) => {
     setRow(itemId, { toggling: true, error: "" });
     try {
@@ -190,157 +147,6 @@ export default function InventoryTab({ socketRef }: Props) {
       setRow(itemId, { toggling: false });
     } catch (err: unknown) {
       setRow(itemId, { toggling: false, error: err instanceof Error ? err.message : "Failed to toggle" });
-    }
-  };
-
-  const changeOrderType = async (itemId: string, orderType: 'dineIn' | 'takeAway' | 'both') => {
-    setRow(itemId, { orderTypeUpdating: true, orderTypeError: "" });
-    try {
-      const updated = await updateInventoryOrderType(itemId, orderType);
-      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
-      setRow(itemId, { orderTypeUpdating: false });
-    } catch (err: unknown) {
-      setRow(itemId, {
-        orderTypeUpdating: false,
-        orderTypeError: err instanceof Error ? err.message : "Failed to update order type",
-      });
-    }
-  };
-
-  const save = async (itemId: string) => {
-    const row = getRow(itemId);
-    const price = parseFloat(row.priceInput);
-    const quantity = parseInt(row.quantityInput, 10);
-
-    if (row.editMode === "price" || row.editMode === "both") {
-      if (isNaN(price) || price < 0) {
-        setRow(itemId, { error: "Price must be a non-negative number" });
-        return;
-      }
-    }
-    if (row.editMode === "quantity" || row.editMode === "both") {
-      if (isNaN(quantity) || quantity < 0) {
-        setRow(itemId, { error: "Quantity must be a non-negative integer" });
-        return;
-      }
-    }
-
-    setRow(itemId, { saving: true, error: "" });
-    try {
-      let updated: InventoryRecord;
-      if (row.editMode === "both") {
-        updated = await upsertInventoryItem(itemId, price, quantity);
-      } else if (row.editMode === "price") {
-        updated = await updateInventoryPrice(itemId, price);
-      } else {
-        updated = await updateInventoryQuantity(itemId, quantity);
-      }
-      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
-      setRow(itemId, emptyRow());
-    } catch (err: unknown) {
-      setRow(itemId, { saving: false, error: err instanceof Error ? err.message : "Failed to save" });
-    }
-  };
-
-  const openThresholdEdit = (itemId: string) => {
-    const inv = inventoryMap[itemId];
-    setRow(itemId, {
-      thresholdEditing: true,
-      thresholdInput: inv?.lowStockThreshold != null ? String(inv.lowStockThreshold) : "",
-      thresholdError: "",
-    });
-  };
-
-  const cancelThresholdEdit = (itemId: string) =>
-    setRow(itemId, { thresholdEditing: false, thresholdInput: "", thresholdError: "" });
-
-  const saveThreshold = async (itemId: string) => {
-    const row = getRow(itemId);
-    const raw = row.thresholdInput.trim();
-    const value = raw === "" ? null : parseInt(raw, 10);
-
-    if (value !== null && (isNaN(value) || value < 0)) {
-      setRow(itemId, { thresholdError: "Must be a non-negative whole number (or blank to disable)" });
-      return;
-    }
-
-    setRow(itemId, { thresholdSaving: true, thresholdError: "" });
-    try {
-      const updated = await updateInventoryThreshold(itemId, value);
-      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
-      setRow(itemId, { thresholdEditing: false, thresholdSaving: false, thresholdInput: "" });
-    } catch (err: unknown) {
-      setRow(itemId, {
-        thresholdSaving: false,
-        thresholdError: err instanceof Error ? err.message : "Failed to save threshold",
-      });
-    }
-  };
-
-  const openPrepTimeEdit = (itemId: string) => {
-    const inv = inventoryMap[itemId];
-    setRow(itemId, {
-      prepTimeEditing: true,
-      prepTimeInput: inv?.prepTime != null ? String(inv.prepTime) : "3",
-      prepTimeError: "",
-    });
-  };
-
-  const cancelPrepTimeEdit = (itemId: string) =>
-    setRow(itemId, { prepTimeEditing: false, prepTimeInput: "", prepTimeError: "" });
-
-  const savePrepTime = async (itemId: string) => {
-    const row = getRow(itemId);
-    const value = parseInt(row.prepTimeInput.trim(), 10);
-    if (isNaN(value) || value < 0) {
-      setRow(itemId, { prepTimeError: "Must be 0 or more (use 0 for instant items)" });
-      return;
-    }
-    setRow(itemId, { prepTimeSaving: true, prepTimeError: "" });
-    try {
-      const updated = await updateInventoryPrepTime(itemId, value);
-      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
-      setRow(itemId, { prepTimeEditing: false, prepTimeSaving: false, prepTimeInput: "" });
-    } catch (err: unknown) {
-      setRow(itemId, {
-        prepTimeSaving: false,
-        prepTimeError: err instanceof Error ? err.message : "Failed to save prep time",
-      });
-    }
-  };
-
-  const openBaseCostEdit = (itemId: string) => {
-    const inv = inventoryMap[itemId];
-    setRow(itemId, {
-      baseCostEditing: true,
-      baseCostInput: inv?.baseCost != null ? String(inv.baseCost) : "",
-      baseCostError: "",
-    });
-  };
-
-  const cancelBaseCostEdit = (itemId: string) =>
-    setRow(itemId, { baseCostEditing: false, baseCostInput: "", baseCostError: "" });
-
-  const saveBaseCost = async (itemId: string) => {
-    const row = getRow(itemId);
-    const raw = row.baseCostInput.trim();
-    const value = raw === "" ? null : parseFloat(raw);
-
-    if (value !== null && (isNaN(value) || value < 0)) {
-      setRow(itemId, { baseCostError: "Must be a non-negative number (or blank to disable)" });
-      return;
-    }
-
-    setRow(itemId, { baseCostSaving: true, baseCostError: "" });
-    try {
-      const updated = await updateInventoryBaseCost(itemId, value);
-      setInventoryMap((prev) => ({ ...prev, [itemId]: updated }));
-      setRow(itemId, { baseCostEditing: false, baseCostSaving: false, baseCostInput: "" });
-    } catch (err: unknown) {
-      setRow(itemId, {
-        baseCostSaving: false,
-        baseCostError: err instanceof Error ? err.message : "Failed to save base cost",
-      });
     }
   };
 
@@ -382,91 +188,110 @@ export default function InventoryTab({ socketRef }: Props) {
               <th className="text-left px-5 py-3 font-medium text-gray-600">Default Price</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Outlet Price</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Quantity</th>
-              <th className="text-left px-5 py-3 font-medium text-gray-600">Low-Stock Alert</th>
-              <th className="text-left px-5 py-3 font-medium text-gray-600">Prep Time</th>
-              <th className="text-left px-5 py-3 font-medium text-gray-600">Base Cost</th>
               <th className="text-left px-5 py-3 font-medium text-gray-600">Kiosk Visible</th>
-              <th className="text-left px-5 py-3 font-medium text-gray-600">Order Type</th>
-              <th className="text-left px-5 py-3 font-medium text-gray-600">Actions</th>
+              <th className="px-4 py-3 font-medium text-gray-600 text-right">Options</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {items.map((item) => {
               const inv = inventoryMap[item._id];
               const row = getRow(item._id);
-              const isCombo = item.type === 'combo';
-              // Derived quantity for combos = min of floor(componentStock / requiredQty).
-              // This is read-only; combos have no independent inventory record.
-              const comboQty = isCombo && item.comboItems && item.comboItems.length > 0
-                ? item.comboItems.reduce((min, ci) => {
-                    const rec = inventoryMap[ci.item];
-                    const available = rec ? Math.floor(rec.quantity / ci.quantity) : 0;
-                    return Math.min(min, available);
-                  }, Infinity)
-                : null;
+              const isCombo = item.type === "combo";
+              const comboQty =
+                isCombo && item.comboItems && item.comboItems.length > 0
+                  ? item.comboItems.reduce((min, ci) => {
+                      const rec = inventoryMap[ci.item];
+                      const available = rec ? Math.floor(rec.quantity / ci.quantity) : 0;
+                      return Math.min(min, available);
+                    }, Infinity)
+                  : null;
               const derivedQty = isCombo
-                ? (isFinite(comboQty as number) ? (comboQty as number) : 0)
+                ? isFinite(comboQty as number)
+                  ? (comboQty as number)
+                  : 0
                 : null;
-              const isEditing = row.editMode !== null;
               const isZero = isCombo
                 ? derivedQty === 0
                 : inv != null && inv.quantity === 0;
-              const isLow = !isCombo && inv != null && inv.lowStockThreshold != null && inv.quantity > 0 && inv.quantity <= inv.lowStockThreshold;
-              const rowBg = isEditing
-                ? "bg-blue-50"
-                : isZero
+              const isLow =
+                !isCombo &&
+                inv != null &&
+                inv.lowStockThreshold != null &&
+                inv.quantity > 0 &&
+                inv.quantity <= inv.lowStockThreshold;
+              const rowBg = isZero
                 ? "bg-red-50 hover:bg-red-100"
                 : isLow
                 ? "bg-yellow-50 hover:bg-yellow-100"
                 : "hover:bg-gray-50";
 
               return (
-                <tr key={item._id} className={rowBg}>
-                  {/* Item name */}
+                <tr key={item._id} className={`transition-colors ${rowBg}`}>
+                  {/* Item */}
                   <td className="px-5 py-3">
-                    <p className="font-medium text-gray-800">{localised(item.name, 'en')}</p>
-                    {isCombo && (
-                      <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
-                         Combo
-                      </span>
-                    )}
-                    {item.description && (
-                      <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[14rem]">{localised(item.description, 'en')}</p>
-                    )}
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-medium text-gray-800">
+                            {localised(item.name, "en")}
+                          </p>
+                          {isCombo && (
+                            <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
+                              Combo
+                            </span>
+                          )}
+                        </div>
+                        {item.description && (
+                          <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[14rem]">
+                            {localised(item.description, "en")}
+                          </p>
+                        )}
+                      </div>
+                      {/* Info button — opens full details modal */}
+                      <button
+                        onClick={() => openDetails(item._id)}
+                        className="flex-shrink-0 mt-0.5 p-0.5 text-gray-300 hover:text-blue-500 transition-colors rounded"
+                        title="View item details"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          className="w-3.5 h-3.5"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="16" x2="12" y2="12" strokeLinecap="round" />
+                          <line x1="12" y1="8" x2="12.01" y2="8" strokeLinecap="round" strokeWidth={2.5} />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
 
                   {/* Status */}
                   <td className="px-5 py-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      item.status
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-600"
-                    }`}>
+                    <span
+                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        item.status
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-600"
+                      }`}
+                    >
                       {item.status ? "Active" : "Inactive"}
                     </span>
                   </td>
 
-                  {/* Default price (from item master) */}
+                  {/* Default Price */}
                   <td className="px-5 py-3 text-gray-500">₹{item.defaultAmount}</td>
 
-                  {/* Outlet price */}
+                  {/* Outlet Price */}
                   <td className="px-5 py-3">
-                    {isEditing && (row.editMode === "price" || row.editMode === "both") ? (
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={row.priceInput}
-                        onChange={(e) => setRow(item._id, { priceInput: e.target.value })}
-                        className="w-24 px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        autoFocus={row.editMode === "price"}
-                      />
-                    ) : inv && inv.price != null ? (
+                    {inv && inv.price != null ? (
                       <span className="font-semibold text-gray-800">₹{inv.price}</span>
                     ) : (
-                      <span className="text-gray-500 text-xs">
+                      <span className="text-gray-400 text-xs">
                         ₹{item.defaultAmount}
-                        <span className="ml-1 text-gray-400 italic">(default)</span>
+                        <span className="ml-1 italic">(default)</span>
                       </span>
                     )}
                   </td>
@@ -474,247 +299,35 @@ export default function InventoryTab({ socketRef }: Props) {
                   {/* Quantity */}
                   <td className="px-5 py-3">
                     {isCombo ? (
-                      // Combos: read-only quantity derived from component items
                       <div className="flex items-center gap-1.5">
-                        <span className={`font-semibold ${derivedQty === 0 ? "text-red-500" : "text-gray-800"}`}>
+                        <span
+                          className={`font-semibold ${
+                            derivedQty === 0 ? "text-red-500" : "text-gray-800"
+                          }`}
+                        >
                           {derivedQty}
                         </span>
                         <span className="text-xs text-blue-500 italic">auto</span>
                       </div>
-                    ) : isEditing && (row.editMode === "quantity" || row.editMode === "both") ? (
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={row.quantityInput}
-                        onChange={(e) => setRow(item._id, { quantityInput: e.target.value })}
-                        className="w-20 px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        autoFocus={row.editMode === "quantity"}
-                      />
                     ) : inv ? (
                       <div className="flex items-center gap-1.5">
-                        <span className={`font-semibold ${inv.quantity === 0 ? "text-red-500" : "text-gray-800"}`}>
+                        <span
+                          className={`font-semibold ${
+                            inv.quantity === 0 ? "text-red-500" : "text-gray-800"
+                          }`}
+                        >
                           {inv.quantity}
                         </span>
-                        {inv.lowStockThreshold != null && inv.quantity > 0 && inv.quantity <= inv.lowStockThreshold && (
-                          <span className="text-xs font-medium text-yellow-600">Low</span>
-                        )}
+                        {inv.lowStockThreshold != null &&
+                          inv.quantity > 0 &&
+                          inv.quantity <= inv.lowStockThreshold && (
+                            <span className="text-xs font-semibold text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded-full">
+                              Low
+                            </span>
+                          )}
                       </div>
                     ) : (
                       <span className="text-red-400 text-xs font-medium">0 (not set)</span>
-                    )}
-                  </td>
-
-                  {/* Low-Stock Alert Threshold */}
-                  <td className="px-5 py-3">
-                    {isCombo ? (
-                      <span className="text-xs text-gray-400 italic">N/A</span>
-                    ) : row.thresholdEditing ? (
-                      <div className="flex flex-col gap-1">
-                        <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          placeholder="e.g. 5"
-                          value={row.thresholdInput}
-                          onChange={(e) => setRow(item._id, { thresholdInput: e.target.value })}
-                          className="w-20 px-2 py-1 border border-orange-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
-                          autoFocus
-                        />
-                        {row.thresholdError && (
-                          <p className="text-xs text-red-500">{row.thresholdError}</p>
-                        )}
-                        <div className="flex gap-1 mt-0.5">
-                          <button
-                            onClick={() => saveThreshold(item._id)}
-                            disabled={row.thresholdSaving}
-                            className="px-2 py-0.5 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 disabled:opacity-50"
-                          >
-                            {row.thresholdSaving ? "..." : "Set"}
-                          </button>
-                          <button
-                            onClick={() => cancelThresholdEdit(item._id)}
-                            disabled={row.thresholdSaving}
-                            className="px-2 py-0.5 border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-100 disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        {inv?.lowStockThreshold != null ? (
-                          <span className="text-sm font-medium text-orange-700">
-                            ≤ {inv.lowStockThreshold}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">Off</span>
-                        )}
-                        <button
-                          onClick={() => openThresholdEdit(item._id)}
-                          className="text-xs text-orange-500 hover:text-orange-700 underline"
-                          title="Set low-stock alert threshold"
-                        >
-                          {inv?.lowStockThreshold != null ? "Edit" : "Set"}
-                        </button>
-                        {inv?.lowStockThreshold != null && (
-                          <button
-                            onClick={async () => {
-                              setRow(item._id, { thresholdSaving: true, thresholdError: "" });
-                              try {
-                                const updated = await updateInventoryThreshold(item._id, null);
-                                setInventoryMap((prev) => ({ ...prev, [item._id]: updated }));
-                              } catch (err: unknown) {
-                                setRow(item._id, {
-                                  thresholdError: err instanceof Error ? err.message : "Failed to clear",
-                                });
-                              } finally {
-                                setRow(item._id, { thresholdSaving: false });
-                              }
-                            }}
-                            className="text-xs text-gray-400 hover:text-red-500 underline"
-                            title="Clear threshold (disable alert)"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Prep Time */}
-                  <td className="px-5 py-3">
-                    {row.prepTimeEditing ? (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={row.prepTimeInput}
-                            onChange={(e) => setRow(item._id, { prepTimeInput: e.target.value })}
-                            className="w-16 px-2 py-1 border border-purple-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
-                            autoFocus
-                          />
-                          <span className="text-xs text-gray-500">min</span>
-                        </div>
-                        {row.prepTimeError && (
-                          <p className="text-xs text-red-500">{row.prepTimeError}</p>
-                        )}
-                        <div className="flex gap-1 mt-0.5">
-                          <button
-                            onClick={() => savePrepTime(item._id)}
-                            disabled={row.prepTimeSaving}
-                            className="px-2 py-0.5 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 disabled:opacity-50"
-                          >
-                            {row.prepTimeSaving ? "..." : "Set"}
-                          </button>
-                          <button
-                            onClick={() => cancelPrepTimeEdit(item._id)}
-                            disabled={row.prepTimeSaving}
-                            className="px-2 py-0.5 border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-100 disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        {inv ? (
-                          <span className={`text-sm font-medium ${
-                            inv.prepTime === 0 ? "text-blue-600" : "text-gray-800"
-                          }`}>
-                            {inv.prepTime === 0 ? "Instant" : `${inv.prepTime} min`}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">3 min</span>
-                        )}
-                        <button
-                          onClick={() => openPrepTimeEdit(item._id)}
-                          className="text-xs text-purple-500 hover:text-purple-700 underline"
-                          title="Change prep time"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Base Cost (for margin-weighted recommendations) */}
-                  <td className="px-5 py-3">
-                    {row.baseCostEditing ? (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-gray-500">₹</span>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            placeholder="e.g. 80"
-                            value={row.baseCostInput}
-                            onChange={(e) => setRow(item._id, { baseCostInput: e.target.value })}
-                            className="w-20 px-2 py-1 border border-teal-400 rounded text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
-                            autoFocus
-                          />
-                        </div>
-                        {row.baseCostError && (
-                          <p className="text-xs text-red-500">{row.baseCostError}</p>
-                        )}
-                        <div className="flex gap-1 mt-0.5">
-                          <button
-                            onClick={() => saveBaseCost(item._id)}
-                            disabled={row.baseCostSaving}
-                            className="px-2 py-0.5 bg-teal-600 text-white text-xs rounded hover:bg-teal-700 disabled:opacity-50"
-                          >
-                            {row.baseCostSaving ? "..." : "Set"}
-                          </button>
-                          <button
-                            onClick={() => cancelBaseCostEdit(item._id)}
-                            disabled={row.baseCostSaving}
-                            className="px-2 py-0.5 border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-100 disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        {inv?.baseCost != null ? (
-                          <span className="text-sm font-medium text-teal-700">
-                            ₹{inv.baseCost}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">Not set</span>
-                        )}
-                        <button
-                          onClick={() => openBaseCostEdit(item._id)}
-                          className="text-xs text-teal-500 hover:text-teal-700 underline"
-                          title="Set cost basis for margin-weighted recommendations"
-                        >
-                          {inv?.baseCost != null ? "Edit" : "Set"}
-                        </button>
-                        {inv?.baseCost != null && (
-                          <button
-                            onClick={async () => {
-                              setRow(item._id, { baseCostSaving: true, baseCostError: "" });
-                              try {
-                                const updated = await updateInventoryBaseCost(item._id, null);
-                                setInventoryMap((prev) => ({ ...prev, [item._id]: updated }));
-                              } catch (err: unknown) {
-                                setRow(item._id, {
-                                  baseCostError: err instanceof Error ? err.message : "Failed to clear",
-                                });
-                              } finally {
-                                setRow(item._id, { baseCostSaving: false });
-                              }
-                            }}
-                            className="text-xs text-gray-400 hover:text-red-500 underline"
-                            title="Clear base cost (disable margin scoring for this item)"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
                     )}
                   </td>
 
@@ -726,7 +339,9 @@ export default function InventoryTab({ socketRef }: Props) {
                         <button
                           onClick={() => toggle(item._id, !enabled)}
                           disabled={row.toggling}
-                          title={enabled ? "Click to hide from kiosk" : "Click to show on kiosk"}
+                          title={
+                            enabled ? "Click to hide from kiosk" : "Click to show on kiosk"
+                          }
                           className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
                             enabled ? "bg-green-500" : "bg-gray-300"
                           }`}
@@ -739,112 +354,30 @@ export default function InventoryTab({ socketRef }: Props) {
                         </button>
                       );
                     })()}
-                    {row.error && !row.editMode && (
+                    {row.error && (
                       <p className="text-xs text-red-500 mt-1">{row.error}</p>
                     )}
                   </td>
 
-                  {/* Order Type dropdown */}
-                  <td className="px-5 py-3">
-                    <div className="flex flex-col gap-1">
-                      <select
-                        value={inv?.orderType ?? 'both'}
-                        disabled={row.orderTypeUpdating}
-                        onChange={(e) =>
-                          changeOrderType(
-                            item._id,
-                            e.target.value as 'dineIn' | 'takeAway' | 'both'
-                          )
-                        }
-                        className="text-xs border border-gray-300 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  {/* Options button */}
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => openOptions(item._id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      title="Edit options for this item"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        className="w-3.5 h-3.5"
                       >
-                        <option value="both">🍽️🛍️ Both</option>
-                        <option value="dineIn">🍽️ Dine In</option>
-                        <option value="takeAway">🛍️ Take Away</option>
-                      </select>
-                      {row.orderTypeUpdating && (
-                        <p className="text-xs text-blue-500">Saving…</p>
-                      )}
-                      {row.orderTypeError && (
-                        <p className="text-xs text-red-500">{row.orderTypeError}</p>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Actions */}
-                  <td className="px-5 py-3">
-                    {isEditing ? (
-                      <div className="flex flex-col gap-1">
-                        {row.error && (
-                          <p className="text-xs text-red-500 mb-1">{row.error}</p>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => save(item._id)}
-                            disabled={row.saving}
-                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {row.saving ? "Saving..." : "Save"}
-                          </button>
-                          <button
-                            onClick={() => cancelEdit(item._id)}
-                            disabled={row.saving}
-                            className="px-3 py-1 border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-100 disabled:opacity-50"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : isCombo ? (
-                      // Combos: only allow setting the outlet price; quantity is auto
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => openEdit(item._id, "price")}
-                          className="px-2 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded hover:bg-gray-100"
-                          title="Update outlet price for this combo"
-                        >
-                          Price
-                        </button>
-                        <button
-                          onClick={() => openSchedule(item._id)}
-                          className="px-2 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs rounded hover:bg-indigo-100"
-                          title="Manage schedule slots"
-                        >
-                          Schedule
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          onClick={() => openEdit(item._id, "both")}
-                          className="px-2 py-1 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded hover:bg-blue-100"
-                          title="Set both price and quantity"
-                        >
-                          Set Both
-                        </button>
-                        <button
-                          onClick={() => openEdit(item._id, "price")}
-                          className="px-2 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded hover:bg-gray-100"
-                          title="Update price only"
-                        >
-                          Price
-                        </button>
-                        <button
-                          onClick={() => openEdit(item._id, "quantity")}
-                          className="px-2 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded hover:bg-gray-100"
-                          title="Update quantity"
-                        >
-                          Qty
-                        </button>
-                        <button
-                          onClick={() => openSchedule(item._id)}
-                          className="px-2 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs rounded hover:bg-indigo-100"
-                          title="Manage schedule slots"
-                        >
-                          Schedule
-                        </button>
-                      </div>
-                    )}
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      Options
+                    </button>
                   </td>
                 </tr>
               );
@@ -853,37 +386,89 @@ export default function InventoryTab({ socketRef }: Props) {
         </table>
       </div>
 
-      {/* Schedule modal */}
-      {scheduleModal.open && scheduleModal.itemId && (() => {
-        const modalItem = items.find((it) => it._id === scheduleModal.itemId);
-        const modalInv = inventoryMap[scheduleModal.itemId];
-        if (!modalItem) return null;
-        return (
-          <ScheduleModal
-            itemId={scheduleModal.itemId}
-            itemName={localised(modalItem.name, 'en')}
-            inventory={modalInv ?? {
-              _id: "",
-              itemId: scheduleModal.itemId,
-              outletId: "",
-              price: 0,
-              quantity: 0,
-              status: true,
-              orderType: "both",
-              lowStockThreshold: null,
-              prepTime: 3,
-              baseCost: null,
-              prioritySlots: [],
-              priceSlots: [],
-              availabilitySlots: [],
-              editedBy: "",
-            }}
-            defaultPrice={modalItem.defaultAmount}
-            onClose={closeSchedule}
-            onSave={handleSaveSchedule}
-          />
-        );
-      })()}
+      {/* Item Details Modal */}
+      {detailsModal.open &&
+        detailsModal.itemId &&
+        (() => {
+          const modalItem = items.find((it) => it._id === detailsModal.itemId);
+          if (!modalItem) return null;
+          const modalIsCombo = modalItem.type === "combo";
+          const modalComboQty =
+            modalIsCombo && modalItem.comboItems && modalItem.comboItems.length > 0
+              ? modalItem.comboItems.reduce((min, ci) => {
+                  const rec = inventoryMap[ci.item];
+                  const available = rec ? Math.floor(rec.quantity / ci.quantity) : 0;
+                  return Math.min(min, available);
+                }, Infinity)
+              : null;
+          const modalDerivedQty = modalIsCombo
+            ? isFinite(modalComboQty as number)
+              ? (modalComboQty as number)
+              : 0
+            : null;
+          return (
+            <ItemDetailsModal
+              item={modalItem}
+              inv={inventoryMap[detailsModal.itemId]}
+              derivedQty={modalDerivedQty}
+              onClose={closeDetails}
+            />
+          );
+        })()}
+
+      {/* Item Options Modal */}
+      {optionsModal.open &&
+        optionsModal.itemId &&
+        (() => {
+          const modalItem = items.find((it) => it._id === optionsModal.itemId);
+          if (!modalItem) return null;
+          return (
+            <ItemOptionsModal
+              item={modalItem}
+              inv={inventoryMap[optionsModal.itemId]}
+              isCombo={modalItem.type === "combo"}
+              onUpdate={handleInventoryUpdate}
+              onClose={closeOptions}
+              onOpenSchedule={openSchedule}
+            />
+          );
+        })()}
+
+      {/* Schedule Modal */}
+      {scheduleModal.open &&
+        scheduleModal.itemId &&
+        (() => {
+          const modalItem = items.find((it) => it._id === scheduleModal.itemId);
+          const modalInv = inventoryMap[scheduleModal.itemId];
+          if (!modalItem) return null;
+          return (
+            <ScheduleModal
+              itemId={scheduleModal.itemId}
+              itemName={localised(modalItem.name, "en")}
+              inventory={
+                modalInv ?? {
+                  _id: "",
+                  itemId: scheduleModal.itemId,
+                  outletId: "",
+                  price: 0,
+                  quantity: 0,
+                  status: true,
+                  orderType: "both",
+                  lowStockThreshold: null,
+                  prepTime: 3,
+                  baseCost: null,
+                  prioritySlots: [],
+                  priceSlots: [],
+                  availabilitySlots: [],
+                  editedBy: "",
+                }
+              }
+              defaultPrice={modalItem.defaultAmount}
+              onClose={closeSchedule}
+              onSave={handleSaveSchedule}
+            />
+          );
+        })()}
     </div>
   );
 }
