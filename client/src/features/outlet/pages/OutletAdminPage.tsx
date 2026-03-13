@@ -4,6 +4,7 @@ import { io, type Socket } from "socket.io-client";
 import DashboardHeader from "../../../common/components/DashboardHeader";
 import NavTabs from "../../../common/components/NavTabs";
 import StatCard from "../../../common/components/StatCard";
+import { localised } from "../../../common/utils/languages";
 
 import {
   fetchKiosks,
@@ -43,6 +44,15 @@ type LowStockAlert = {
   lowStockThreshold: number;
 };
 
+const getAlertItemName = (raw: unknown): string => {
+  if (typeof raw === "string") return raw;
+  if (raw && typeof raw === "object") {
+    const value = localised(raw as { en: string; [langCode: string]: string }, "en");
+    if (value) return value;
+  }
+  return "Item";
+};
+
 export default function OutletAdminPage() {
   const [activeSection, setActiveSection] = useState("overview");
 
@@ -74,9 +84,11 @@ export default function OutletAdminPage() {
     const token = localStorage.getItem("accessToken") ?? "";
     const outletId = localStorage.getItem("outletId") ?? "";
 
+    // If auth token is missing, skip socket connection to avoid noisy failed handshakes.
+    if (!token) return;
+
     const socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ["websocket"],
     });
     socketRef.current = socket;
 
@@ -84,8 +96,12 @@ export default function OutletAdminPage() {
       if (outletId) socket.emit("join:outlet", { outletId });
     });
 
-    socket.on("inventory:low_stock", (payload: Omit<LowStockAlert, "id">) => {
-      const alert: LowStockAlert = { ...payload, id: `${Date.now()}-${Math.random()}` };
+    socket.on("inventory:low_stock", (payload: Omit<LowStockAlert, "id"> & { itemName: unknown }) => {
+      const alert: LowStockAlert = {
+        ...payload,
+        itemName: getAlertItemName(payload.itemName),
+        id: `${Date.now()}-${Math.random()}`,
+      };
       setAlerts((prev) => {
         // Replace existing alert for the same item so we don't stack duplicates
         const filtered = prev.filter((a) => a.itemId !== payload.itemId);

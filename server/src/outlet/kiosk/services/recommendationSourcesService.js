@@ -1,5 +1,6 @@
 import { RecommendationSlot } from "../models/recommendationModel.js";
 import { getTopItemsForOutletHour } from "./outletTimeSlotFrequencyService.js";
+import { getTopInventoryAwareItems } from "./inventoryAwareRecommendationService.js";
 import { RECOMMENDATION_WEIGHTS } from "../config/recommendationWeights.js";
 
 /**
@@ -43,7 +44,7 @@ export async function getMergedRecommendationScores(outletId, now = new Date()) 
   const config = RECOMMENDATION_WEIGHTS;
   const currentHour = now.getHours();
 
-  const [slot, frequencyItems] = await Promise.all([
+  const [slot, frequencyItems, inventoryAwareItems] = await Promise.all([
     config.sources.adminSlot.enabled
       ? getActiveRecommendationSlot(outletId, now)
       : Promise.resolve(null),
@@ -54,11 +55,19 @@ export async function getMergedRecommendationScores(outletId, now = new Date()) 
           config.sources.outletTimeSlotFrequency.limit,
         )
       : Promise.resolve([]),
+    config.sources.inventoryAware?.enabled
+      ? getTopInventoryAwareItems(outletId, {
+          limit: config.sources.inventoryAware.limit,
+          fallbackMinQty: config.sources.inventoryAware.fallbackMinQty,
+          now,
+        })
+      : Promise.resolve([]),
   ]);
 
   const adminSlotItems = [...(slot?.items || [])].sort((a, b) => b.priority - a.priority);
   const normalizedAdminEntries = normalizeSourceEntries(adminSlotItems, "priority");
   const normalizedFrequencyEntries = normalizeSourceEntries(frequencyItems, "count");
+  const normalizedInventoryAwareEntries = normalizeSourceEntries(inventoryAwareItems, "count");
 
   const mergedScores = new Map();
 
@@ -72,6 +81,12 @@ export async function getMergedRecommendationScores(outletId, now = new Date()) 
     const itemId = entry.itemId.toString();
     const weightedScore =
       entry.normalizedScore * config.sources.outletTimeSlotFrequency.bias;
+    mergedScores.set(itemId, (mergedScores.get(itemId) || 0) + weightedScore);
+  }
+
+  for (const entry of normalizedInventoryAwareEntries) {
+    const itemId = entry.itemId.toString();
+    const weightedScore = entry.normalizedScore * config.sources.inventoryAware.bias;
     mergedScores.set(itemId, (mergedScores.get(itemId) || 0) + weightedScore);
   }
 
