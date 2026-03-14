@@ -89,6 +89,9 @@ export default function KioskScreen({
 
       // Build menuPatches for every item we currently display
       for (const item of items) {
+        // Combo stock is always derived from component items, never from its own inventory record
+        // (combos may have an inventory record with quantity: 0 by default, which must be ignored)
+        if (item.type === 'combo') continue;
         const inv = invMap.get(item._id);
         if (!inv) continue;
         const freshPrice =

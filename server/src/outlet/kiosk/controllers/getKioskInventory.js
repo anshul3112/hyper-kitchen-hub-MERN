@@ -27,11 +27,22 @@ export const getKioskInventory = asyncHandler(async (req, res) => {
   const outletId = kiosk.outlet.outletId;
   const now = new Date();
 
-  const inventoryRecords = await Inventory.find({ outletId }).lean();
+  // Select only the fields needed by resolveSchedule + the fields the client uses
+  const inventoryRecords = await Inventory.find({ outletId })
+    .select("itemId quantity price status orderType prioritySlots priceSlots availabilitySlots")
+    .lean();
 
   const enriched = inventoryRecords.map((record) => {
     const { activePrice } = resolveSchedule(record, now);
-    return { ...record, activePrice };
+    return {
+      _id: record._id,
+      itemId: record.itemId,
+      quantity: record.quantity,
+      price: record.price ?? null,
+      status: record.status,
+      orderType: record.orderType,
+      activePrice: activePrice ?? null,
+    };
   });
 
   return res.status(200).json(
