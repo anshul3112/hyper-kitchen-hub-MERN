@@ -6,7 +6,7 @@ A **multi-tenant restaurant kiosk platform** that enables quick service restaura
 
 Customers can browse menus, place orders, and receive smart recommendations directly from kiosks, while restaurant staff manage operations through administrative dashboards and kitchen display systems.
 
-The platform is inspired by modern self-ordering systems used by companies like McDonald's and Burger King and aims to replicate real-world restaurant technology architecture including asynchronous order processing, dynamic menu management, and intelligent upselling.
+The platform is inspired by modern self-ordering systems and aims to replicate real-world restaurant technology architecture including asynchronous order processing, dynamic menu management, and intelligent upselling.
 
 ---
 
@@ -31,6 +31,7 @@ Brand-level administration.
 
 Responsibilities:
 - Manage outlets belonging to a tenant
+- Create Brand Level Menu (items, categories, filters)
 - Configure languages available on kiosks
 - Monitor analytics across outlets
 - Manage tenant user profiles
@@ -42,13 +43,14 @@ Responsibilities:
 Outlet-level operational management.
 
 Responsibilities:
-- Manage menu items, categories, and filters
+- Manage menu items, categories, and filters specific to the outlet
 - Manage inventory and stock thresholds
 - Configure combo offers and upselling relationships
 - Configure recommendation rules
 - Manage kiosks belonging to the outlet
 - Configure time-based pricing and availability schedules
 - Monitor outlet-level analytics
+- Manage users across the outlet
 
 ---
 
@@ -57,6 +59,7 @@ Customer-facing ordering interface used inside the restaurant.
 
 Capabilities:
 - Browse menu items
+- Multi-language support
 - View detailed item information
 - Select dine-in or takeaway orders
 - Receive combo and upsell suggestions
@@ -79,8 +82,8 @@ Capabilities:
 Customer-facing display screen showing order readiness.
 
 Capabilities:
-- Show active order numbers
-- Notify customers when orders are ready
+- Show active orders and their status
+- Real time updates on order progress
 
 ---
 
@@ -118,14 +121,14 @@ Inventory is automatically updated after orders are processed.
 ---
 
 ## Time-Based Pricing and Availability
-The system includes a **scheduling engine** allowing outlet admins to define multiple time slots controlling:
+The system supports **time based pricing and availability rules** that allow outlet admins to define multiple time slots for menu items.
 
 - Dynamic item pricing
 - Item availability
 - Weekly scheduling rules
 - Priority resolution for overlapping schedules
 
-This enables features like breakfast menus, lunch pricing, and happy-hour discounts.
+This enables features like breakfast menus, lunch pricing, and happy hour discounts.
 
 ---
 
@@ -247,6 +250,12 @@ AWS S3 is used for storing images such as menu items, categories, and filters.
 ### Real-Time Communication
 WebSocket connections are used to synchronize events between kiosks, kitchen screens, and display screens.
 
+### Security and Authentication
+The platform implements JWT-based authentication for secure access to APIs and role-based access control for different user roles.
+
+### Language Translations
+i18next is used on the frontend to manage static UI translations, while menu content translations are stored in the database and served based on tenant configurations.
+
 ---
 
 # Technology Stack
@@ -256,16 +265,19 @@ Backend:
 - Express.js
 - MongoDB
 - Redis
+- Rate limiting
+- JWT
 - AWS SQS
 - AWS S3
 - WebSockets
 
 Frontend:
 - React
+- Tailwind CSS
 - i18next for multilingual UI support
 
 Infrastructure:
-- Docker (local Redis setup)
+- Docker (local Redis setup for development)
 - Cloud storage and messaging using AWS services
 
 ---
@@ -294,9 +306,6 @@ This project explores how modern restaurant technology platforms operate at scal
 - analytics and reporting dashboards
 
 The system demonstrates how digital kiosk platforms can improve operational efficiency while enabling restaurants to optimize revenue through data-driven insights and automated recommendations.
-
-- **Client**: The frontend built with React and TypeScript.
-- **Server**: The backend built with Node.js and Express.
 
 ## Prerequisites
 
