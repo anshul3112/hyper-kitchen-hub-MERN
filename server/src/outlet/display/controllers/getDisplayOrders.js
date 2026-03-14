@@ -18,7 +18,7 @@ export const getDisplayOrders = asyncHandler(async (req, res) => {
   }
 
   const orders = await Orders.find({
-    outletId,
+    "outlet.outletId": outletId,
     orderStatus: "Completed",
     fulfillmentStatus: { $ne: "served" },
   })
