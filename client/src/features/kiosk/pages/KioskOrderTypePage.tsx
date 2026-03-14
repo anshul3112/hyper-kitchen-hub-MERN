@@ -43,7 +43,7 @@ export default function KioskOrderTypePage() {
           onClick={() => select("dineIn")}
           className="flex flex-col items-center justify-center gap-4 w-56 h-56 bg-white border-2 border-purple-200 hover:bg-purple-50 hover:border-purple-500 active:scale-95 text-purple-700 rounded-3xl shadow-md transition-all duration-200 focus:outline-none group"
         >
-          <span className="text-7xl group-hover:scale-110 transition-transform duration-200">🍽️</span>
+          <span className="rounded-full border border-purple-200 px-5 py-2 text-sm font-bold uppercase tracking-[0.3em] group-hover:border-purple-500 transition-colors duration-200">DI</span>
           <span className="text-2xl font-black tracking-wide">{t("dineIn")}</span>
         </button>
 
@@ -52,7 +52,7 @@ export default function KioskOrderTypePage() {
           onClick={() => select("takeAway")}
           className="flex flex-col items-center justify-center gap-4 w-56 h-56 bg-white border-2 border-purple-200 hover:bg-purple-50 hover:border-purple-500 active:scale-95 text-purple-700 rounded-3xl shadow-md transition-all duration-200 focus:outline-none group"
         >
-          <span className="text-7xl group-hover:scale-110 transition-transform duration-200">🛍️</span>
+          <span className="rounded-full border border-purple-200 px-5 py-2 text-sm font-bold uppercase tracking-[0.3em] group-hover:border-purple-500 transition-colors duration-200">TA</span>
           <span className="text-2xl font-black tracking-wide">{t("takeAway")}</span>
         </button>
       </div>

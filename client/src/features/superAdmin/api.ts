@@ -112,6 +112,11 @@ export type CursorPagination = {
 	hasPrevPage: boolean;
 };
 
+export type RevenueTrendPoint = {
+	date: string;
+	revenue: number;
+};
+
 export type OrderHistoryItem = {
 	_id: string;
 	orderNo: number;
@@ -126,6 +131,10 @@ export type OrderHistoryItem = {
   outlet: { outletId: string; outletName: string };
   /** Flat convenience fields added by the analytics controller */
   tenantName: string;
+	outletName?: string;
+};
+
+export type AnalyticsOverview = {
 	orders: {
 		totalOrders: number;
 		totalRevenue: number;

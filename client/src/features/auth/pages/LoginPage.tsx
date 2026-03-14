@@ -70,7 +70,7 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-2xl shadow-blue-100 border border-gray-100 px-8 py-10">
           <div className="flex justify-center mb-6">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-200">
-              <span className="text-3xl">🍽️</span>
+              <span className="text-lg font-bold tracking-wide text-white">HKH</span>
             </div>
           </div>
 
@@ -118,7 +118,6 @@ export default function LoginPage() {
 
             {error && (
               <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-                <span>⚠️</span>
                 <span>{error}</span>
               </div>
             )}

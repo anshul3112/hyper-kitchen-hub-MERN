@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { fetchOrderHistory, fetchTenants, type OrderHistoryItem, type CursorPagination, type Tenant } from "../api";
+import OrderDetailsModal from "../../../common/components/OrderDetailsModal";
 
 const STATUS_OPTIONS = ["", "Pending", "Processing", "Completed", "Failed"];
 
@@ -76,6 +77,7 @@ export default function OrderHistoryTab() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<OrderHistoryItem | null>(null);
 
   // filters
   const [tenantId, setTenantId] = useState("");
@@ -164,7 +166,7 @@ export default function OrderHistoryTab() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {["Order #", "Customer", "Tenant", "Outlet", "Amount", "Payment", "Status", "Date"].map((h) => (
+                  {["Order #", "Customer", "Tenant", "Outlet", "Amount", "Payment", "Status", "Date", "Action"].map((h) => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       {h}
                     </th>
@@ -189,6 +191,15 @@ export default function OrderHistoryTab() {
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-400">
                       {new Date(o.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-5 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrder(o)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        View details
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -228,6 +239,10 @@ export default function OrderHistoryTab() {
           </div>
         )}
       </div>
+
+      {selectedOrder ? (
+        <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      ) : null}
     </div>
   );
 }

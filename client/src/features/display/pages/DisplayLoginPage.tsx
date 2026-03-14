@@ -76,7 +76,7 @@ export default function DisplayLoginPage() {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 text-center">
         {/* Icon */}
         <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-5">
-          <span className="text-3xl">📺</span>
+          <span className="text-xs font-bold uppercase tracking-[0.3em] text-indigo-700">DSP</span>
         </div>
 
         <h1 className="text-2xl font-bold text-gray-800 mb-1">Order Display Login</h1>

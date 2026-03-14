@@ -186,7 +186,6 @@ export default function KioskPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
         <div className="bg-white rounded-2xl shadow-md border border-purple-100 p-8 max-w-sm w-full text-center">
-          <p className="text-4xl mb-4">⚠️</p>
           <p className="text-gray-800 font-semibold mb-1">{t("failedToLoadMenu")}</p>
           <p className="text-sm text-gray-500 mb-6">{error}</p>
           <button

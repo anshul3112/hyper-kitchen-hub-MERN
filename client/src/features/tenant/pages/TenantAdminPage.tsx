@@ -54,24 +54,6 @@ export default function TenantAdminPage() {
     }
   };
 
-  const loadOutlets = async () => {
-    if (accessBlockedMessage) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetchOutlets();
-      setOutlets(res.data || []);
-    } catch (err: unknown) {
-      if (isBlockedAccessError(err)) {
-        setAccessBlockedMessage(getBlockedAccessMessage(err, "Tenant access is disabled"));
-        return;
-      }
-      setError(getErrorMessage(err, "Failed to fetch outlets"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleOutletAdded = (newOutlet: Outlet) => {
     setOutlets((prev) => [newOutlet, ...prev]);
     setIsModalOpen(false);

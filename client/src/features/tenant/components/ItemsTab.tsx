@@ -107,7 +107,6 @@ export default function ItemsTab({ items, categories, filters, loading, kioskLan
         </div>
       ) : items.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-          <p className="text-4xl mb-3">🍽️</p>
           <p className="text-gray-600 font-medium mb-1">No items yet</p>
           <p className="text-sm text-gray-400 mb-4">Add your first menu item to get started.</p>
           <button
@@ -143,8 +142,8 @@ export default function ItemsTab({ items, categories, filters, loading, kioskLan
                       className="w-full h-full object-contain"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300 text-4xl">
-                      🍴
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">
+                      No image
                     </div>
                   )}
                   {/* Status badge overlay */}

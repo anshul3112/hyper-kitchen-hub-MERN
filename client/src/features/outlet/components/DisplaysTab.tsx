@@ -197,7 +197,6 @@ export default function DisplaysTab() {
         </div>
       ) : !error && displays.length === 0 ? (
         <div className="bg-white border border-gray-100 rounded-xl p-14 text-center">
-          <p className="text-3xl mb-3">📺</p>
           <p className="text-gray-600 font-medium mb-1">No display screens yet</p>
           <p className="text-sm text-gray-400 mb-4">
             Create a display screen to show customers their order status.

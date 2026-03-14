@@ -66,7 +66,7 @@ export default function CreateKioskModal({ onClose, onSuccess }: Props) {
               Enter this code on the kiosk device to log in:
             </p>
             <p className="text-xs text-amber-600 font-medium mb-4">
-              ⚠ This code will expire after 1 minute.
+              This code will expire after 1 minute.
             </p>
 
             {codeExpired ? (

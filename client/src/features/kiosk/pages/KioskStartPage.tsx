@@ -89,7 +89,7 @@ export default function KioskStartPage() {
       {/* Icon */}
       <div className="mb-10 flex flex-col items-center gap-4">
         <div className="w-28 h-28 rounded-full bg-purple-100 flex items-center justify-center shadow-inner">
-          <span className="text-6xl">🍽️</span>
+          <span className="text-3xl font-black tracking-wide text-purple-700">HKH</span>
         </div>
         <p className="text-5xl font-black text-purple-700 tracking-tight">{t("welcome")}</p>
         <p className="text-gray-400 text-lg">{t("orderStartsHere")}</p>

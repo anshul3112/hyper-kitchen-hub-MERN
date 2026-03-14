@@ -182,7 +182,7 @@ export default function ProfileModal({ onClose }: Props) {
 
               {pwError && (
                 <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
-                  ⚠️ {pwError}
+                  {pwError}
                 </p>
               )}
               {pwSuccess && (

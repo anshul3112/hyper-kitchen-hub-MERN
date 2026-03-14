@@ -8,6 +8,8 @@ import {
   type HourlyPoint,
   type Outlet,
 } from "../api";
+import HourlyOrdersModal from "../../../common/components/HourlyOrdersModal";
+import OrderDetailsModal, { type OrderDetailRecord } from "../../../common/components/OrderDetailsModal";
 
 // ── shared helpers ─────────────────────────────────────────────────────────────
 const STATUS_OPTIONS = ["", "Pending", "Processing", "Completed", "Failed"];
@@ -78,6 +80,7 @@ function OrdersView({ outlets }: { outlets: Outlet[] }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<OrderDetailRecord | null>(null);
   const [outletId, setOutletId] = useState("");
   const [status, setStatus] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -161,7 +164,7 @@ function OrdersView({ outlets }: { outlets: Outlet[] }) {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {["Order #", "Customer", "Outlet", "Amount", "Payment", "Status", "Date"].map((h) => (
+                  {["Order #", "Customer", "Outlet", "Amount", "Payment", "Status", "Date", "Action"].map((h) => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
                   ))}
                 </tr>
@@ -180,6 +183,15 @@ function OrdersView({ outlets }: { outlets: Outlet[] }) {
                       </span>
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-400">{new Date(o.date).toLocaleDateString()}</td>
+                    <td className="px-5 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrder(o)}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                      >
+                        View details
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -217,6 +229,10 @@ function OrdersView({ outlets }: { outlets: Outlet[] }) {
           </div>
         )}
       </div>
+
+      {selectedOrder ? (
+        <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      ) : null}
     </div>
   );
 }
@@ -227,6 +243,11 @@ function HourlyView({ outlets }: { outlets: Outlet[] }) {
   const [hourly, setHourly] = useState<HourlyPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedHour, setSelectedHour] = useState<HourlyPoint | null>(null);
+  const [hourOrders, setHourOrders] = useState<OrderHistoryItem[]>([]);
+  const [hourOrdersLoading, setHourOrdersLoading] = useState(false);
+  const [hourOrdersError, setHourOrdersError] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<OrderDetailRecord | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -241,7 +262,51 @@ function HourlyView({ outlets }: { outlets: Outlet[] }) {
     }
   }, [date, outletId]);
 
+  const loadHourOrders = useCallback(
+    async (hour: number) => {
+      const collected: OrderHistoryItem[] = [];
+      let cursor: string | undefined;
+
+      for (let page = 0; page < 25; page += 1) {
+        const result = await fetchTenantOrderHistory({
+          cursor,
+          perPage: 100,
+          outletId,
+          startDate: date,
+          endDate: date,
+        });
+
+        collected.push(...result.orders);
+
+        if (!result.pagination.hasNextPage || !result.pagination.nextCursor) {
+          break;
+        }
+
+        cursor = result.pagination.nextCursor;
+      }
+
+      return collected.filter((order) => new Date(order.date).getHours() === hour);
+    },
+    [date, outletId]
+  );
+
   useEffect(() => { load(); }, [load]);
+
+  const handleViewHourDetails = async (point: HourlyPoint) => {
+    setSelectedHour(point);
+    setHourOrders([]);
+    setHourOrdersError("");
+    setHourOrdersLoading(true);
+
+    try {
+      const ordersForHour = await loadHourOrders(point.hour);
+      setHourOrders(ordersForHour);
+    } catch (e: unknown) {
+      setHourOrdersError(e instanceof Error ? e.message : "Failed to load orders for this hour");
+    } finally {
+      setHourOrdersLoading(false);
+    }
+  };
 
   const totalOrders = hourly.reduce((s, h) => s + h.orders, 0);
   const totalRevenue = hourly.reduce((s, h) => s + h.revenue, 0);
@@ -335,7 +400,7 @@ function HourlyView({ outlets }: { outlets: Outlet[] }) {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {["Hour", "Orders", "Completed", "Revenue"].map((h) => (
+                  {["Hour", "Orders", "Completed", "Revenue", "Action"].map((h) => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
                   ))}
                 </tr>
@@ -343,7 +408,7 @@ function HourlyView({ outlets }: { outlets: Outlet[] }) {
               <tbody className="divide-y divide-gray-100">
                 {hourly.filter((h) => h.orders > 0).length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-6 text-center text-sm text-gray-400">No orders on this day</td>
+                    <td colSpan={5} className="px-5 py-6 text-center text-sm text-gray-400">No orders on this day</td>
                   </tr>
                 ) : (
                   hourly
@@ -356,6 +421,15 @@ function HourlyView({ outlets }: { outlets: Outlet[] }) {
                         <td className="px-5 py-3 text-sm text-gray-800">{h.orders}</td>
                         <td className="px-5 py-3 text-sm text-green-700">{h.completed}</td>
                         <td className="px-5 py-3 text-sm text-gray-800 font-medium">₹{h.revenue.toLocaleString()}</td>
+                        <td className="px-5 py-3">
+                          <button
+                            type="button"
+                            onClick={() => void handleViewHourDetails(h)}
+                            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                          >
+                            View details
+                          </button>
+                        </td>
                       </tr>
                     ))
                 )}
@@ -364,6 +438,25 @@ function HourlyView({ outlets }: { outlets: Outlet[] }) {
           </div>
         </div>
       )}
+
+      {selectedHour ? (
+        <HourlyOrdersModal
+          title={`${String(selectedHour.hour).padStart(2, "0")}:00 to ${String(selectedHour.hour + 1).padStart(2, "0")}:00`}
+          subtitle={new Date(date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}
+          orders={hourOrders}
+          loading={hourOrdersLoading}
+          error={hourOrdersError}
+          onClose={() => setSelectedHour(null)}
+          onViewOrder={(order) => {
+            setSelectedHour(null);
+            setSelectedOrder(order);
+          }}
+        />
+      ) : null}
+
+      {selectedOrder ? (
+        <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+      ) : null}
     </div>
   );
 }

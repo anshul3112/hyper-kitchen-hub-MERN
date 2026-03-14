@@ -470,6 +470,9 @@ export type OrderHistoryItem = {
   paymentStatus: string;
   date: string;
   outlet: { outletId: string; outletName: string };
+  tenant?: { tenantId: string; tenantName: string };
+  itemsCart?: { itemId?: string; name: string; qty: number; price: number }[];
+  outletName?: string;
 };
 
 export type HourlyPoint = {

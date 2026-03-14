@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchOutletStaff, type OutletStaffMember, type OutletStaffRole } from "../api";
 import CreateOutletUserModal from "./CreateOutletUserModal";
+import UserDetailsModal from "../../../common/components/UserDetailsModal";
 
 const ROLE_LABEL: Record<OutletStaffRole, string> = {
   kitchenStaff: "Kitchen Staff",
@@ -26,6 +27,7 @@ export default function OutletUsersTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<OutletStaffMember | null>(null);
 
   const [filterRole, setFilterRole] = useState<OutletStaffRole | "all">("all");
 
@@ -102,7 +104,7 @@ export default function OutletUsersTab() {
       {/* ── Error ── */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-5 py-4 text-sm mb-4">
-          ⚠️ {error}
+          {error}
         </div>
       )}
 
@@ -116,7 +118,6 @@ export default function OutletUsersTab() {
       {/* ── Empty ── */}
       {!loading && !error && displayed.length === 0 && (
         <div className="bg-white border border-gray-100 rounded-xl p-14 text-center">
-          <p className="text-3xl mb-3">👥</p>
           <p className="text-gray-600 font-medium mb-1">No staff members yet</p>
           <p className="text-sm text-gray-400 mb-4">
             Add kitchen or billing staff to get started.
@@ -151,6 +152,9 @@ export default function OutletUsersTab() {
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">
                   Added
                 </th>
+                <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -184,6 +188,15 @@ export default function OutletUsersTab() {
                   <td className="px-5 py-4 text-gray-400 hidden md:table-cell">
                     {formatDate(member.createdAt)}
                   </td>
+                  <td className="px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMember(member)}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      View details
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -197,6 +210,14 @@ export default function OutletUsersTab() {
           onSuccess={handleCreated}
         />
       )}
+
+      {selectedMember ? (
+        <UserDetailsModal
+          user={selectedMember}
+          roleLabel={ROLE_LABEL[selectedMember.role]}
+          onClose={() => setSelectedMember(null)}
+        />
+      ) : null}
     </div>
   );
 }

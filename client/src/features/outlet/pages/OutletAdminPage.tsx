@@ -443,7 +443,6 @@ export default function OutletAdminPage() {
               key={alert.id}
               className="flex items-start gap-3 bg-orange-50 border border-orange-300 rounded-lg px-4 py-3 shadow-lg"
             >
-              <span className="text-xl shrink-0">⚠️</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-orange-800">Low Stock Alert</p>
                 <p className="text-sm text-orange-700 truncate">

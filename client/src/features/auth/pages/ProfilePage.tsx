@@ -104,7 +104,7 @@ function Section({
 function StatusMsg({ error, success }: { error: string; success: string }) {
   if (error)
     return (
-      <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">⚠️ {error}</p>
+      <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
     );
   if (success)
     return (

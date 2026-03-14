@@ -52,7 +52,7 @@ export default function CreateDisplayModal({ onClose, onSuccess }: Props) {
         {created ? (
           <div className="p-6 text-center">
             <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">📺</span>
+              <span className="text-xs font-bold uppercase tracking-[0.3em] text-green-700">DSP</span>
             </div>
             <p className="text-lg font-semibold text-gray-800 mb-1">
               Display #{created.number} created!
@@ -61,7 +61,7 @@ export default function CreateDisplayModal({ onClose, onSuccess }: Props) {
               Enter this code on the display device to activate it:
             </p>
             <p className="text-xs text-amber-600 font-medium mb-4">
-              ⚠ Expires in {secondsLeft}s — enter it quickly
+              Expires in {secondsLeft}s — enter it quickly
             </p>
 
             {codeExpired ? (
@@ -92,14 +92,14 @@ export default function CreateDisplayModal({ onClose, onSuccess }: Props) {
         ) : (
           <div className="p-6 text-center">
             <div className="w-14 h-14 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">📺</span>
+              <span className="text-xs font-bold uppercase tracking-[0.3em] text-indigo-700">DSP</span>
             </div>
             <p className="text-sm text-gray-500 mb-6">
               Creates a new display screen device for this outlet. You'll get a one-time login code.
             </p>
             {error && (
               <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-                ⚠️ {error}
+                {error}
               </div>
             )}
             <div className="flex gap-3">

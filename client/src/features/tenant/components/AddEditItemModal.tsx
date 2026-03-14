@@ -425,7 +425,7 @@ export default function AddEditItemModal({
                         : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
                     }`}
                   >
-                    {t === 'single' ? '🍽️ Single' : '🍱 Combo / Meal'}
+                    {t === 'single' ? 'Single' : 'Combo / Meal'}
                   </button>
                 ))}
               </div>

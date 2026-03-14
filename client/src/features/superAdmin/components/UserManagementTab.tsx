@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { fetchAllUsers, toggleUserStatus, fetchTenants, type UserRecord, type CursorPagination, type Tenant } from "../api";
+import UserDetailsModal from "../../../common/components/UserDetailsModal";
 
 const ROLE_OPTIONS = [
   "", "superAdmin", "tenantAdmin", "tenantOwner",
@@ -36,6 +37,7 @@ export default function UserManagementTab() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [toggling, setToggling] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
 
   const [role, setRole] = useState("");
   const [tenantId, setTenantId] = useState("");
@@ -157,7 +159,7 @@ export default function UserManagementTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {users.map((u) => (
+                  {users.map((u) => (
                   <tr key={u._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3 text-sm font-medium text-gray-800">{u.name}</td>
                     <td className="px-5 py-3 text-sm text-gray-500">{u.email}</td>
@@ -178,17 +180,26 @@ export default function UserManagementTab() {
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-5 py-3">
-                      <button
-                        onClick={() => handleToggle(u)}
-                        disabled={toggling === u._id || u.role === "superAdmin"}
-                        className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 ${
-                          u.status
-                            ? "text-red-600 bg-red-50 hover:bg-red-100"
-                            : "text-green-600 bg-green-50 hover:bg-green-100"
-                        }`}
-                      >
-                        {toggling === u._id ? "..." : u.status ? "Disable" : "Enable"}
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUser(u)}
+                          className="px-3 py-1 text-xs font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          View details
+                        </button>
+                        <button
+                          onClick={() => handleToggle(u)}
+                          disabled={toggling === u._id || u.role === "superAdmin"}
+                          className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors disabled:opacity-40 ${
+                            u.status
+                              ? "text-red-600 bg-red-50 hover:bg-red-100"
+                              : "text-green-600 bg-green-50 hover:bg-green-100"
+                          }`}
+                        >
+                          {toggling === u._id ? "..." : u.status ? "Disable" : "Enable"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -227,6 +238,14 @@ export default function UserManagementTab() {
           </div>
         )}
       </div>
+
+      {selectedUser ? (
+        <UserDetailsModal
+          user={selectedUser}
+          roleLabel={ROLE_LABEL_MAP[selectedUser.role] ?? selectedUser.role}
+          onClose={() => setSelectedUser(null)}
+        />
+      ) : null}
     </div>
   );
 }

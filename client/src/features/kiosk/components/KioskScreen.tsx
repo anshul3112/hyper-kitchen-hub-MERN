@@ -444,7 +444,7 @@ export default function KioskScreen({
               ? "bg-green-100 text-green-700"
               : "bg-purple-100 text-purple-700"
           }`}>
-            {orderType === "dineIn" ? `🍽️ ${t("dineIn")}` : `🛍️ ${t("takeAway")}`}
+            {orderType === "dineIn" ? t("dineIn") : t("takeAway")}
           </span>
           <button
             onClick={() => { clearCart(); onNewOrder?.(); }}
@@ -496,12 +496,12 @@ export default function KioskScreen({
             <>
               <div className="hidden sm:flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2">
                 <span className="text-purple-700 text-sm font-bold">
-                  🛒 {cartCount} {cartCount > 1 ? t("items") : t("item")}
+                  {cartCount} {cartCount > 1 ? t("items") : t("item")}
                 </span>
                 <span className="text-purple-700 font-bold text-sm">— ₹{cartTotal}</span>
               </div>
               <div className="flex sm:hidden items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-xl px-2 py-1.5">
-                <span className="text-purple-700 text-xs font-bold">🛒 {cartCount}</span>
+                <span className="text-purple-700 text-xs font-bold">{cartCount}</span>
                 <span className="text-purple-700 text-xs font-bold">₹{cartTotal}</span>
               </div>
               <button
@@ -533,7 +533,6 @@ export default function KioskScreen({
                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
             }`}
           >
-            <span className="text-base">🍽️</span>
             <span>{t("allItems")}</span>
           </button>
 
@@ -559,7 +558,7 @@ export default function KioskScreen({
                 </div>
               )}
               <div className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm font-medium ${cat.imageUrl ? "py-1.5 sm:py-2" : "py-2 sm:py-3"}`}>
-                {!cat.imageUrl && <span className="text-base flex-shrink-0">🍴</span>}
+                {!cat.imageUrl && <span className="text-[10px] uppercase tracking-wide text-gray-400 flex-shrink-0">Img</span>}
                 <span className="line-clamp-2 leading-tight">{localised(cat.name, i18n.language)}</span>
               </div>
             </button>
@@ -600,7 +599,9 @@ export default function KioskScreen({
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <span className="text-5xl">{item.inStock ? "🍴" : "🚫"}</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                              {item.inStock ? "No image" : t("outOfStock")}
+                            </span>
                           </div>
                         )}
                         {!item.inStock && (
@@ -667,7 +668,6 @@ export default function KioskScreen({
 
           {visibleItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-              <p className="text-5xl mb-4">🍽️</p>
               <p className="text-base font-medium">{t("noItemsInCategory")}</p>
               <p className="text-sm mt-1">{t("tryDifferentCategory")}</p>
             </div>
@@ -693,7 +693,9 @@ export default function KioskScreen({
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-6xl">{item.inStock ? "🍴" : "🚫"}</span>
+                          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            {item.inStock ? "No image" : t("outOfStock")}
+                          </span>
                         </div>
                       )}
 
@@ -840,7 +842,7 @@ export default function KioskScreen({
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <span className="text-7xl">🍴</span>
+                  <span className="text-sm font-semibold uppercase tracking-wide text-gray-400">No image</span>
                 </div>
               )}
               {!detailItem.inStock && (
@@ -964,14 +966,14 @@ export default function KioskScreen({
             {payStep === "cart" && (
               <>
                 <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-900">🛒 {t("yourOrder")}</h2>
+                  <h2 className="text-lg font-bold text-gray-900">{t("yourOrder")}</h2>
                   <button onClick={closeCheckout} className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none">&times;</button>
                 </div>
 
                 {/* Inventory change notices */}
                 {checkoutNotices.length > 0 && (
                   <div className="mx-6 mt-4 rounded-xl bg-amber-50 border border-amber-300 px-4 py-3 space-y-1">
-                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">⚠️ {t("priceStockUpdates")}</p>
+                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">{t("priceStockUpdates")}</p>
                     {checkoutNotices.map((msg, i) => (
                       <p key={i} className="text-xs text-amber-800 leading-snug">{msg}</p>
                     ))}
@@ -1242,7 +1244,6 @@ export default function KioskScreen({
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
           <div className="bg-gray-900/90 text-white text-sm font-medium px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-fade-in">
-            <span className="text-base">⚠️</span>
             {toast}
           </div>
         </div>

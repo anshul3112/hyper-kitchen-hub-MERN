@@ -154,7 +154,6 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
 
           {error && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-              <span>⚠️</span>
               <span>{error}</span>
             </div>
           )}

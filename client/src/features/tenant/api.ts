@@ -386,6 +386,7 @@ export type OrderHistoryItem = {
 	outlet: { outletId: string; outletName: string };
 	/** Flat convenience field added by the analytics controller */
 	outletName: string;
+	itemsCart?: { itemId?: string; name: string; qty: number; price: number }[];
 };
 
 export type HourlyPoint = {

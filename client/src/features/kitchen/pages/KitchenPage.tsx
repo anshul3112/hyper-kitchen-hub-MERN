@@ -155,7 +155,7 @@ export default function KitchenPage() {
 
         {!loading && error && (
           <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-5 py-4 text-sm max-w-md">
-            ⚠️ {error}
+            {error}
           </div>
         )}
 

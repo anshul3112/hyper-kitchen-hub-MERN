@@ -112,7 +112,6 @@ export default function MenuGrid({ categories, filters, items }: Props) {
       {/* Grid */}
       {visibleItems.length === 0 ? (
         <div className="py-16 text-center text-gray-500">
-          <p className="text-4xl mb-3">🍽️</p>
           <p className="text-sm">No items match the selected filters.</p>
         </div>
       ) : (
@@ -131,7 +130,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
                     className="w-full h-full object-contain"
                   />
                 ) : (
-                  <span className="text-4xl">🍴</span>
+                  <span className="text-sm font-medium text-gray-400">No image</span>
                 )}
               </div>
 
