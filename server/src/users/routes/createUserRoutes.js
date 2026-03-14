@@ -28,10 +28,10 @@ router.route('/create-outlet-staff').post(verifyJWT, createOutletStaff);
 // GET   /api/v1/users/outlet-staff         — outletAdmin lists their staff
 router.route('/outlet-staff').get(verifyJWT, getOutletStaff);
 
-// GET   /api/v1/users/all                  — superAdmin lists all users (paginated)
+// GET   /api/v1/users/all                  — superAdmin lists all users; tenantAdmin/tenantOwner list only their tenant users
 router.route('/all').get(verifyJWT, getAllUsers);
 
-// PATCH /api/v1/users/:userId/toggle-status — superAdmin enables/disables a user
+// PATCH /api/v1/users/:userId/toggle-status — superAdmin or tenantAdmin/tenantOwner (own tenant only) enables/disables a user
 router.route('/:userId/toggle-status').patch(verifyJWT, toggleUserStatus);
 
 // GET  /api/v1/users/profile              — get own profile

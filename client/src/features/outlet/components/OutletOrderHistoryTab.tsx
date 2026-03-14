@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import {
   fetchOutletOrderHistory,
   fetchOutletHourlyHistory,
+  fetchOutletHourlyOrders,
   type OrderHistoryItem,
   type CursorPagination,
   type HourlyPoint,
@@ -213,36 +214,19 @@ function HourlyView() {
     setError("");
     try {
       const res = await fetchOutletHourlyHistory(date);
-      setHourly(res.hourly);
+      setHourly(
+        res.hourly.map((point) => ({
+          hour: Number(point.hour) || 0,
+          orders: Number(point.orders) || 0,
+          revenue: Number(point.revenue) || 0,
+          completed: Number(point.completed) || 0,
+        }))
+      );
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load hourly data");
     } finally {
       setLoading(false);
     }
-  }, [date]);
-
-  const loadHourOrders = useCallback(async (hour: number) => {
-    const collected: OrderHistoryItem[] = [];
-    let cursor: string | undefined;
-
-    for (let page = 0; page < 25; page += 1) {
-      const result = await fetchOutletOrderHistory({
-        cursor,
-        perPage: 100,
-        startDate: date,
-        endDate: date,
-      });
-
-      collected.push(...result.orders);
-
-      if (!result.pagination.hasNextPage || !result.pagination.nextCursor) {
-        break;
-      }
-
-      cursor = result.pagination.nextCursor;
-    }
-
-    return collected.filter((order) => new Date(order.date).getHours() === hour);
   }, [date]);
 
   useEffect(() => { load(); }, [load]);
@@ -254,8 +238,11 @@ function HourlyView() {
     setHourOrdersLoading(true);
 
     try {
-      const ordersForHour = await loadHourOrders(point.hour);
-      setHourOrders(ordersForHour);
+      const result = await fetchOutletHourlyOrders({
+        date,
+        hour: point.hour,
+      });
+      setHourOrders(result.orders);
     } catch (e: unknown) {
       setHourOrdersError(e instanceof Error ? e.message : "Failed to load orders for this hour");
     } finally {
@@ -310,7 +297,7 @@ function HourlyView() {
           <div className="px-5 py-5">
             <div className="flex items-end gap-1 h-32">
               {hourly.map((h) => (
-                <div key={h.hour} className="flex-1 flex flex-col items-center">
+                <div key={h.hour} className="flex-1 h-full flex flex-col items-center justify-end">
                   <div
                     className="w-full bg-indigo-500 rounded-t-sm transition-all"
                     style={{ height: h.orders > 0 ? `${(h.orders / maxOrders) * 100}%` : "2px", minHeight: "2px", opacity: h.orders > 0 ? 1 : 0.15 }}
@@ -383,7 +370,6 @@ function HourlyView() {
           error={hourOrdersError}
           onClose={() => setSelectedHour(null)}
           onViewOrder={(order) => {
-            setSelectedHour(null);
             setSelectedOrder(order);
           }}
         />

@@ -19,6 +19,18 @@ function decodeCursor(str) {
   }
 }
 
+const DEFAULT_TIMEZONE = "Asia/Kolkata";
+
+function resolveTimezone(timezone) {
+  if (typeof timezone !== "string" || !timezone.trim()) return DEFAULT_TIMEZONE;
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone });
+    return timezone;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
+
 /**
  * GET /api/v1/analytics/overview
  * High-level KPIs: orders, revenue, tenants, users, 7-day trend, top tenants.
@@ -432,13 +444,12 @@ const getHourlyHistory = asyncHandler(async (req, res) => {
   if (!allowedRoles.includes(role)) throw new ApiError(403, "Forbidden");
 
   const { date, outletId } = req.query;
-  const targetDate = date ? new Date(date) : new Date();
-  const dayStart = new Date(targetDate);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(targetDate);
-  dayEnd.setHours(23, 59, 59, 999);
+  const timezone = resolveTimezone(req.query.timezone);
+  const targetDate = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? date
+    : new Date().toISOString().split("T")[0];
 
-  const matchStage = { date: { $gte: dayStart, $lte: dayEnd } };
+  const matchStage = {};
 
   if (["outletAdmin", "outletOwner"].includes(role)) {
     const oid = req.user.outlet?.outletId;
@@ -462,8 +473,18 @@ const getHourlyHistory = asyncHandler(async (req, res) => {
   const hourly = await Orders.aggregate([
     { $match: matchStage },
     {
+      $match: {
+        $expr: {
+          $eq: [
+            { $dateToString: { format: "%Y-%m-%d", date: "$date", timezone } },
+            targetDate,
+          ],
+        },
+      },
+    },
+    {
       $group: {
-        _id: { $hour: "$date" },
+        _id: { $hour: { date: "$date", timezone } },
         orders: { $sum: 1 },
         revenue: { $sum: "$totalAmount" },
         completed: { $sum: { $cond: [{ $eq: ["$orderStatus", "Completed"] }, 1, 0] } },
@@ -476,12 +497,110 @@ const getHourlyHistory = asyncHandler(async (req, res) => {
   // Fill all 24 hours with 0 if no data
   const filled = Array.from({ length: 24 }, (_, h) => {
     const found = hourly.find((x) => x.hour === h);
-    return found ?? { hour: h, orders: 0, revenue: 0, completed: 0 };
+    return found
+      ? {
+          hour: Number(found.hour) || h,
+          orders: Number(found.orders) || 0,
+          revenue: Number(found.revenue) || 0,
+          completed: Number(found.completed) || 0,
+        }
+      : { hour: h, orders: 0, revenue: 0, completed: 0 };
   });
 
   return res.status(200).json(
-    new ApiResponse(200, { date: targetDate.toISOString().split("T")[0], hourly: filled }, "Hourly history fetched")
+    new ApiResponse(200, { date: targetDate, hourly: filled }, "Hourly history fetched")
   );
 });
 
-export { getAnalyticsOverview, getOrderHistory, getRevenueTrends, getTenantOrderHistory, getOutletOrderHistory, getHourlyHistory };
+/**
+ * GET /api/v1/analytics/hourly-orders
+ * Fetch all orders for a specific hour bucket on a specific date.
+ * Query: date (YYYY-MM-DD, default today), hour (0-23, required), outletId (optional), tenantId (superAdmin optional)
+ */
+const getHourlyOrderDetails = asyncHandler(async (req, res) => {
+  const { role } = req.user;
+  const allowedRoles = ["superAdmin", "tenantAdmin", "tenantOwner", "outletAdmin", "outletOwner"];
+  if (!allowedRoles.includes(role)) throw new ApiError(403, "Forbidden");
+
+  const { date, outletId, tenantId, hour } = req.query;
+  const timezone = resolveTimezone(req.query.timezone);
+  const parsedHour = Number(hour);
+  if (!Number.isInteger(parsedHour) || parsedHour < 0 || parsedHour > 23) {
+    throw new ApiError(400, "hour must be an integer between 0 and 23");
+  }
+
+  const targetDate = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? date
+    : new Date().toISOString().split("T")[0];
+
+  const matchStage = {};
+
+  if (["outletAdmin", "outletOwner"].includes(role)) {
+    const oid = req.user.outlet?.outletId;
+    if (!oid) throw new ApiError(400, "Outlet not found on user");
+    matchStage["outlet.outletId"] = new mongoose.Types.ObjectId(oid);
+  } else if (["tenantAdmin", "tenantOwner"].includes(role)) {
+    const tid = req.user.tenant?.tenantId;
+    if (!tid) throw new ApiError(400, "Tenant not found on user");
+    matchStage["tenant.tenantId"] = new mongoose.Types.ObjectId(tid);
+    if (outletId && mongoose.Types.ObjectId.isValid(outletId)) {
+      matchStage["outlet.outletId"] = new mongoose.Types.ObjectId(outletId);
+    }
+  } else {
+    if (tenantId && mongoose.Types.ObjectId.isValid(tenantId)) {
+      matchStage["tenant.tenantId"] = new mongoose.Types.ObjectId(tenantId);
+    }
+    if (outletId && mongoose.Types.ObjectId.isValid(outletId)) {
+      matchStage["outlet.outletId"] = new mongoose.Types.ObjectId(outletId);
+    }
+  }
+
+  const orders = await Orders.aggregate([
+    { $match: matchStage },
+    {
+      $match: {
+        $expr: {
+          $and: [
+            {
+              $eq: [
+                { $dateToString: { format: "%Y-%m-%d", date: "$date", timezone } },
+                targetDate,
+              ],
+            },
+            {
+              $eq: [{ $hour: { date: "$date", timezone } }, parsedHour],
+            },
+          ],
+        },
+      },
+    },
+    { $sort: { date: -1 } },
+  ]);
+
+  orders.forEach((order) => {
+    order.tenantName = order.tenant?.tenantName ?? "Unknown";
+    order.outletName = order.outlet?.outletName ?? "Unknown";
+  });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        date: targetDate,
+        hour: parsedHour,
+        orders,
+      },
+      "Hourly order details fetched"
+    )
+  );
+});
+
+export {
+  getAnalyticsOverview,
+  getOrderHistory,
+  getRevenueTrends,
+  getTenantOrderHistory,
+  getOutletOrderHistory,
+  getHourlyHistory,
+  getHourlyOrderDetails,
+};

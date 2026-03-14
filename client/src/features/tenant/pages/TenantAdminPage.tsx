@@ -14,12 +14,14 @@ import OutletsTable from "../components/OutletsTable";
 import TenantMenuPanel from "../components/TenantMenuPanel";
 import TenantOrderHistoryTab from "../components/TenantOrderHistoryTab";
 import TenantKioskSettings from "../components/TenantKioskSettings";
+import TenantUserManagementTab from "../components/TenantUserManagementTab";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "outlets", label: "Outlets" },
   { key: "menu", label: "Menu" },
   { key: "orders", label: "Orders" },
+  { key: "users", label: "Users" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -223,6 +225,8 @@ export default function TenantAdminPage() {
         {activeSection === "menu" && <TenantMenuPanel />}
 
         {activeSection === "orders" && <TenantOrderHistoryTab />}
+
+        {activeSection === "users" && <TenantUserManagementTab />}
 
         {activeSection === "settings" && <TenantKioskSettings />}
       </main>

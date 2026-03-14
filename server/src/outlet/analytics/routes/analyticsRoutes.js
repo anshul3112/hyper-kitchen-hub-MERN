@@ -7,6 +7,7 @@ import {
   getTenantOrderHistory,
   getOutletOrderHistory,
   getHourlyHistory,
+  getHourlyOrderDetails,
 } from "../controllers/analyticsController.js";
 
 const router = Router();
@@ -17,5 +18,6 @@ router.route("/revenue-trends").get(verifyJWT, getRevenueTrends);
 router.route("/tenant-orders").get(verifyJWT, getTenantOrderHistory);
 router.route("/outlet-orders").get(verifyJWT, getOutletOrderHistory);
 router.route("/hourly").get(verifyJWT, getHourlyHistory);
+router.route("/hourly-orders").get(verifyJWT, getHourlyOrderDetails);
 
 export default router;

@@ -23,7 +23,10 @@ function decodeUserCursor(str) {
  * Query: cursor, prevCursor, perPage (default 10), role, tenantId, search
  */
 const getAllUsers = asyncHandler(async (req, res) => {
-  if (req.user.role !== "superAdmin") throw new ApiError(403, "Forbidden");
+  const { role: requesterRole } = req.user;
+  const isSuperAdmin = requesterRole === "superAdmin";
+  const isTenantScopedRequester = ["tenantAdmin", "tenantOwner"].includes(requesterRole);
+  if (!isSuperAdmin && !isTenantScopedRequester) throw new ApiError(403, "Forbidden");
 
   const { cursor, prevCursor, perPage = 10, role, tenantId, search } = req.query;
   const limit = Math.min(Number(perPage), 100);
@@ -32,8 +35,16 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
   const baseMatch = {};
   if (role) baseMatch.role = role;
-  if (tenantId && mongoose.Types.ObjectId.isValid(tenantId)) {
-    baseMatch["tenant.tenantId"] = new mongoose.Types.ObjectId(tenantId);
+  if (isSuperAdmin) {
+    if (tenantId && mongoose.Types.ObjectId.isValid(tenantId)) {
+      baseMatch["tenant.tenantId"] = new mongoose.Types.ObjectId(tenantId);
+    }
+  } else {
+    const requesterTenantId = req.user.tenant?.tenantId;
+    if (!requesterTenantId || !mongoose.Types.ObjectId.isValid(requesterTenantId)) {
+      throw new ApiError(400, "Tenant not found on user");
+    }
+    baseMatch["tenant.tenantId"] = new mongoose.Types.ObjectId(requesterTenantId);
   }
   if (search) {
     baseMatch.$or = [
@@ -94,7 +105,10 @@ const getAllUsers = asyncHandler(async (req, res) => {
  * Enable or disable a user. SuperAdmins cannot be modified.
  */
 const toggleUserStatus = asyncHandler(async (req, res) => {
-  if (req.user.role !== "superAdmin") throw new ApiError(403, "Forbidden");
+  const { role: requesterRole, _id: requesterId } = req.user;
+  const isSuperAdmin = requesterRole === "superAdmin";
+  const isTenantScopedRequester = ["tenantAdmin", "tenantOwner"].includes(requesterRole);
+  if (!isSuperAdmin && !isTenantScopedRequester) throw new ApiError(403, "Forbidden");
 
   const { userId } = req.params;
   if (!mongoose.Types.ObjectId.isValid(userId))
@@ -102,8 +116,23 @@ const toggleUserStatus = asyncHandler(async (req, res) => {
 
   const user = await User.findById(userId);
   if (!user) throw new ApiError(404, "User not found");
+
+  if (String(user._id) === String(requesterId)) {
+    throw new ApiError(403, "You cannot modify your own account status");
+  }
+
   if (user.role === "superAdmin")
     throw new ApiError(403, "Cannot modify a superAdmin account");
+
+  if (isTenantScopedRequester) {
+    const requesterTenantId = req.user.tenant?.tenantId;
+    if (!requesterTenantId || !mongoose.Types.ObjectId.isValid(requesterTenantId)) {
+      throw new ApiError(400, "Tenant not found on user");
+    }
+    if (String(user.tenant?.tenantId) !== String(requesterTenantId)) {
+      throw new ApiError(403, "Cannot modify users from another tenant");
+    }
+  }
 
   user.status = !user.status;
   await user.save();

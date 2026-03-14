@@ -117,6 +117,13 @@ export type RevenueTrendPoint = {
 	revenue: number;
 };
 
+export type HourlyPoint = {
+	hour: number;
+	orders: number;
+	revenue: number;
+	completed: number;
+};
+
 export type OrderHistoryItem = {
 	_id: string;
 	orderNo: number;
@@ -215,6 +222,46 @@ export async function fetchRevenueTrends(
 	const q = new URLSearchParams({ days: String(days) });
 	if (tenantId) q.set("tenantId", tenantId);
 	const res = await fetch(`${API_BASE_URL}/api/v1/analytics/revenue-trends?${q}`, {
+		credentials: "include",
+		headers: getAuthHeaders(),
+	});
+	const parsed = await parseOrThrow(res);
+	return parsed.data;
+}
+
+export async function fetchHourlyHistory(params: {
+	date?: string;
+	tenantId?: string;
+	outletId?: string;
+	timezone?: string;
+}): Promise<{ date: string; hourly: HourlyPoint[] }> {
+	const q = new URLSearchParams();
+	if (params.date) q.set("date", params.date);
+	if (params.tenantId) q.set("tenantId", params.tenantId);
+	if (params.outletId) q.set("outletId", params.outletId);
+	q.set("timezone", params.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const res = await fetch(`${API_BASE_URL}/api/v1/analytics/hourly?${q}`, {
+		credentials: "include",
+		headers: getAuthHeaders(),
+	});
+	const parsed = await parseOrThrow(res);
+	return parsed.data;
+}
+
+export async function fetchHourlyOrders(params: {
+	date: string;
+	hour: number;
+	tenantId?: string;
+	outletId?: string;
+	timezone?: string;
+}): Promise<{ date: string; hour: number; orders: OrderHistoryItem[] }> {
+	const q = new URLSearchParams();
+	q.set("date", params.date);
+	q.set("hour", String(params.hour));
+	if (params.tenantId) q.set("tenantId", params.tenantId);
+	if (params.outletId) q.set("outletId", params.outletId);
+	q.set("timezone", params.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const res = await fetch(`${API_BASE_URL}/api/v1/analytics/hourly-orders?${q}`, {
 		credentials: "include",
 		headers: getAuthHeaders(),
 	});

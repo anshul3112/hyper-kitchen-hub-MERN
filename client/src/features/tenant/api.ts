@@ -396,6 +396,18 @@ export type HourlyPoint = {
 	completed: number;
 };
 
+export type TenantUserRecord = {
+	_id: string;
+	name: string;
+	email: string;
+	role: string;
+	status: boolean;
+	phoneNumber?: string;
+	tenant?: { tenantId: string; tenantName: string };
+	outlet?: { outletId: string; outletName: string };
+	createdAt: string;
+};
+
 /** GET /api/v1/analytics/tenant-orders */
 export async function fetchTenantOrderHistory(params: {
 	cursor?: string;
@@ -426,16 +438,74 @@ export async function fetchTenantOrderHistory(params: {
 export async function fetchTenantHourlyHistory(params: {
 	date?: string;
 	outletId?: string;
+	timezone?: string;
 }): Promise<{ date: string; hourly: HourlyPoint[] }> {
 	const q = new URLSearchParams();
 	if (params.date) q.set("date", params.date);
 	if (params.outletId) q.set("outletId", params.outletId);
+	q.set("timezone", params.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
 	const res = await fetch(`${API_BASE_URL}/api/v1/analytics/hourly?${q}`, {
 		credentials: "include",
 		headers: getAuthHeaders(),
 	});
 	const parsed = await parseOrThrow(res);
 	return parsed.data;
+}
+
+/** GET /api/v1/analytics/hourly-orders */
+export async function fetchTenantHourlyOrders(params: {
+	date: string;
+	hour: number;
+	outletId?: string;
+	timezone?: string;
+}): Promise<{ date: string; hour: number; orders: OrderHistoryItem[] }> {
+	const q = new URLSearchParams();
+	q.set("date", params.date);
+	q.set("hour", String(params.hour));
+	if (params.outletId) q.set("outletId", params.outletId);
+	q.set("timezone", params.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const res = await fetch(`${API_BASE_URL}/api/v1/analytics/hourly-orders?${q}`, {
+		credentials: "include",
+		headers: getAuthHeaders(),
+	});
+	const parsed = await parseOrThrow(res);
+	return parsed.data;
+}
+
+/** GET /api/v1/users/all (tenant-scoped by backend auth) */
+export async function fetchTenantUsers(params: {
+	cursor?: string;
+	prevCursor?: string;
+	perPage?: number;
+	role?: string;
+	search?: string;
+}): Promise<{ users: TenantUserRecord[]; pagination: CursorPagination }> {
+	const q = new URLSearchParams();
+	if (params.cursor) q.set("cursor", params.cursor);
+	if (params.prevCursor) q.set("prevCursor", params.prevCursor);
+	q.set("perPage", String(params.perPage ?? 10));
+	if (params.role) q.set("role", params.role);
+	if (params.search) q.set("search", params.search);
+
+	const res = await fetch(`${API_BASE_URL}/api/v1/users/all?${q}`, {
+		credentials: "include",
+		headers: getAuthHeaders(),
+	});
+	const parsed = await parseOrThrow(res);
+	return parsed.data;
+}
+
+/** PATCH /api/v1/users/:userId/toggle-status (tenant-scoped by backend auth) */
+export async function toggleTenantUserStatus(
+	userId: string
+): Promise<{ _id: string; name: string; status: boolean }> {
+	const res = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/toggle-status`, {
+		method: "PATCH",
+		credentials: "include",
+		headers: getAuthHeaders(),
+	});
+	const parsed = await parseOrThrow(res);
+	return parsed.data.user;
 }
 
 // ── Kiosk language settings ───────────────────────────────────────────────────

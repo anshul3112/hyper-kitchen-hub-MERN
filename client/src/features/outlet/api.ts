@@ -507,14 +507,33 @@ export async function fetchOutletOrderHistory(params: {
 }
 
 /** GET /api/v1/analytics/hourly */
-export async function fetchOutletHourlyHistory(date?: string): Promise<{ date: string; hourly: HourlyPoint[] }> {
+export async function fetchOutletHourlyHistory(date?: string, timezone?: string): Promise<{ date: string; hourly: HourlyPoint[] }> {
   const q = new URLSearchParams();
   if (date) q.set("date", date);
+  q.set("timezone", timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
   const res = await fetch(`${API_BASE_URL}/api/v1/analytics/hourly?${q}`, {
     credentials: "include",
     headers: getAuthHeaders(),
   });
   const parsed = await parseOrThrow<ApiResponse<{ date: string; hourly: HourlyPoint[] }>>(res);
+  return parsed.data;
+}
+
+/** GET /api/v1/analytics/hourly-orders */
+export async function fetchOutletHourlyOrders(params: {
+  date: string;
+  hour: number;
+  timezone?: string;
+}): Promise<{ date: string; hour: number; orders: OrderHistoryItem[] }> {
+  const q = new URLSearchParams();
+  q.set("date", params.date);
+  q.set("hour", String(params.hour));
+  q.set("timezone", params.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const res = await fetch(`${API_BASE_URL}/api/v1/analytics/hourly-orders?${q}`, {
+    credentials: "include",
+    headers: getAuthHeaders(),
+  });
+  const parsed = await parseOrThrow<ApiResponse<{ date: string; hour: number; orders: OrderHistoryItem[] }>>(res);
   return parsed.data;
 }
 
