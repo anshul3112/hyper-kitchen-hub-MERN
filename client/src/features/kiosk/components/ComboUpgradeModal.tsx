@@ -53,7 +53,7 @@ export default function ComboUpgradeModal({ suggestions, onUpgrade, onClose }: P
                 <img
                   src={s.combo.imageUrl}
                   alt={localised(s.combo.name, i18n.language)}
-                  className="w-full h-28 object-cover rounded-xl"
+                  className="w-full h-28 object-contain rounded-xl bg-gray-50"
                 />
               )}
               <div>

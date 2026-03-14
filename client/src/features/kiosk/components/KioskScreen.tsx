@@ -1000,7 +1000,7 @@ export default function KioskScreen({
                             <img
                               src={s.combo.imageUrl}
                               alt={localised(s.combo.name, i18n.language)}
-                              className="w-full h-28 object-cover rounded-xl"
+                              className="w-full h-28 object-contain rounded-xl bg-gray-50"
                             />
                           )}
                           <div className="flex items-start justify-between gap-3">
