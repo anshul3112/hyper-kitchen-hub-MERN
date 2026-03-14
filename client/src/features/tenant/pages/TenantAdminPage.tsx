@@ -1,8 +1,11 @@
 ﻿import { useEffect, useState } from "react";
 
+import AccessBlockedScreen from "../../../common/components/AccessBlockedScreen";
 import DashboardHeader from "../../../common/components/DashboardHeader";
 import NavTabs from "../../../common/components/NavTabs";
 import StatCard from "../../../common/components/StatCard";
+import { fetchProfile } from "../../auth/api";
+import { getBlockedAccessMessage, getErrorMessage, isBlockedAccessError } from "../../../common/utils/accessErrors";
 
 import { fetchOutlets, type Outlet } from "../api";
 import AddOutletModal from "../components/AddOutletModal";
@@ -27,19 +30,43 @@ export default function TenantAdminPage() {
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [accessBlockedMessage, setAccessBlockedMessage] = useState("");
 
   useEffect(() => {
-    loadOutlets();
+    void initializePage();
   }, []);
 
+  const initializePage = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      await fetchProfile();
+      const res = await fetchOutlets();
+      setOutlets(res.data || []);
+    } catch (err: unknown) {
+      if (isBlockedAccessError(err)) {
+        setAccessBlockedMessage(getBlockedAccessMessage(err, "Tenant access is disabled"));
+        return;
+      }
+      setError(getErrorMessage(err, "Failed to fetch outlets"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadOutlets = async () => {
+    if (accessBlockedMessage) return;
     setLoading(true);
     setError("");
     try {
       const res = await fetchOutlets();
       setOutlets(res.data || []);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to fetch outlets");
+      if (isBlockedAccessError(err)) {
+        setAccessBlockedMessage(getBlockedAccessMessage(err, "Tenant access is disabled"));
+        return;
+      }
+      setError(getErrorMessage(err, "Failed to fetch outlets"));
     } finally {
       setLoading(false);
     }
@@ -72,6 +99,10 @@ export default function TenantAdminPage() {
   const addressCoveragePercent = totalOutlets > 0 ? Math.round((withAddress / totalOutlets) * 100) : 0;
   const contactCoveragePercent = totalOutlets > 0 ? Math.round((withContacts / totalOutlets) * 100) : 0;
   const imageCoveragePercent = totalOutlets > 0 ? Math.round((withImage / totalOutlets) * 100) : 0;
+
+  if (accessBlockedMessage) {
+    return <AccessBlockedScreen title="Tenant dashboard unavailable" message={accessBlockedMessage} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

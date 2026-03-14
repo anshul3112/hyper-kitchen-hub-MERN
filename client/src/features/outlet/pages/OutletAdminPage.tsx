@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 
+import AccessBlockedScreen from "../../../common/components/AccessBlockedScreen";
 import DashboardHeader from "../../../common/components/DashboardHeader";
 import NavTabs from "../../../common/components/NavTabs";
 import StatCard from "../../../common/components/StatCard";
 import { localised } from "../../../common/utils/languages";
+import { fetchProfile } from "../../auth/api";
+import { getBlockedAccessMessage, getErrorMessage, isBlockedAccessError } from "../../../common/utils/accessErrors";
 
 import {
   fetchKiosks,
@@ -71,12 +74,11 @@ export default function OutletAdminPage() {
   const [menuLoading, setMenuLoading] = useState(false);
   const [menuError, setMenuError] = useState("");
   const menuFetched = useRef(false);
+  const [accessBlockedMessage, setAccessBlockedMessage] = useState("");
 
   // Load kiosks on mount
   useEffect(() => {
-    loadKiosks();
-    menuFetched.current = true;
-    loadMenu();
+    void initializePage();
   }, []);
 
   // ── Socket: low-stock alerts ────────────────────────────────────────────
@@ -85,7 +87,7 @@ export default function OutletAdminPage() {
     const outletId = localStorage.getItem("outletId") ?? "";
 
     // If auth token is missing, skip socket connection to avoid noisy failed handshakes.
-    if (!token) return;
+    if (!token || accessBlockedMessage) return;
 
     const socket = io(SOCKET_URL, {
       auth: { token },
@@ -116,37 +118,57 @@ export default function OutletAdminPage() {
     return () => {
       socket.disconnect();
     };
-  }, []);
+  }, [accessBlockedMessage]);
 
   // Load menu when menu tab is first opened
   useEffect(() => {
+    if (accessBlockedMessage) return;
     if (activeSection === "menu" && !menuFetched.current) {
       menuFetched.current = true;
       loadMenu();
     }
-  }, [activeSection]);
+  }, [activeSection, accessBlockedMessage]);
 
-  const loadKiosks = async () => {
+  const initializePage = async () => {
     setKiosksLoading(true);
+    setMenuLoading(true);
     setKiosksError("");
+    setMenuError("");
+
     try {
-      const data = await fetchKiosks();
-      setKiosks(data);
+      await fetchProfile();
+      const [kioskData, menuData] = await Promise.all([fetchKiosks(), fetchMenuDetails()]);
+      setKiosks(kioskData);
+      setMenu(menuData);
+      menuFetched.current = true;
     } catch (err: unknown) {
-      setKiosksError(err instanceof Error ? err.message : "Failed to fetch kiosks");
+      if (isBlockedAccessError(err)) {
+        setAccessBlockedMessage(getBlockedAccessMessage(err, "Outlet access is disabled"));
+        return;
+      }
+
+      const message = getErrorMessage(err, "Failed to load outlet dashboard");
+      setKiosksError(message);
+      setMenuError(message);
     } finally {
       setKiosksLoading(false);
+      setMenuLoading(false);
     }
   };
 
   const loadMenu = async () => {
+    if (accessBlockedMessage) return;
     setMenuLoading(true);
     setMenuError("");
     try {
       const data = await fetchMenuDetails();
       setMenu(data);
     } catch (err: unknown) {
-      setMenuError(err instanceof Error ? err.message : "Failed to fetch menu");
+      if (isBlockedAccessError(err)) {
+        setAccessBlockedMessage(getBlockedAccessMessage(err, "Outlet access is disabled"));
+        return;
+      }
+      setMenuError(getErrorMessage(err, "Failed to fetch menu"));
     } finally {
       setMenuLoading(false);
     }
@@ -171,6 +193,10 @@ export default function OutletAdminPage() {
   const menuCoveragePercent = menu?.summary.totalItems
     ? Math.round((menu.summary.activeItems / menu.summary.totalItems) * 100)
     : 0;
+
+  if (accessBlockedMessage) {
+    return <AccessBlockedScreen title="Outlet dashboard unavailable" message={accessBlockedMessage} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

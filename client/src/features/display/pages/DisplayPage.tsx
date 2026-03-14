@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import {
+  clearDisplaySession,
   fetchDisplayOrders,
   getDisplayToken,
   type DisplayOrder,
@@ -8,6 +9,7 @@ import {
   FULFILLMENT_LABELS,
   FULFILLMENT_COLORS,
 } from "../api";
+import { getBlockedAccessMessage, isBlockedAccessError } from "../../../common/utils/accessErrors";
 
 const SOCKET_URL = "http://localhost:8000";
 
@@ -44,8 +46,9 @@ function OrderCard({ order }: { order: DisplayOrder }) {
 export default function DisplayPage() {
   const [orders, setOrders] = useState<DisplayOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [disabledMessage, setDisabledMessage] = useState("");
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "disconnected">(
-    "connecting"
+    "disconnected"
   );
 
   const socketRef = useRef<Socket | null>(null);
@@ -55,12 +58,21 @@ export default function DisplayPage() {
   useEffect(() => {
     fetchDisplayOrders()
       .then(setOrders)
-      .catch(() => {})
+      .catch((err: unknown) => {
+        if (isBlockedAccessError(err)) {
+          setDisabledMessage(getBlockedAccessMessage(err, "DISABLED"));
+          clearDisplaySession();
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     const token = getDisplayToken();
+    if (!token || disabledMessage) {
+      return;
+    }
+
     const socket = io(SOCKET_URL, { auth: { token }, transports: ["websocket"] });
     socketRef.current = socket;
 
@@ -69,7 +81,14 @@ export default function DisplayPage() {
       if (outletId) socket.emit("join:outlet", { outletId });
     });
     socket.on("disconnect", () => setSocketStatus("disconnected"));
-    socket.on("connect_error", () => setSocketStatus("disconnected"));
+    socket.on("connect_error", (err: Error) => {
+      setSocketStatus("disconnected");
+      if (isBlockedAccessError(err)) {
+        setDisabledMessage(getBlockedAccessMessage(err, "DISABLED"));
+        clearDisplaySession();
+        socket.disconnect();
+      }
+    });
 
     socket.on("order:new", (newOrder: DisplayOrder) => {
       setOrders((prev) => {
@@ -91,10 +110,18 @@ export default function DisplayPage() {
     });
 
     return () => { socket.disconnect(); };
-  }, [outletId]);
+  }, [disabledMessage, outletId]);
 
   const readyOrders = orders.filter((o) => o.fulfillmentStatus === "prepared");
   const inProgressOrders = orders.filter((o) => o.fulfillmentStatus !== "prepared");
+
+  if (disabledMessage) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-6">
+        <p className="text-5xl font-black tracking-[0.3em] text-red-500">DISABLED</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">

@@ -66,6 +66,13 @@ export function getDisplayToken(): string {
   return localStorage.getItem("displayToken") ?? "";
 }
 
+export function clearDisplaySession(): void {
+  localStorage.removeItem("displayToken");
+  localStorage.removeItem("displayOutletId");
+  localStorage.removeItem("displayOutletName");
+  localStorage.removeItem("displayNumber");
+}
+
 // ── API helpers ───────────────────────────────────────────────────────────────
 
 function displayAuthHeaders() {
