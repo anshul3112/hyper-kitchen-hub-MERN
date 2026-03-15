@@ -17,7 +17,13 @@ export default function FiltersTab({ filters, loading, kioskLanguages, onFilters
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (filter: MenuFilter) => {
-    if (!confirm(`Delete filter "${filter.name.en}"? This cannot be undone.`)) return;
+    if (
+      !confirm(
+        `Delete filter "${filter.name.en}"? This will remove this filter from all associated items and cannot be undone.`
+      )
+    ) {
+      return;
+    }
     setDeletingId(filter._id);
     setDeleteError("");
     try {

@@ -5,6 +5,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
 import { parseDuplicateKeyError } from "../../utils/mongoError.js";
 import { invalidateMenuCache } from "../../utils/cache.js";
+import { Items } from "../models/itemModel.js";
 
 /**
  * POST /api/v1/items/filters
@@ -160,6 +161,12 @@ export const deleteFilter = asyncHandler(async (req, res) => {
   if (!filter) {
     throw new ApiError(404, "Filter not found");
   }
+
+  // Cascade cleanup: remove deleted filter id from all associated item filter arrays.
+  await Items.updateMany(
+    { tenantId, filters: filter._id },
+    { $pull: { filters: filter._id } }
+  );
 
   // Invalidate menu cache so next GET /menu/all reflects the deletion
   await invalidateMenuCache(tenantId);
