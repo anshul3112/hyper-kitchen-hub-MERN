@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createTenant } from "../api";
 import type { Tenant } from "../api";
+import { MAX_TEXT_LENGTH, isAtTextLimit, trimToMaxLength } from "../../../common/utils/textLimits";
 
 type Props = {
   onClose: () => void;
@@ -18,7 +19,7 @@ export default function AddTenantModal({ onClose, onSuccess }: Props) {
   const [error, setError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setFormData((prev) => ({ ...prev, [e.target.name]: trimToMaxLength(e.target.value) }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -70,7 +71,11 @@ export default function AddTenantModal({ onClose, onSuccess }: Props) {
                 required
                 disabled={loading}
                 autoFocus
+                maxLength={MAX_TEXT_LENGTH}
               />
+              {isAtTextLimit(formData.name) ? (
+                <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+              ) : null}
             </div>
 
             <div>
@@ -85,7 +90,11 @@ export default function AddTenantModal({ onClose, onSuccess }: Props) {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 disabled={loading}
+                maxLength={MAX_TEXT_LENGTH}
               />
+              {isAtTextLimit(formData.email) ? (
+                <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+              ) : null}
             </div>
 
             <div>
@@ -100,7 +109,11 @@ export default function AddTenantModal({ onClose, onSuccess }: Props) {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 disabled={loading}
+                maxLength={MAX_TEXT_LENGTH}
               />
+              {isAtTextLimit(formData.phone) ? (
+                <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+              ) : null}
             </div>
 
             <div>
@@ -116,7 +129,11 @@ export default function AddTenantModal({ onClose, onSuccess }: Props) {
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 required
                 disabled={loading}
+                maxLength={MAX_TEXT_LENGTH}
               />
+              {isAtTextLimit(formData.address) ? (
+                <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+              ) : null}
             </div>
           </div>
 

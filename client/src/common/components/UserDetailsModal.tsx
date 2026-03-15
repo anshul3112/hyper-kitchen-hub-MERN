@@ -1,4 +1,5 @@
 import ModalShell from "./ModalShell";
+import TruncatedText from "./TruncatedText";
 
 export type UserDetailRecord = {
   _id: string;
@@ -42,7 +43,9 @@ export default function UserDetailsModal({ user, roleLabel, onClose }: Props) {
           ].map((item) => (
             <div key={item.label} className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{item.label}</p>
-              <p className="mt-1 text-sm font-semibold text-gray-800">{item.value}</p>
+              <p className="mt-1 text-sm font-semibold text-gray-800">
+                <TruncatedText text={item.value} maxLength={22} />
+              </p>
             </div>
           ))}
         </div>
@@ -52,15 +55,21 @@ export default function UserDetailsModal({ user, roleLabel, onClose }: Props) {
           <dl className="mt-3 grid gap-3 sm:grid-cols-2 text-sm text-gray-600">
             <div>
               <dt className="text-gray-400">Full Name</dt>
-              <dd className="mt-1 font-medium text-gray-800">{user.name || "-"}</dd>
+              <dd className="mt-1 font-medium text-gray-800">
+                <TruncatedText text={user.name || "-"} maxLength={36} />
+              </dd>
             </div>
             <div>
               <dt className="text-gray-400">Email</dt>
-              <dd className="mt-1 font-medium text-gray-800">{user.email || "-"}</dd>
+              <dd className="mt-1 font-medium text-gray-800">
+                <TruncatedText text={user.email || "-"} maxLength={36} />
+              </dd>
             </div>
             <div>
               <dt className="text-gray-400">Phone</dt>
-              <dd className="mt-1 font-medium text-gray-800">{user.phoneNumber || "-"}</dd>
+              <dd className="mt-1 font-medium text-gray-800">
+                <TruncatedText text={user.phoneNumber || "-"} maxLength={24} />
+              </dd>
             </div>
             <div>
               <dt className="text-gray-400">Created</dt>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchOutletStaff, type OutletStaffMember, type OutletStaffRole } from "../api";
 import CreateOutletUserModal from "./CreateOutletUserModal";
 import UserDetailsModal from "../../../common/components/UserDetailsModal";
+import TruncatedText from "../../../common/components/TruncatedText";
 
 const ROLE_LABEL: Record<OutletStaffRole, string> = {
   kitchenStaff: "Kitchen Staff",
@@ -171,10 +172,14 @@ export default function OutletUsersTab() {
                           .join("")
                           .toUpperCase()}
                       </div>
-                      <span className="font-medium text-gray-800">{member.name}</span>
+                      <span className="font-medium text-gray-800">
+                        <TruncatedText text={member.name} maxLength={22} />
+                      </span>
                     </div>
                   </td>
-                  <td className="px-5 py-4 text-gray-500">{member.email}</td>
+                  <td className="px-5 py-4 text-gray-500">
+                    <TruncatedText text={member.email} maxLength={26} />
+                  </td>
                   <td className="px-5 py-4 text-gray-500 hidden sm:table-cell">
                     {member.phoneNumber || "—"}
                   </td>

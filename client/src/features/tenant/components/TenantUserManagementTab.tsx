@@ -6,6 +6,7 @@ import {
   type CursorPagination,
 } from "../api";
 import UserDetailsModal from "../../../common/components/UserDetailsModal";
+import TruncatedText from "../../../common/components/TruncatedText";
 
 const ROLE_OPTIONS = ["", "tenantAdmin", "tenantOwner", "outletAdmin", "outletOwner", "kitchenStaff", "billingStaff"];
 
@@ -156,14 +157,20 @@ export default function TenantUserManagementTab() {
               <tbody className="divide-y divide-gray-100">
                 {users.map((user) => (
                   <tr key={user._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3 text-sm font-medium text-gray-800">{user.name}</td>
-                    <td className="px-5 py-3 text-sm text-gray-500">{user.email}</td>
+                    <td className="px-5 py-3 text-sm font-medium text-gray-800">
+                      <TruncatedText text={user.name} maxLength={24} />
+                    </td>
+                    <td className="px-5 py-3 text-sm text-gray-500">
+                      <TruncatedText text={user.email} maxLength={28} />
+                    </td>
                     <td className="px-5 py-3 text-sm">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-600"}`}>
                         {ROLE_LABEL_MAP[user.role] ?? user.role}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-sm text-gray-500">{user.outlet?.outletName || "—"}</td>
+                    <td className="px-5 py-3 text-sm text-gray-500">
+                      <TruncatedText text={user.outlet?.outletName || "—"} maxLength={20} />
+                    </td>
                     <td className="px-5 py-3 text-sm">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.status ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                         {user.status ? "Active" : "Disabled"}

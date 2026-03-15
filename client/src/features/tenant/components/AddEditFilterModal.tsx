@@ -8,6 +8,7 @@ import {
   type MultiLangString,
 } from "../api";
 import { LANGUAGE_META } from "../../../common/utils/languages";
+import { MAX_TEXT_LENGTH, isAtTextLimit, trimToMaxLength } from "../../../common/utils/textLimits";
 
 interface Props {
   filter?: MenuFilter | null; // null = create, MenuFilter = edit
@@ -125,12 +126,16 @@ export default function AddEditFilterModal({ filter, kioskLanguages, onClose, on
               <input
                 type="text"
                 value={nameEn}
-                onChange={(e) => setNameEn(e.target.value)}
+                onChange={(e) => setNameEn(trimToMaxLength(e.target.value))}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                 placeholder="e.g. Veg, Non-Veg, Spicy"
                 required
                 autoFocus
+                maxLength={MAX_TEXT_LENGTH}
               />
+              {isAtTextLimit(nameEn) ? (
+                <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+              ) : null}
             </div>
             {/* Translation inputs for enabled kiosk languages */}
             {kioskLanguages
@@ -147,11 +152,15 @@ export default function AddEditFilterModal({ filter, kioskLanguages, onClose, on
                       type="text"
                       value={nameTrans[meta.code] ?? ""}
                       onChange={(e) =>
-                        setNameTrans((prev) => ({ ...prev, [meta.code]: e.target.value }))
+                        setNameTrans((prev) => ({ ...prev, [meta.code]: trimToMaxLength(e.target.value) }))
                       }
                       className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                       placeholder={`Translation in ${meta.nativeLabel}`}
+                      maxLength={MAX_TEXT_LENGTH}
                     />
+                    {isAtTextLimit(nameTrans[meta.code] ?? "") ? (
+                      <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+                    ) : null}
                   </div>
                 );
               })}

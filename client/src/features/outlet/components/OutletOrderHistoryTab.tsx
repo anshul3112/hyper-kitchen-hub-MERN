@@ -9,6 +9,7 @@ import {
 } from "../api";
 import HourlyOrdersModal from "../../../common/components/HourlyOrdersModal";
 import OrderDetailsModal, { type OrderDetailRecord } from "../../../common/components/OrderDetailsModal";
+import TruncatedText from "../../../common/components/TruncatedText";
 
 // ── shared helpers ─────────────────────────────────────────────────────────────
 const STATUS_OPTIONS = ["", "Pending", "Processing", "Completed", "Failed"];
@@ -133,7 +134,9 @@ function OrdersView() {
                 {orders.map((o) => (
                   <tr key={o._id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 text-sm font-medium text-gray-800">#{o.orderNo}</td>
-                    <td className="px-5 py-3 text-sm text-gray-700">{o.name}</td>
+                    <td className="px-5 py-3 text-sm text-gray-700">
+                      <TruncatedText text={o.name} maxLength={24} />
+                    </td>
                     <td className="px-5 py-3 text-sm font-medium text-gray-800">₹{o.totalAmount.toLocaleString()}</td>
                     <td className="px-5 py-3 text-sm text-gray-500">{o.paymentStatus}</td>
                     <td className="px-5 py-3 text-sm text-gray-500">{o.fulfillmentStatus}</td>

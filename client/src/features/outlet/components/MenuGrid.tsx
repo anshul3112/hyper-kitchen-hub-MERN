@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { MenuCategory, MenuFilter, MenuItem } from "../api";
 import { localised } from "../../../common/utils/languages";
+import TruncatedText from "../../../common/components/TruncatedText";
 
 type Props = {
   categories: MenuCategory[];
@@ -70,7 +71,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
                 : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
             }`}
           >
-            {localised(cat.name, 'en')}
+            <TruncatedText text={localised(cat.name, 'en')} maxLength={18} showToggle={false} className="inline-block max-w-[120px] truncate align-bottom" />
           </button>
         ))}
       </div>
@@ -98,7 +99,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
                   : "bg-orange-50 text-orange-600 hover:bg-orange-100"
               }`}
             >
-              {localised(filt.name, 'en')}
+              <TruncatedText text={localised(filt.name, 'en')} maxLength={16} showToggle={false} className="inline-block max-w-[110px] truncate align-bottom" />
             </button>
           ))}
         </div>
@@ -136,11 +137,13 @@ export default function MenuGrid({ categories, filters, items }: Props) {
 
               {/* Details */}
               <div className="p-3 flex flex-col gap-1 flex-1">
-                <p className="text-sm font-semibold text-gray-900 leading-tight line-clamp-2">
-                  {localised(item.name, 'en')}
+                <p className="text-sm font-semibold text-gray-900 leading-tight">
+                  <TruncatedText text={localised(item.name, 'en')} maxLength={32} />
                 </p>
                 {item.description && (
-                  <p className="text-xs text-gray-500 line-clamp-2">{localised(item.description, 'en')}</p>
+                  <p className="text-xs text-gray-500">
+                    <TruncatedText text={localised(item.description, 'en')} maxLength={56} />
+                  </p>
                 )}
                 <div className="mt-auto pt-2 flex items-center justify-between">
                   <span className="text-sm font-bold text-blue-600">
@@ -153,7 +156,7 @@ export default function MenuGrid({ categories, filters, items }: Props) {
                           key={f._id}
                           className="text-xs bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded"
                         >
-                          {localised(f.name, 'en')}
+                          <TruncatedText text={localised(f.name, 'en')} maxLength={12} showToggle={false} className="inline-block max-w-[80px] truncate align-bottom" />
                         </span>
                       ))}
                     </div>

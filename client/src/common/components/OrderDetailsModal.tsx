@@ -1,4 +1,5 @@
 import ModalShell from "./ModalShell";
+import TruncatedText from "./TruncatedText";
 
 export type OrderDetailRecord = {
   _id: string;
@@ -68,15 +69,21 @@ export default function OrderDetailsModal({ order, onClose }: Props) {
             <dl className="mt-3 space-y-2 text-sm text-gray-600">
               <div className="flex items-start justify-between gap-3">
                 <dt className="text-gray-400">Customer</dt>
-                <dd className="text-right font-medium text-gray-800">{order.name || "-"}</dd>
+                <dd className="text-right font-medium text-gray-800">
+                  <TruncatedText text={order.name || "-"} maxLength={28} />
+                </dd>
               </div>
               <div className="flex items-start justify-between gap-3">
                 <dt className="text-gray-400">Tenant</dt>
-                <dd className="text-right">{tenantName}</dd>
+                <dd className="text-right">
+                  <TruncatedText text={tenantName} maxLength={24} />
+                </dd>
               </div>
               <div className="flex items-start justify-between gap-3">
                 <dt className="text-gray-400">Outlet</dt>
-                <dd className="text-right">{outletName}</dd>
+                <dd className="text-right">
+                  <TruncatedText text={outletName} maxLength={24} />
+                </dd>
               </div>
               <div className="flex items-start justify-between gap-3">
                 <dt className="text-gray-400">Placed At</dt>
@@ -132,7 +139,9 @@ export default function OrderDetailsModal({ order, onClose }: Props) {
                 <tbody className="divide-y divide-gray-100">
                   {items.map((item, index) => (
                     <tr key={`${item.itemId ?? item.name}-${index}`}>
-                      <td className="px-4 py-3 font-medium text-gray-800">{item.name}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">
+                        <TruncatedText text={item.name} maxLength={26} />
+                      </td>
                       <td className="px-4 py-3 text-gray-600">{item.qty}</td>
                       <td className="px-4 py-3 text-gray-600">{formatCurrency(item.price)}</td>
                       <td className="px-4 py-3 font-medium text-gray-800">{formatCurrency(item.price * item.qty)}</td>

@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createTenantAdmin, type Tenant, type TenantAdmin } from "../api";
+import TruncatedText from "../../../common/components/TruncatedText";
+import { MAX_TEXT_LENGTH, isAtTextLimit, trimToMaxLength } from "../../../common/utils/textLimits";
 
 type Props = {
   tenants: Tenant[];
@@ -46,7 +48,7 @@ export default function AddTenantAdminModal({ tenants, onClose, onSuccess }: Pro
   const selectedTenant = tenants.find((t) => t._id === selectedTenantId);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: trimToMaxLength(e.target.value) }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -98,7 +100,7 @@ export default function AddTenantAdminModal({ tenants, onClose, onSuccess }: Pro
                 type="text"
                 value={tenantSearch}
                 onChange={(e) => {
-                  setTenantSearch(e.target.value);
+                  setTenantSearch(trimToMaxLength(e.target.value));
                   setSelectedTenantId("");
                   setDropdownOpen(true);
                 }}
@@ -107,7 +109,11 @@ export default function AddTenantAdminModal({ tenants, onClose, onSuccess }: Pro
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm pr-8"
                 disabled={loading}
                 autoComplete="off"
+                maxLength={MAX_TEXT_LENGTH}
               />
+              {isAtTextLimit(tenantSearch) ? (
+                <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+              ) : null}
               {/* chevron */}
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs">▾</span>
 
@@ -125,7 +131,7 @@ export default function AddTenantAdminModal({ tenants, onClose, onSuccess }: Pro
                           selectedTenantId === t._id ? "bg-blue-50 font-medium text-blue-700" : "text-gray-700"
                         }`}
                       >
-                        {t.name}
+                        <TruncatedText text={t.name} maxLength={30} showToggle={false} className="inline-block max-w-full truncate" />
                       </button>
                     ))
                   )}
@@ -157,7 +163,11 @@ export default function AddTenantAdminModal({ tenants, onClose, onSuccess }: Pro
               required
               disabled={loading}
               autoFocus
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.name) ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           <div>
@@ -172,7 +182,11 @@ export default function AddTenantAdminModal({ tenants, onClose, onSuccess }: Pro
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm"
               required
               disabled={loading}
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.email) ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           <div>
@@ -187,7 +201,11 @@ export default function AddTenantAdminModal({ tenants, onClose, onSuccess }: Pro
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm"
               required
               disabled={loading}
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.phoneNumber) ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           <div>
@@ -203,7 +221,11 @@ export default function AddTenantAdminModal({ tenants, onClose, onSuccess }: Pro
               required
               disabled={loading}
               placeholder="Min 8 characters"
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.password) ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           <div className="flex gap-3 pt-2">

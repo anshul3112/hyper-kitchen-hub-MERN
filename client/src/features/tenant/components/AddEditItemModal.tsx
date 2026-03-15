@@ -11,6 +11,7 @@ import {
   type MultiLangString,
 } from "../api";
 import { LANGUAGE_META } from "../../../common/utils/languages";
+import { MAX_TEXT_LENGTH, isAtTextLimit, trimToMaxLength } from "../../../common/utils/textLimits";
 
 interface Props {
   item?: MenuItem | null; // null = create, MenuItem = edit
@@ -208,12 +209,16 @@ export default function AddEditItemModal({
               <input
                 type="text"
                 value={nameEn}
-                onChange={(e) => setNameEn(e.target.value)}
+                onChange={(e) => setNameEn(trimToMaxLength(e.target.value))}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                 placeholder="e.g. Paneer Butter Masala"
                 required
                 autoFocus
+                maxLength={MAX_TEXT_LENGTH}
               />
+              {isAtTextLimit(nameEn) ? (
+                <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+              ) : null}
             </div>
             {/* Translation name inputs */}
             {kioskLanguages
@@ -230,11 +235,15 @@ export default function AddEditItemModal({
                       type="text"
                       value={nameTrans[meta.code] ?? ""}
                       onChange={(e) =>
-                        setNameTrans((prev) => ({ ...prev, [meta.code]: e.target.value }))
+                        setNameTrans((prev) => ({ ...prev, [meta.code]: trimToMaxLength(e.target.value) }))
                       }
                       className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                       placeholder={`Translation in ${meta.nativeLabel}`}
+                      maxLength={MAX_TEXT_LENGTH}
                     />
+                    {isAtTextLimit(nameTrans[meta.code] ?? "") ? (
+                      <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+                    ) : null}
                   </div>
                 );
               })}
@@ -246,11 +255,15 @@ export default function AddEditItemModal({
               </label>
               <textarea
                 value={descEn}
-                onChange={(e) => setDescEn(e.target.value)}
+                onChange={(e) => setDescEn(trimToMaxLength(e.target.value))}
                 rows={2}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none"
                 placeholder="Short description..."
+                maxLength={MAX_TEXT_LENGTH}
               />
+              {isAtTextLimit(descEn) ? (
+                <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+              ) : null}
             </div>
             {/* Translation description inputs */}
             {kioskLanguages
@@ -266,12 +279,16 @@ export default function AddEditItemModal({
                     <textarea
                       value={descTrans[meta.code] ?? ""}
                       onChange={(e) =>
-                        setDescTrans((prev) => ({ ...prev, [meta.code]: e.target.value }))
+                        setDescTrans((prev) => ({ ...prev, [meta.code]: trimToMaxLength(e.target.value) }))
                       }
                       rows={2}
                       className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-none"
                       placeholder={`Description in ${meta.nativeLabel}`}
+                      maxLength={MAX_TEXT_LENGTH}
                     />
+                    {isAtTextLimit(descTrans[meta.code] ?? "") ? (
+                      <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+                    ) : null}
                   </div>
                 );
               })}
@@ -370,7 +387,7 @@ export default function AddEditItemModal({
                         }`}
                       >
                         {selected && "✓ "}
-                        {cat.name.en}
+                        <span className="inline-block max-w-[160px] truncate align-bottom" title={cat.name.en}>{cat.name.en}</span>
                       </button>
                     );
                   })}
@@ -402,7 +419,7 @@ export default function AddEditItemModal({
                         }`}
                       >
                         {selected && "✓ "}
-                        {filter.name.en}
+                        <span className="inline-block max-w-[160px] truncate align-bottom" title={filter.name.en}>{filter.name.en}</span>
                       </button>
                     );
                   })}
@@ -459,7 +476,7 @@ export default function AddEditItemModal({
                                 onChange={() => toggleComboItem(i._id)}
                                 className="accent-blue-600 w-4 h-4 flex-shrink-0"
                               />
-                              <span className="text-sm text-gray-800 flex-1 line-clamp-1">{i.name.en}</span>
+                              <span className="text-sm text-gray-800 flex-1 truncate" title={i.name.en}>{i.name.en}</span>
                               <span className="text-xs text-gray-400 flex-shrink-0">₹{i.defaultAmount}</span>
                               {checked && (
                                 <div className="flex items-center gap-1 flex-shrink-0">

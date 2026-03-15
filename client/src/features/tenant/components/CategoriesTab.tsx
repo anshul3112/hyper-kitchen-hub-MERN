@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { deleteCategory, type MenuCategory } from "../api";
 import AddEditCategoryModal from "./AddEditCategoryModal";
+import TruncatedText from "../../../common/components/TruncatedText";
 
 interface Props {
   categories: MenuCategory[];
@@ -108,7 +109,9 @@ export default function CategoriesTab({ categories, loading, kioskLanguages, onC
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="font-medium text-gray-800 text-sm truncate">{cat.name.en}</p>
+                  <p className="font-medium text-gray-800 text-sm">
+                    <TruncatedText text={cat.name.en} maxLength={24} />
+                  </p>
                   <span
                     className={`inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium ${
                       cat.status

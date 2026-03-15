@@ -1,5 +1,6 @@
 import type { OrderDetailRecord } from "./OrderDetailsModal";
 import ModalShell from "./ModalShell";
+import TruncatedText from "./TruncatedText";
 
 type Props = {
   title: string;
@@ -76,7 +77,9 @@ export default function HourlyOrdersModal({
                     {orders.map((order) => (
                       <tr key={order._id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 font-medium text-gray-800">#{order.orderNo}</td>
-                        <td className="px-4 py-3 text-gray-700">{order.name}</td>
+                        <td className="px-4 py-3 text-gray-700">
+                          <TruncatedText text={order.name} maxLength={24} />
+                        </td>
                         <td className="px-4 py-3 font-medium text-gray-800">{formatCurrency(order.totalAmount)}</td>
                         <td className="px-4 py-3 text-gray-600">{order.paymentStatus}</td>
                         <td className="px-4 py-3 text-gray-600">{order.orderStatus}</td>

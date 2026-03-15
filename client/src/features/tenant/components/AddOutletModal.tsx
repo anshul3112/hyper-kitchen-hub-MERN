@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createOutlet, type CreateOutletInput, type Outlet } from "../api";
+import { MAX_TEXT_LENGTH, isAtTextLimit, trimToMaxLength } from "../../../common/utils/textLimits";
 
 type Props = {
   onClose: () => void;
@@ -66,22 +67,30 @@ export default function AddOutletModal({ onClose, onSuccess }: Props) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Outlet Name</label>
             <input
               value={form.name}
-              onChange={(e) => update("name", e.target.value)}
+              onChange={(e) => update("name", trimToMaxLength(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
               required
               disabled={loading}
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.name || "") ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
             <input
               value={form.address}
-              onChange={(e) => update("address", e.target.value)}
+              onChange={(e) => update("address", trimToMaxLength(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
               required
               disabled={loading}
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.address || "") ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           <div className="mb-4">
@@ -89,30 +98,42 @@ export default function AddOutletModal({ onClose, onSuccess }: Props) {
             <input
               type="email"
               value={form.contacts?.email || ""}
-              onChange={(e) => update("contacts", { ...form.contacts, email: e.target.value })}
+              onChange={(e) => update("contacts", { ...form.contacts, email: trimToMaxLength(e.target.value) })}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
               disabled={loading}
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.contacts?.email || "") ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number (optional)</label>
             <input
               value={form.contacts?.phoneNumber || ""}
-              onChange={(e) => update("contacts", { ...form.contacts, phoneNumber: e.target.value })}
+              onChange={(e) => update("contacts", { ...form.contacts, phoneNumber: trimToMaxLength(e.target.value) })}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
               disabled={loading}
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.contacts?.phoneNumber || "") ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-1">Image URL (optional)</label>
             <input
               value={form.imageUrl || ""}
-              onChange={(e) => update("imageUrl", e.target.value)}
+              onChange={(e) => update("imageUrl", trimToMaxLength(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
               disabled={loading}
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.imageUrl || "") ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           <div className="flex gap-3 justify-end">

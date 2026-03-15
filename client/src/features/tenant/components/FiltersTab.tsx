@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { deleteFilter, type MenuFilter } from "../api";
 import AddEditFilterModal from "./AddEditFilterModal";
+import TruncatedText from "../../../common/components/TruncatedText";
 
 interface Props {
   filters: MenuFilter[];
@@ -108,7 +109,9 @@ export default function FiltersTab({ filters, loading, kioskLanguages, onFilters
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="font-medium text-gray-800 text-sm truncate">{filter.name.en}</p>
+                  <p className="font-medium text-gray-800 text-sm">
+                    <TruncatedText text={filter.name.en} maxLength={24} />
+                  </p>
                   <span
                     className={`inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium ${
                       filter.isActive

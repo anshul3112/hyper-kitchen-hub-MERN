@@ -2,6 +2,7 @@ import { useState } from "react";
 import { deleteItem, updateItem, type MenuItem, type MenuCategory, type MenuFilter } from "../api";
 import AddEditItemModal from "./AddEditItemModal";
 import { localised } from "../../../common/utils/languages";
+import TruncatedText from "../../../common/components/TruncatedText";
 
 interface Props {
   items: MenuItem[];
@@ -161,8 +162,8 @@ export default function ItemsTab({ items, categories, filters, loading, kioskLan
                 {/* Body */}
                 <div className="p-3 flex-1 flex flex-col gap-2">
                   <div>
-                    <h4 className="font-semibold text-gray-800 text-sm leading-tight line-clamp-1">
-                      {localised(item.name, 'en')}
+                    <h4 className="font-semibold text-gray-800 text-sm leading-tight">
+                      <TruncatedText text={localised(item.name, 'en')} maxLength={28} className="inline" />
                     </h4>
                     {item.type === 'combo' && (
                       <span className="inline-block mt-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
@@ -173,8 +174,8 @@ export default function ItemsTab({ items, categories, filters, loading, kioskLan
                       ₹{item.defaultAmount.toLocaleString("en-IN")}
                     </p>
                     {item.description && (
-                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                        {localised(item.description, 'en')}
+                      <p className="text-xs text-gray-500 mt-1">
+                        <TruncatedText text={localised(item.description, 'en')} maxLength={60} className="inline" />
                       </p>
                     )}
                   </div>
@@ -185,7 +186,7 @@ export default function ItemsTab({ items, categories, filters, loading, kioskLan
                       <span
                         className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100"
                       >
-                        {localised(item.category.name, 'en')}
+                        <TruncatedText text={localised(item.category.name, 'en')} maxLength={16} showToggle={false} className="inline-block max-w-[110px] truncate align-bottom" />
                       </span>
                     </div>
                   )}
@@ -198,7 +199,7 @@ export default function ItemsTab({ items, categories, filters, loading, kioskLan
                           key={f._id}
                           className="text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full border border-orange-100"
                         >
-                          {localised(f.name, 'en')}
+                          <TruncatedText text={localised(f.name, 'en')} maxLength={14} showToggle={false} className="inline-block max-w-[90px] truncate align-bottom" />
                         </span>
                       ))}
                     </div>

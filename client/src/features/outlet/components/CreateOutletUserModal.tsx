@@ -4,6 +4,7 @@ import {
   type OutletStaffMember,
   type OutletStaffRole,
 } from "../api";
+import { MAX_TEXT_LENGTH, isAtTextLimit, trimToMaxLength } from "../../../common/utils/textLimits";
 
 type Props = {
   onClose: () => void;
@@ -32,7 +33,7 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
   const [error, setError] = useState("");
 
   const set = (field: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    setForm((prev) => ({ ...prev, [field]: trimToMaxLength(e.target.value) }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +105,11 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
               required
               placeholder="e.g. Ravi Kumar"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.name) ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           {/* Email */}
@@ -119,7 +124,11 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
               required
               placeholder="staff@example.com"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.email) ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           {/* Phone */}
@@ -134,7 +143,11 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
               required
               placeholder="9876543210"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.phoneNumber) ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           {/* Password */}
@@ -149,7 +162,11 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
               required
               placeholder="Min 8 characters"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
+              maxLength={MAX_TEXT_LENGTH}
             />
+            {isAtTextLimit(form.password) ? (
+              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
+            ) : null}
           </div>
 
           {error && (

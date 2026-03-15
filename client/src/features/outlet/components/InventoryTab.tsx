@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { localised } from "../../../common/utils/languages";
+import TruncatedText from "../../../common/components/TruncatedText";
 import {
   fetchOutletInventory,
   fetchMenuDetails,
@@ -237,7 +238,7 @@ export default function InventoryTab({ socketRef }: Props) {
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="font-medium text-gray-800">
-                            {localised(item.name, "en")}
+                            <TruncatedText text={localised(item.name, "en")} maxLength={30} />
                           </p>
                           {isCombo && (
                             <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">
@@ -246,8 +247,8 @@ export default function InventoryTab({ socketRef }: Props) {
                           )}
                         </div>
                         {item.description && (
-                          <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[14rem]">
-                            {localised(item.description, "en")}
+                          <p className="text-xs text-gray-400 mt-0.5 max-w-[14rem]">
+                            <TruncatedText text={localised(item.description, "en")} maxLength={48} />
                           </p>
                         )}
                       </div>
