@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import { useSearchParams } from "react-router-dom";
 
 import AccessBlockedScreen from "../../../common/components/AccessBlockedScreen";
 import DashboardHeader from "../../../common/components/DashboardHeader";
@@ -57,7 +58,14 @@ const getAlertItemName = (raw: unknown): string => {
 };
 
 export default function OutletAdminPage() {
-  const [activeSection, setActiveSection] = useState("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isValidSection = (value: string | null): value is string =>
+    !!value && TABS.some((tab) => tab.key === value);
+
+  const [activeSection, setActiveSection] = useState(() => {
+    const sectionFromQuery = searchParams.get("tab");
+    return isValidSection(sectionFromQuery) ? sectionFromQuery : "overview";
+  });
 
   // Low-stock alert toasts
   const [alerts, setAlerts] = useState<LowStockAlert[]>([]);
@@ -145,6 +153,20 @@ export default function OutletAdminPage() {
     }
   }, [activeSection, accessBlockedMessage, loadMenu]);
 
+  useEffect(() => {
+    const sectionFromQuery = searchParams.get("tab");
+    if (isValidSection(sectionFromQuery) && sectionFromQuery !== activeSection) {
+      setActiveSection(sectionFromQuery);
+    }
+  }, [searchParams, activeSection]);
+
+  const handleSectionChange = (sectionKey: string) => {
+    setActiveSection(sectionKey);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", sectionKey);
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const initializePage = async () => {
     setKiosksLoading(true);
     setMenuLoading(true);
@@ -204,7 +226,7 @@ export default function OutletAdminPage() {
       />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <NavTabs tabs={TABS} active={activeSection} onChange={setActiveSection} />
+        <NavTabs tabs={TABS} active={activeSection} onChange={handleSectionChange} />
 
         {/* ── Overview ── */}
         {activeSection === "overview" && (

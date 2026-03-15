@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   fetchCategories,
   fetchFilters,
@@ -22,7 +23,14 @@ const SUB_TABS = [
 type SubTab = (typeof SUB_TABS)[number]["key"];
 
 export default function TenantMenuPanel() {
-  const [activeTab, setActiveTab] = useState<SubTab>("items");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isValidSubTab = (value: string | null): value is SubTab =>
+    !!value && SUB_TABS.some((tab) => tab.key === value);
+
+  const [activeTab, setActiveTab] = useState<SubTab>(() => {
+    const tabFromQuery = searchParams.get("menuTab");
+    return isValidSubTab(tabFromQuery) ? tabFromQuery : "items";
+  });
 
   // Kiosk languages enabled for this tenant
   const [kioskLanguages, setKioskLanguages] = useState<string[]>(["English"]);
@@ -52,6 +60,20 @@ export default function TenantMenuPanel() {
     loadFilters();
     loadKioskLanguages();
   }, []);
+
+  useEffect(() => {
+    const tabFromQuery = searchParams.get("menuTab");
+    if (isValidSubTab(tabFromQuery) && tabFromQuery !== activeTab) {
+      setActiveTab(tabFromQuery);
+    }
+  }, [searchParams, activeTab]);
+
+  const handleSubTabChange = (tabKey: SubTab) => {
+    setActiveTab(tabKey);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("menuTab", tabKey);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const loadKioskLanguages = async () => {
     try {
@@ -115,7 +137,7 @@ export default function TenantMenuPanel() {
         {SUB_TABS.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => handleSubTabChange(tab.key)}
             className={`px-5 py-2 text-sm font-medium rounded-md transition-colors ${
               activeTab === tab.key
                 ? "bg-white text-gray-900 shadow-sm"

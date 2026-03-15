@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import DashboardHeader from "../../../common/components/DashboardHeader";
 
@@ -20,7 +21,14 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function SuperAdminPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("analytics");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isValidTab = (value: string | null): value is Tab =>
+    !!value && TABS.some((tab) => tab.id === value);
+
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tabFromQuery = searchParams.get("tab");
+    return isValidTab(tabFromQuery) ? tabFromQuery : "analytics";
+  });
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -30,6 +38,20 @@ export default function SuperAdminPage() {
   useEffect(() => {
     if (activeTab === "tenants") loadTenants();
   }, [activeTab]);
+
+  useEffect(() => {
+    const tabFromQuery = searchParams.get("tab");
+    if (isValidTab(tabFromQuery) && tabFromQuery !== activeTab) {
+      setActiveTab(tabFromQuery);
+    }
+  }, [searchParams, activeTab]);
+
+  const handleTabChange = (tabKey: Tab) => {
+    setActiveTab(tabKey);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", tabKey);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const loadTenants = async () => {
     setLoading(true);
@@ -67,7 +89,7 @@ export default function SuperAdminPage() {
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`px-5 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                   activeTab === tab.id
                     ? "border-blue-600 text-blue-600"

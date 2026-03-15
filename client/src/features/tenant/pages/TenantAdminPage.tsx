@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import AccessBlockedScreen from "../../../common/components/AccessBlockedScreen";
 import DashboardHeader from "../../../common/components/DashboardHeader";
@@ -26,7 +27,14 @@ const TABS = [
 ];
 
 export default function TenantAdminPage() {
-  const [activeSection, setActiveSection] = useState("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isValidSection = (value: string | null): value is string =>
+    !!value && TABS.some((tab) => tab.key === value);
+
+  const [activeSection, setActiveSection] = useState(() => {
+    const sectionFromQuery = searchParams.get("tab");
+    return isValidSection(sectionFromQuery) ? sectionFromQuery : "overview";
+  });
   const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -37,6 +45,20 @@ export default function TenantAdminPage() {
   useEffect(() => {
     void initializePage();
   }, []);
+
+  useEffect(() => {
+    const sectionFromQuery = searchParams.get("tab");
+    if (isValidSection(sectionFromQuery) && sectionFromQuery !== activeSection) {
+      setActiveSection(sectionFromQuery);
+    }
+  }, [searchParams, activeSection]);
+
+  const handleSectionChange = (sectionKey: string) => {
+    setActiveSection(sectionKey);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", sectionKey);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const initializePage = async () => {
     setLoading(true);
@@ -96,7 +118,7 @@ export default function TenantAdminPage() {
       />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <NavTabs tabs={TABS} active={activeSection} onChange={setActiveSection} />
+        <NavTabs tabs={TABS} active={activeSection} onChange={handleSectionChange} />
 
         {activeSection === "overview" && (
           <div>
