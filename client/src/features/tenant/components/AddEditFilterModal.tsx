@@ -115,11 +115,6 @@ export default function AddEditFilterModal({ filter, kioskLanguages, onClose, on
           </h2>
         </div>
         <div className="px-6 py-4">
-          {error && (
-            <p className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
-              {error}
-            </p>
-          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Name (English) *</label>
@@ -257,6 +252,11 @@ export default function AddEditFilterModal({ filter, kioskLanguages, onClose, on
                   : "Add Filter"}
               </button>
             </div>
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                {error}
+              </p>
+            )}
           </form>
         </div>
       </div>

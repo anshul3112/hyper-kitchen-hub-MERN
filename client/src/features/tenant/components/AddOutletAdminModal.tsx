@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { createOutletAdmin, type Outlet, type OutletAdmin } from "../api";
 import TruncatedText from "../../../common/components/TruncatedText";
 import { MAX_TEXT_LENGTH, isAtTextLimit, trimToMaxLength } from "../../../common/utils/textLimits";
+import { isValidEmail, isValidPassword, isValidPhone, normalizePhoneInput } from "../../../common/utils/fieldValidation";
 
 type Props = {
   outlets: Outlet[];
@@ -41,20 +42,69 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
     password: "",
     phoneNumber: "",
   });
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<keyof typeof form | "outlet", string>>
+  >({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: trimToMaxLength(e.target.value) }));
+  const validateField = (field: keyof typeof form, value: string) => {
+    if (field === "name") return value.trim() ? "" : "Full name is required.";
+    if (field === "email") {
+      if (!value.trim()) return "Email is required.";
+      return isValidEmail(value) ? "" : "Enter a valid email address.";
+    }
+    if (field === "phoneNumber") {
+      if (!value.trim()) return "Phone number is required.";
+      return isValidPhone(value) ? "" : "Phone number must be exactly 10 digits.";
+    }
+    if (field === "password") {
+      if (!value) return "Password is required.";
+      return isValidPassword(value) ? "" : "Password must be at least 8 characters and include letters and numbers.";
+    }
+    return "";
   };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const key = e.target.name as keyof typeof form;
+    const value = key === "phoneNumber" ? normalizePhoneInput(e.target.value) : trimToMaxLength(e.target.value);
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setFieldErrors((prev) => ({ ...prev, [key]: validateField(key, value) }));
+  };
+
+  const validateForm = () => {
+    const nextErrors: Partial<Record<keyof typeof form | "outlet", string>> = {};
+    const selectedOutlet = outlets.find((o) => o._id === selectedOutletId);
+
+    if (!selectedOutlet) nextErrors.outlet = "Please select an outlet.";
+    if (!form.name.trim()) nextErrors.name = "Full name is required.";
+    if (!form.email.trim()) nextErrors.email = "Email is required.";
+    else if (!isValidEmail(form.email)) nextErrors.email = "Enter a valid email address.";
+    if (!form.phoneNumber.trim()) nextErrors.phoneNumber = "Phone number is required.";
+    else if (!isValidPhone(form.phoneNumber)) nextErrors.phoneNumber = "Phone number must be exactly 10 digits.";
+    if (!form.password) nextErrors.password = "Password is required.";
+    else if (!isValidPassword(form.password)) nextErrors.password = "Password must be at least 8 characters and include letters and numbers.";
+
+    setFieldErrors(nextErrors);
+    return { valid: Object.keys(nextErrors).length === 0, selectedOutlet };
+  };
+
+  const canSubmit =
+    Boolean(selectedOutletId) &&
+    Boolean(form.name.trim()) &&
+    Boolean(form.email.trim()) &&
+    Boolean(form.phoneNumber.trim()) &&
+    Boolean(form.password) &&
+    !fieldErrors.outlet &&
+    !fieldErrors.name &&
+    !fieldErrors.email &&
+    !fieldErrors.phoneNumber &&
+    !fieldErrors.password;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const selectedOutlet = outlets.find((o) => o._id === selectedOutletId);
-    if (!selectedOutlet) {
-      setError("Please select an outlet.");
-      return;
-    }
+    const { valid, selectedOutlet } = validateForm();
+    if (!valid || !selectedOutlet) return;
     if (!selectedOutlet.tenant?.tenantId) {
       setError("Selected outlet has no tenant info. Please refresh and try again.");
       return;
@@ -63,15 +113,11 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
     setError("");
     try {
       const created = await createOutletAdmin({
-        name: form.name,
-        email: form.email,
+        name: form.name.trim(),
+        email: form.email.trim(),
         password: form.password,
         phoneNumber: form.phoneNumber,
         outlet: { outletId: selectedOutlet._id, outletName: selectedOutlet.name },
-        tenant: {
-          tenantId: selectedOutlet.tenant.tenantId,
-          tenantName: selectedOutlet.tenant.tenantName,
-        },
       });
       onSuccess(created);
     } catch (err: unknown) {
@@ -90,12 +136,6 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded">
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
-          )}
-
           {/* Searchable outlet selector */}
           <div ref={dropdownRef}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -108,6 +148,7 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
                 onChange={(e) => {
                   setOutletSearch(trimToMaxLength(e.target.value));
                   setSelectedOutletId("");
+                  setFieldErrors((prev) => ({ ...prev, outlet: "" }));
                   setDropdownOpen(true);
                 }}
                 onFocus={() => setDropdownOpen(true)}
@@ -155,6 +196,7 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
               aria-hidden="true"
               tabIndex={-1}
             />
+            {fieldErrors.outlet ? <p className="mt-1 text-xs text-red-600">{fieldErrors.outlet}</p> : null}
           </div>
 
           <div>
@@ -174,6 +216,7 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
             {isAtTextLimit(form.name) ? (
               <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
             ) : null}
+            {fieldErrors.name ? <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p> : null}
           </div>
 
           <div>
@@ -193,6 +236,7 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
             {isAtTextLimit(form.email) ? (
               <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
             ) : null}
+            {fieldErrors.email ? <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p> : null}
           </div>
 
           <div>
@@ -207,11 +251,9 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500 text-sm"
               required
               disabled={loading}
-              maxLength={MAX_TEXT_LENGTH}
+              maxLength={10}
             />
-            {isAtTextLimit(form.phoneNumber) ? (
-              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
-            ) : null}
+            {fieldErrors.phoneNumber ? <p className="mt-1 text-xs text-red-600">{fieldErrors.phoneNumber}</p> : null}
           </div>
 
           <div>
@@ -232,6 +274,7 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
             {isAtTextLimit(form.password) ? (
               <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
             ) : null}
+            {fieldErrors.password ? <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p> : null}
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -246,11 +289,17 @@ export default function AddOutletAdminModal({ outlets, onClose, onSuccess }: Pro
             <button
               type="submit"
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300 transition-colors text-sm"
-              disabled={loading}
+              disabled={loading || !canSubmit}
             >
               {loading ? "Creating..." : "Create Admin"}
             </button>
           </div>
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded">
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
         </form>
       </div>
     </div>

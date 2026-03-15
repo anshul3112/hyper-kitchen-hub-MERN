@@ -108,7 +108,6 @@ export type CreateOutletAdminInput = {
 	password: string;
 	phoneNumber: string;
 	outlet: { outletId: string; outletName: string };
-	tenant: { tenantId: string; tenantName: string };
 };
 
 export async function createOutletAdmin(payload: CreateOutletAdminInput): Promise<OutletAdmin> {

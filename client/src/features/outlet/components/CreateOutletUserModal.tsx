@@ -5,6 +5,7 @@ import {
   type OutletStaffRole,
 } from "../api";
 import { MAX_TEXT_LENGTH, isAtTextLimit, trimToMaxLength } from "../../../common/utils/textLimits";
+import { isValidEmail, isValidPassword, isValidPhone, normalizePhoneInput } from "../../../common/utils/fieldValidation";
 
 type Props = {
   onClose: () => void;
@@ -28,19 +29,70 @@ const EMPTY = { name: "", email: "", phoneNumber: "", password: "" };
 
 export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
   const [form, setForm] = useState(EMPTY);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof typeof EMPTY, string>>>({});
   const [selectedRole, setSelectedRole] = useState<OutletStaffRole>("kitchenStaff");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const validateField = (field: keyof typeof EMPTY, value: string) => {
+    if (field === "name") {
+      return value.trim() ? "" : "Full name is required.";
+    }
+    if (field === "email") {
+      if (!value.trim()) return "Email is required.";
+      return isValidEmail(value) ? "" : "Enter a valid email address.";
+    }
+    if (field === "phoneNumber") {
+      if (!value.trim()) return "Phone number is required.";
+      return isValidPhone(value) ? "" : "Phone number must be exactly 10 digits.";
+    }
+    if (field === "password") {
+      if (!value) return "Password is required.";
+      return isValidPassword(value) ? "" : "Password must be at least 8 characters and include letters and numbers.";
+    }
+    return "";
+  };
+
   const set = (field: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((prev) => ({ ...prev, [field]: trimToMaxLength(e.target.value) }));
+    setForm((prev) => {
+      const nextValue = field === "phoneNumber"
+        ? normalizePhoneInput(e.target.value)
+        : trimToMaxLength(e.target.value);
+      setFieldErrors((current) => ({ ...current, [field]: validateField(field, nextValue) }));
+      return { ...prev, [field]: nextValue };
+    });
+
+  const validateForm = () => {
+    const nextErrors: Partial<Record<keyof typeof EMPTY, string>> = {};
+    if (!form.name.trim()) nextErrors.name = "Full name is required.";
+    if (!form.email.trim()) nextErrors.email = "Email is required.";
+    else if (!isValidEmail(form.email)) nextErrors.email = "Enter a valid email address.";
+    if (!form.phoneNumber.trim()) nextErrors.phoneNumber = "Phone number is required.";
+    else if (!isValidPhone(form.phoneNumber)) nextErrors.phoneNumber = "Phone number must be exactly 10 digits.";
+    if (!form.password) nextErrors.password = "Password is required.";
+    else if (!isValidPassword(form.password)) nextErrors.password = "Password must be at least 8 characters and include letters and numbers.";
+
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const canSubmit =
+    Boolean(form.name.trim()) &&
+    Boolean(form.email.trim()) &&
+    Boolean(form.phoneNumber.trim()) &&
+    Boolean(form.password) &&
+    !fieldErrors.name &&
+    !fieldErrors.email &&
+    !fieldErrors.phoneNumber &&
+    !fieldErrors.password;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!validateForm()) return;
     setLoading(true);
     try {
-      const member = await createOutletStaff({ ...form, role: selectedRole });
+      const member = await createOutletStaff({ ...form, name: form.name.trim(), email: form.email.trim(), role: selectedRole });
       onSuccess(member);
       onClose();
     } catch (err: unknown) {
@@ -110,6 +162,7 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
             {isAtTextLimit(form.name) ? (
               <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
             ) : null}
+            {fieldErrors.name ? <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p> : null}
           </div>
 
           {/* Email */}
@@ -129,6 +182,7 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
             {isAtTextLimit(form.email) ? (
               <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
             ) : null}
+            {fieldErrors.email ? <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p> : null}
           </div>
 
           {/* Phone */}
@@ -143,11 +197,9 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
               required
               placeholder="9876543210"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
-              maxLength={MAX_TEXT_LENGTH}
+              maxLength={10}
             />
-            {isAtTextLimit(form.phoneNumber) ? (
-              <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
-            ) : null}
+            {fieldErrors.phoneNumber ? <p className="mt-1 text-xs text-red-600">{fieldErrors.phoneNumber}</p> : null}
           </div>
 
           {/* Password */}
@@ -167,13 +219,8 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
             {isAtTextLimit(form.password) ? (
               <p className="mt-1 text-xs text-amber-600">Maximum 100 characters reached.</p>
             ) : null}
+            {fieldErrors.password ? <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p> : null}
           </div>
-
-          {error && (
-            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
-              <span>{error}</span>
-            </div>
-          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-1">
@@ -186,12 +233,18 @@ export default function CreateOutletUserModal({ onClose, onSuccess }: Props) {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !canSubmit}
               className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? "Creating…" : "Create User"}
             </button>
           </div>
+
+          {error && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
+              <span>{error}</span>
+            </div>
+          )}
         </form>
       </div>
     </div>

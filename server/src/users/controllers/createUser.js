@@ -102,7 +102,9 @@ export const createOutletAdmin = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Only tenantAdmins can create outlet admins");
   }
 
-  const { name, email, password, tenant, outlet, phoneNumber } = req.body;
+  const { name, email, password, outlet, phoneNumber } = req.body;
+
+  req.body.tenant = user.tenant;
 
   validateCreateOutletAdmin(req.body);
   const outletAdmin = new User({
@@ -110,7 +112,7 @@ export const createOutletAdmin = asyncHandler(async (req, res) => {
     email,
     password,
     role: "outletAdmin",
-    tenant,
+    tenant: user.tenant,
     outlet,
     phoneNumber,
   });

@@ -197,11 +197,6 @@ export default function AddEditItemModal({
 
         {/* Scrollable body */}
         <div className="overflow-y-auto flex-1 px-6 py-4">
-          {error && (
-            <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
-              {error}
-            </p>
-          )}
           <form id="itemForm" onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>
@@ -542,6 +537,13 @@ export default function AddEditItemModal({
             {imageUploading ? (uploadStatus || "Processing…") : loading ? "Saving..." : isEdit ? "Save Changes" : "Add Item"}
           </button>
         </div>
+        {error && (
+          <div className="px-6 pb-4">
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+              {error}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
