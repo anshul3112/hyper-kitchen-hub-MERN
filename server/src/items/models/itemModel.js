@@ -74,5 +74,7 @@ const itemsSchema = new Schema({
 itemsSchema.index({ tenantId: 1 });
 // duplicate English-name check per tenant
 itemsSchema.index({ 'name.en': 1, tenantId: 1 }, { unique: true });
+// category lookup (getItemsByCategory)
+itemsSchema.index({ category: 1, tenantId: 1 });
 
 export const Items = mongoose.model("Items", itemsSchema);

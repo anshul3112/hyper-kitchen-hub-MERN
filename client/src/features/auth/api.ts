@@ -44,7 +44,6 @@ export async function fetchProfile(): Promise<UserProfile> {
 /** PATCH /api/v1/users/profile/update */
 export async function updateProfile(fields: {
   name?: string;
-  email?: string;
   phoneNumber?: string;
 }): Promise<UserProfile> {
   const res = await fetch(`${BASE_URL}/users/profile/update`, {
@@ -83,7 +82,7 @@ export type TenantInfo = {
 /** PATCH /api/v1/tenants/:tenantId/update */
 export async function updateTenantDetails(
   tenantId: string,
-  fields: { name?: string; address?: string; contacts?: { email?: string; phoneNumber?: string } }
+  fields: { name?: string; address?: string; contacts?: { phoneNumber?: string } }
 ): Promise<TenantInfo> {
   const res = await fetch(`${BASE_URL}/tenants/${tenantId}/update`, {
     method: "PATCH",
@@ -107,7 +106,7 @@ export type OutletInfo = {
 /** PATCH /api/v1/outlets/:outletId/update */
 export async function updateOutletDetails(
   outletId: string,
-  fields: { name?: string; address?: string; contacts?: { email?: string; phoneNumber?: string } }
+  fields: { name?: string; address?: string; contacts?: { phoneNumber?: string } }
 ): Promise<OutletInfo> {
   const res = await fetch(`${BASE_URL}/outlets/${outletId}/update`, {
     method: "PATCH",

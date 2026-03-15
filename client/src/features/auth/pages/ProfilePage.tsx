@@ -124,7 +124,6 @@ export default function ProfilePage() {
 
   // ── Edit personal info ─────────────────────────────────────────────────────
   const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [infoSaving, setInfoSaving] = useState(false);
   const [infoError, setInfoError] = useState("");
@@ -141,7 +140,6 @@ export default function ProfilePage() {
   // ── Tenant / Outlet entity info ────────────────────────────────────────────
   const [editEntityName, setEditEntityName] = useState("");
   const [editEntityAddress, setEditEntityAddress] = useState("");
-  const [editEntityEmail, setEditEntityEmail] = useState("");
   const [editEntityPhone, setEditEntityPhone] = useState("");
   const [entitySaving, setEntitySaving] = useState(false);
   const [entityError, setEntityError] = useState("");
@@ -154,7 +152,6 @@ export default function ProfilePage() {
         const data = await fetchProfile();
         setProfile(data);
         setEditName(data.name);
-        setEditEmail(data.email);
         setEditPhone(data.phoneNumber);
         // Load entity details
         await loadEntityInfo(data);
@@ -182,7 +179,6 @@ export default function ProfilePage() {
         if (t) {
           setEditEntityName(t.name ?? "");
           setEditEntityAddress(t.address ?? "");
-          setEditEntityEmail(t.contacts?.email ?? "");
           setEditEntityPhone(t.contacts?.phoneNumber ?? "");
         }
       } else if (
@@ -202,7 +198,6 @@ export default function ProfilePage() {
           if (o) {
             setEditEntityName(o.name ?? "");
             setEditEntityAddress(o.address ?? "");
-            setEditEntityEmail(o.contacts?.email ?? "");
             setEditEntityPhone(o.contacts?.phoneNumber ?? "");
           }
         } else {
@@ -224,7 +219,6 @@ export default function ProfilePage() {
     try {
       const updated = await updateProfile({
         name: editName,
-        email: editEmail,
         phoneNumber: editPhone,
       });
       setProfile((p) => (p ? { ...p, ...updated } : updated));
@@ -274,7 +268,7 @@ export default function ProfilePage() {
       const fields = {
         name: editEntityName,
         address: editEntityAddress,
-        contacts: { email: editEntityEmail, phoneNumber: editEntityPhone },
+        contacts: { phoneNumber: editEntityPhone },
       };
       if (
         ["tenantAdmin", "tenantOwner"].includes(profile!.role) &&
@@ -394,16 +388,6 @@ export default function ProfilePage() {
                     required
                   />
                 </div>
-                <Field
-                  id="edit-email"
-                  label="Email address"
-                  type="email"
-                  value={editEmail}
-                  onChange={setEditEmail}
-                  disabled={infoSaving}
-                  placeholder="you@example.com"
-                  required
-                />
 
                 <div className="flex items-center justify-between pt-1">
                   <StatusMsg error={infoError} success={infoSuccess} />
@@ -473,15 +457,6 @@ export default function ProfilePage() {
                       placeholder="+91XXXXXXXXXX"
                     />
                   </div>
-                  <Field
-                    id="entity-email"
-                    label="Contact email"
-                    type="email"
-                    value={editEntityEmail}
-                    onChange={setEditEntityEmail}
-                    disabled={entitySaving}
-                    placeholder="contact@example.com"
-                  />
                   <Field
                     id="entity-address"
                     label="Address"

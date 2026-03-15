@@ -49,15 +49,15 @@ export const changePassword = asyncHandler(async (req, res) => {
  * Allows the logged-in user to update their own basic details.
  */
 export const updateProfile = asyncHandler(async (req, res) => {
-  const { name, email, phoneNumber } = req.body;
+  // remove email update for now since it adds complexity (verification, uniqueness check, etc.) — can be added later if needed
+  const { name, phoneNumber } = req.body;
 
-  if (!name && !email && !phoneNumber) {
+  if (!name && !phoneNumber) {
     throw new ApiError(400, "Provide at least one field to update");
   }
 
   const update = {};
   if (name?.trim()) update.name = name.trim();
-  if (email?.trim()) update.email = email.trim().toLowerCase();
   if (phoneNumber?.trim()) update.phoneNumber = phoneNumber.trim();
 
   const user = await User.findByIdAndUpdate(
