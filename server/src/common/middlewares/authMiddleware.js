@@ -12,18 +12,10 @@ const OUTLET_LEVEL_ROLES = new Set([
   "billingStaff",
 ]);
 
-function getCookieValue(cookieHeader = "", key) {
-  return cookieHeader
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${key}=`))
-    ?.slice(key.length + 1);
-}
-
 const verifyJWT = async (req, _, next) => {
   try {
     const bearerToken = req.header("Authorization")?.replace("Bearer ", "");
-    const cookieToken = getCookieValue(req.headers.cookie, "accessToken");
+    const cookieToken = req.cookies?.accessToken;
     const token = bearerToken || cookieToken;
 
     if (!token) {

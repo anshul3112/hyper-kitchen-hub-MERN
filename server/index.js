@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import dotenv from "dotenv";
 import cors from 'cors' 
+import cookieParser from "cookie-parser";
 import connectDB from "./src/utils/db.js";
 import { connectToRedis } from "./src/utils/redis.js";
 import { initSocket } from "./src/utils/socket.js";
@@ -43,6 +44,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(cookieParser());
 app.use(apiLimiter);
 
 app.use(morgan("dev")); 

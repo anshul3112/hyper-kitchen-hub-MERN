@@ -1,15 +1,9 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
+import cookieParser from "cookie-parser";
 
 let io = null;
-
-function getCookieValue(cookieHeader = "", key) {
-  return cookieHeader
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${key}=`))
-    ?.slice(key.length + 1);
-}
+const parseCookies = cookieParser();
 
 export function initSocket(httpServer) {
   io = new Server(httpServer, {
@@ -24,37 +18,41 @@ export function initSocket(httpServer) {
   // Accepted token types: user JWT, kiosk JWT, display JWT.
 
   io.use((socket, next) => {
-    const token =
-      socket.handshake.auth?.token ||
-      socket.handshake.headers?.authorization?.replace("Bearer ", "") ||
-      getCookieValue(socket.handshake.headers?.cookie, "accessToken");
+    parseCookies(socket.request, {}, (parseErr) => {
+      if (parseErr) return next(parseErr);
 
-    if (!token) {
-      return next(new Error("Authentication token required"));
-    }
+      const token =
+        socket.handshake.auth?.token ||
+        socket.handshake.headers?.authorization?.replace("Bearer ", "") ||
+        socket.request.cookies?.accessToken;
 
-    try {
-      // Try user JWT first
-      const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      socket.data.user = decoded;
-      return next();
-    } catch {
-      // Fall through
-    }
-
-    try {
-      // KIOSK_TOKEN_SECRET is shared by kiosk and display devices.
-      // Distinguish by the role field in the payload.
-      const decoded = jwt.verify(token, process.env.KIOSK_TOKEN_SECRET);
-      if (decoded.role === "Display") {
-        socket.data.display = decoded; // display screen device
-      } else {
-        socket.data.kiosk = decoded;   // ordering kiosk
+      if (!token) {
+        return next(new Error("Authentication token required"));
       }
-      return next();
-    } catch {
-      return next(new Error("Invalid or expired token"));
-    }
+
+      try {
+        // Try user JWT first
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+        socket.data.user = decoded;
+        return next();
+      } catch {
+        // Fall through
+      }
+
+      try {
+        // KIOSK_TOKEN_SECRET is shared by kiosk and display devices.
+        // Distinguish by the role field in the payload.
+        const decoded = jwt.verify(token, process.env.KIOSK_TOKEN_SECRET);
+        if (decoded.role === "Display") {
+          socket.data.display = decoded; // display screen device
+        } else {
+          socket.data.kiosk = decoded;   // ordering kiosk
+        }
+        return next();
+      } catch {
+        return next(new Error("Invalid or expired token"));
+      }
+    });
   });
 
   io.on("connection", (socket) => {
