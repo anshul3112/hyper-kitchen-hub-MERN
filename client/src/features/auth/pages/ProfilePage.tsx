@@ -10,11 +10,12 @@ import {
   type TenantInfo,
   type OutletInfo,
 } from "../api";
+import { normalizePhoneInput, isValidPhone, isValidPassword } from "../../../common/utils/fieldValidation";
+import { trimToMaxLength } from "../../../common/utils/textLimits";
 
 const BASE_URL = "http://localhost:8000/api/v1";
 function authHeaders(): HeadersInit {
-  const token = localStorage.getItem("accessToken") ?? "";
-  return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  return { "Content-Type": "application/json" };
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -50,6 +51,8 @@ function Field({
   disabled,
   placeholder,
   required,
+  maxLength,
+  error,
 }: {
   label: string;
   id: string;
@@ -59,6 +62,8 @@ function Field({
   disabled: boolean;
   placeholder?: string;
   required?: boolean;
+  maxLength?: number;
+  error?: string;
 }) {
   return (
     <div>
@@ -71,10 +76,12 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={inputCls}
+        className={`${inputCls} ${error ? "border-red-400 ring-1 ring-red-200" : ""}`}
         disabled={disabled}
         required={required}
+        maxLength={maxLength}
       />
+      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }
@@ -125,6 +132,7 @@ export default function ProfilePage() {
   // ── Edit personal info ─────────────────────────────────────────────────────
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [infoFieldErrors, setInfoFieldErrors] = useState<Record<string, string>>({});
   const [infoSaving, setInfoSaving] = useState(false);
   const [infoError, setInfoError] = useState("");
   const [infoSuccess, setInfoSuccess] = useState("");
@@ -133,6 +141,7 @@ export default function ProfilePage() {
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
+  const [pwFieldErrors, setPwFieldErrors] = useState<Record<string, string>>({});
   const [pwSaving, setPwSaving] = useState(false);
   const [pwError, setPwError] = useState("");
   const [pwSuccess, setPwSuccess] = useState("");
@@ -141,9 +150,37 @@ export default function ProfilePage() {
   const [editEntityName, setEditEntityName] = useState("");
   const [editEntityAddress, setEditEntityAddress] = useState("");
   const [editEntityPhone, setEditEntityPhone] = useState("");
+  const [entityFieldErrors, setEntityFieldErrors] = useState<Record<string, string>>({});
   const [entitySaving, setEntitySaving] = useState(false);
   const [entityError, setEntityError] = useState("");
   const [entitySuccess, setEntitySuccess] = useState("");
+
+  const getInfoErrors = (name: string, phone: string) => {
+    const errors: Record<string, string> = {};
+    if (!name.trim()) errors.name = "Name is required";
+    if (!phone.trim()) errors.phone = "Phone is required";
+    else if (!isValidPhone(phone)) errors.phone = "Phone must be exactly 10 digits";
+    return errors;
+  };
+
+  const getEntityErrors = (name: string, phone: string) => {
+    const errors: Record<string, string> = {};
+    if (!name.trim()) errors.name = "Name is required";
+    if (phone.trim() && !isValidPhone(phone)) errors.phone = "Phone must be exactly 10 digits";
+    return errors;
+  };
+
+  const getPasswordErrors = (current: string, next: string, confirm: string) => {
+    const errors: Record<string, string> = {};
+    if (!current) errors.currentPassword = "Current password is required";
+    if (!next) errors.newPassword = "New password is required";
+    else if (!isValidPassword(next)) {
+      errors.newPassword = "Password must be 8+ chars and include letters and numbers";
+    }
+    if (!confirm) errors.confirmPassword = "Confirm password is required";
+    else if (next && confirm !== next) errors.confirmPassword = "Passwords do not match";
+    return errors;
+  };
 
   // ── Load profile ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -152,7 +189,9 @@ export default function ProfilePage() {
         const data = await fetchProfile();
         setProfile(data);
         setEditName(data.name);
-        setEditPhone(data.phoneNumber);
+        const normalizedPhone = normalizePhoneInput(data.phoneNumber || "");
+        setEditPhone(normalizedPhone);
+        setInfoFieldErrors(getInfoErrors(data.name, normalizedPhone));
         // Load entity details
         await loadEntityInfo(data);
       } catch (err: unknown) {
@@ -171,15 +210,19 @@ export default function ProfilePage() {
       ) {
         const res = await fetch(
           `${BASE_URL}/tenants/${p.tenant.tenantId}/details`,
-          { headers: authHeaders() }
+          { headers: authHeaders(), credentials: "include" }
         );
         const data = await res.json();
         // getTenantDetails returns { data: { tenant, users, orderStats } }
         const t = (data.data?.tenant ?? data.data) as TenantInfo;
         if (t) {
-          setEditEntityName(t.name ?? "");
-          setEditEntityAddress(t.address ?? "");
-          setEditEntityPhone(t.contacts?.phoneNumber ?? "");
+          const nextName = t.name ?? "";
+          const nextAddress = t.address ?? "";
+          const nextPhone = normalizePhoneInput(t.contacts?.phoneNumber ?? "");
+          setEditEntityName(nextName);
+          setEditEntityAddress(nextAddress);
+          setEditEntityPhone(nextPhone);
+          setEntityFieldErrors(getEntityErrors(nextName, nextPhone));
         }
       } else if (
         ["outletAdmin", "outletOwner"].includes(p.role) &&
@@ -187,7 +230,7 @@ export default function ProfilePage() {
       ) {
         const res = await fetch(
           `${BASE_URL}/outlets/${p.outlet.outletId}`,
-          { headers: authHeaders() }
+          { headers: authHeaders(), credentials: "include" }
         );
         // Outlet doesn't have a get-by-id standalone endpoint yet;
         // use localStorage outletId and call the list endpoint as fallback
@@ -196,9 +239,13 @@ export default function ProfilePage() {
           // getOutletById returns { data: { outlet } }
           const o = (data.data?.outlet ?? data.data ?? data) as OutletInfo;
           if (o) {
-            setEditEntityName(o.name ?? "");
-            setEditEntityAddress(o.address ?? "");
-            setEditEntityPhone(o.contacts?.phoneNumber ?? "");
+            const nextName = o.name ?? "";
+            const nextAddress = o.address ?? "";
+            const nextPhone = normalizePhoneInput(o.contacts?.phoneNumber ?? "");
+            setEditEntityName(nextName);
+            setEditEntityAddress(nextAddress);
+            setEditEntityPhone(nextPhone);
+            setEntityFieldErrors(getEntityErrors(nextName, nextPhone));
           }
         } else {
           // fallback: pre-fill name from profile
@@ -215,10 +262,16 @@ export default function ProfilePage() {
     e.preventDefault();
     setInfoError("");
     setInfoSuccess("");
+    const errors = getInfoErrors(editName, editPhone);
+    setInfoFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setInfoError("Please fix highlighted fields before saving.");
+      return;
+    }
     setInfoSaving(true);
     try {
       const updated = await updateProfile({
-        name: editName,
+        name: editName.trim(),
         phoneNumber: editPhone,
       });
       setProfile((p) => (p ? { ...p, ...updated } : updated));
@@ -236,12 +289,10 @@ export default function ProfilePage() {
     e.preventDefault();
     setPwError("");
     setPwSuccess("");
-    if (newPw !== confirmPw) {
-      setPwError("New passwords do not match");
-      return;
-    }
-    if (newPw.length < 6) {
-      setPwError("New password must be at least 6 characters");
+    const errors = getPasswordErrors(curPw, newPw, confirmPw);
+    setPwFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setPwError("Please fix highlighted fields before updating password.");
       return;
     }
     setPwSaving(true);
@@ -251,6 +302,7 @@ export default function ProfilePage() {
       setCurPw("");
       setNewPw("");
       setConfirmPw("");
+      setPwFieldErrors({});
     } catch (err: unknown) {
       setPwError(err instanceof Error ? err.message : "Failed to change password");
     } finally {
@@ -263,11 +315,17 @@ export default function ProfilePage() {
     e.preventDefault();
     setEntityError("");
     setEntitySuccess("");
+    const errors = getEntityErrors(editEntityName, editEntityPhone);
+    setEntityFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setEntityError("Please fix highlighted fields before saving.");
+      return;
+    }
     setEntitySaving(true);
     try {
       const fields = {
-        name: editEntityName,
-        address: editEntityAddress,
+        name: editEntityName.trim(),
+        address: editEntityAddress.trim(),
         contacts: { phoneNumber: editEntityPhone },
       };
       if (
@@ -299,6 +357,11 @@ export default function ProfilePage() {
     profile && ["tenantAdmin", "tenantOwner"].includes(profile.role)
       ? "Tenant"
       : "Outlet";
+
+  const canSaveInfo = !infoSaving && Object.keys(getInfoErrors(editName, editPhone)).length === 0;
+  const canSaveEntity = !entitySaving && Object.keys(getEntityErrors(editEntityName, editEntityPhone)).length === 0;
+  const canChangePassword =
+    !pwSaving && Object.keys(getPasswordErrors(curPw, newPw, confirmPw)).length === 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -372,9 +435,16 @@ export default function ProfilePage() {
                     id="edit-name"
                     label="Full name"
                     value={editName}
-                    onChange={setEditName}
+                    onChange={(value) => {
+                      const nextName = trimToMaxLength(value);
+                      setEditName(nextName);
+                      setInfoFieldErrors(getInfoErrors(nextName, editPhone));
+                      setInfoError("");
+                    }}
                     disabled={infoSaving}
                     placeholder="Your name"
+                    maxLength={100}
+                    error={infoFieldErrors.name}
                     required
                   />
                   <Field
@@ -382,9 +452,16 @@ export default function ProfilePage() {
                     label="Phone number"
                     type="tel"
                     value={editPhone}
-                    onChange={setEditPhone}
+                    onChange={(value) => {
+                      const nextPhone = normalizePhoneInput(value);
+                      setEditPhone(nextPhone);
+                      setInfoFieldErrors(getInfoErrors(editName, nextPhone));
+                      setInfoError("");
+                    }}
                     disabled={infoSaving}
                     placeholder="+91XXXXXXXXXX"
+                    maxLength={10}
+                    error={infoFieldErrors.phone}
                     required
                   />
                 </div>
@@ -393,7 +470,7 @@ export default function ProfilePage() {
                   <StatusMsg error={infoError} success={infoSuccess} />
                   <button
                     type="submit"
-                    disabled={infoSaving}
+                    disabled={!canSaveInfo}
                     className="ml-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-60"
                   >
                     {infoSaving ? "Saving…" : "Save Changes"}
@@ -443,34 +520,52 @@ export default function ProfilePage() {
                       id="entity-name"
                       label={`${entityLabel} name`}
                       value={editEntityName}
-                      onChange={setEditEntityName}
+                      onChange={(value) => {
+                        const nextName = trimToMaxLength(value);
+                        setEditEntityName(nextName);
+                        setEntityFieldErrors(getEntityErrors(nextName, editEntityPhone));
+                        setEntityError("");
+                      }}
                       disabled={entitySaving}
                       placeholder={`${entityLabel} name`}
+                      maxLength={100}
+                      error={entityFieldErrors.name}
                     />
                     <Field
                       id="entity-phone"
                       label="Contact phone"
                       type="tel"
                       value={editEntityPhone}
-                      onChange={setEditEntityPhone}
+                      onChange={(value) => {
+                        const nextPhone = normalizePhoneInput(value);
+                        setEditEntityPhone(nextPhone);
+                        setEntityFieldErrors(getEntityErrors(editEntityName, nextPhone));
+                        setEntityError("");
+                      }}
                       disabled={entitySaving}
                       placeholder="+91XXXXXXXXXX"
+                      maxLength={10}
+                      error={entityFieldErrors.phone}
                     />
                   </div>
                   <Field
                     id="entity-address"
                     label="Address"
                     value={editEntityAddress}
-                    onChange={setEditEntityAddress}
+                    onChange={(value) => {
+                      setEditEntityAddress(trimToMaxLength(value));
+                      setEntityError("");
+                    }}
                     disabled={entitySaving}
                     placeholder="123 Street, City"
+                    maxLength={100}
                   />
 
                   <div className="flex items-center justify-between pt-1">
                     <StatusMsg error={entityError} success={entitySuccess} />
                     <button
                       type="submit"
-                      disabled={entitySaving}
+                      disabled={!canSaveEntity}
                       className="ml-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-60"
                     >
                       {entitySaving ? "Saving…" : `Update ${entityLabel}`}
@@ -495,9 +590,14 @@ export default function ProfilePage() {
                   label="Current password"
                   type="password"
                   value={curPw}
-                  onChange={setCurPw}
+                  onChange={(value) => {
+                    setCurPw(value);
+                    setPwFieldErrors(getPasswordErrors(value, newPw, confirmPw));
+                    setPwError("");
+                  }}
                   disabled={pwSaving}
                   placeholder="••••••••"
+                  error={pwFieldErrors.currentPassword}
                   required
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -506,9 +606,14 @@ export default function ProfilePage() {
                     label="New password"
                     type="password"
                     value={newPw}
-                    onChange={setNewPw}
+                    onChange={(value) => {
+                      setNewPw(value);
+                      setPwFieldErrors(getPasswordErrors(curPw, value, confirmPw));
+                      setPwError("");
+                    }}
                     disabled={pwSaving}
-                    placeholder="Min. 6 characters"
+                    placeholder="Min. 8 chars with letters and numbers"
+                    error={pwFieldErrors.newPassword}
                     required
                   />
                   <Field
@@ -516,9 +621,14 @@ export default function ProfilePage() {
                     label="Confirm new password"
                     type="password"
                     value={confirmPw}
-                    onChange={setConfirmPw}
+                    onChange={(value) => {
+                      setConfirmPw(value);
+                      setPwFieldErrors(getPasswordErrors(curPw, newPw, value));
+                      setPwError("");
+                    }}
                     disabled={pwSaving}
                     placeholder="••••••••"
+                    error={pwFieldErrors.confirmPassword}
                     required
                   />
                 </div>
@@ -527,7 +637,7 @@ export default function ProfilePage() {
                   <StatusMsg error={pwError} success={pwSuccess} />
                   <button
                     type="submit"
-                    disabled={pwSaving || !curPw || !newPw || !confirmPw}
+                    disabled={!canChangePassword}
                     className="ml-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-60"
                   >
                     {pwSaving ? "Updating…" : "Update Password"}

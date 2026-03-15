@@ -1,8 +1,7 @@
 const BASE_URL = "http://localhost:8000/api/v1";
 
 function authHeaders(): HeadersInit {
-  const token = localStorage.getItem("accessToken") ?? "";
-  return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  return { "Content-Type": "application/json" };
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -55,6 +54,7 @@ export type OrderStatusPayload = {
 export async function fetchKitchenOrders(): Promise<KitchenOrder[]> {
   const res = await fetch(`${BASE_URL}/kitchen/orders`, {
     headers: authHeaders(),
+    credentials: "include",
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -73,6 +73,7 @@ export async function advanceFulfillmentStatus(orderId: string): Promise<Kitchen
   const res = await fetch(`${BASE_URL}/kitchen/orders/${orderId}/status`, {
     method: "PATCH",
     headers: authHeaders(),
+    credentials: "include",
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

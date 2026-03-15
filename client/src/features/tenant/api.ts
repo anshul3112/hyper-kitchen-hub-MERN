@@ -42,10 +42,8 @@ const API_BASE_URL =
 	"http://localhost:8000";
 
 function getAuthHeaders() {
-	const token = localStorage.getItem("accessToken");
 	return {
 		"Content-Type": "application/json",
-		Authorization: token ? `Bearer ${token}` : "",
 	};
 }
 

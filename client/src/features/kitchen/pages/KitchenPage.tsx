@@ -42,11 +42,10 @@ export default function KitchenPage() {
 
   // ── Socket setup ────────────────────────────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem("accessToken") ?? "";
     const outletId = localStorage.getItem("outletId") ?? "";
 
     const socket = io(SOCKET_URL, {
-      auth: { token },
+      withCredentials: true,
       transports: ["websocket"],
     });
 

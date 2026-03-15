@@ -10,9 +10,17 @@ export default function AccessBlockedScreen({
   message,
 }: Props) {
   const navigate = useNavigate();
+  const API_BASE_URL =
+    (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL ||
+    "http://localhost:8000";
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
+  const handleLogout = async () => {
+    await fetch(`${API_BASE_URL}/api/v1/users/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    }).catch(() => undefined);
+
     localStorage.removeItem("userRole");
     localStorage.removeItem("outletId");
     localStorage.removeItem("userName");

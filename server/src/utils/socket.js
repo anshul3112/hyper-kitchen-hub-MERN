@@ -3,6 +3,14 @@ import jwt from "jsonwebtoken";
 
 let io = null;
 
+function getCookieValue(cookieHeader = "", key) {
+  return cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${key}=`))
+    ?.slice(key.length + 1);
+}
+
 export function initSocket(httpServer) {
   io = new Server(httpServer, {
     cors: {
@@ -18,7 +26,8 @@ export function initSocket(httpServer) {
   io.use((socket, next) => {
     const token =
       socket.handshake.auth?.token ||
-      socket.handshake.headers?.authorization?.replace("Bearer ", "");
+      socket.handshake.headers?.authorization?.replace("Bearer ", "") ||
+      getCookieValue(socket.handshake.headers?.cookie, "accessToken");
 
     if (!token) {
       return next(new Error("Authentication token required"));

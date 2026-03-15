@@ -1,10 +1,8 @@
 const BASE_URL = "http://localhost:8000/api/v1";
 
 function authHeaders(): HeadersInit {
-  const token = localStorage.getItem("accessToken") ?? "";
   return {
     "Content-Type": "application/json",
-    Authorization: token ? `Bearer ${token}` : "",
   };
 }
 
@@ -36,7 +34,10 @@ export type UserProfile = {
 
 /** GET /api/v1/users/profile */
 export async function fetchProfile(): Promise<UserProfile> {
-  const res = await fetch(`${BASE_URL}/users/profile`, { headers: authHeaders() });
+  const res = await fetch(`${BASE_URL}/users/profile`, {
+    headers: authHeaders(),
+    credentials: "include",
+  });
   const data = await parseOrThrow(res);
   return data.data as UserProfile;
 }
@@ -49,6 +50,7 @@ export async function updateProfile(fields: {
   const res = await fetch(`${BASE_URL}/users/profile/update`, {
     method: "PATCH",
     headers: authHeaders(),
+    credentials: "include",
     body: JSON.stringify(fields),
   });
   const data = await parseOrThrow(res);
@@ -63,6 +65,7 @@ export async function changePassword(
   const res = await fetch(`${BASE_URL}/users/profile/change-password`, {
     method: "PATCH",
     headers: authHeaders(),
+    credentials: "include",
     body: JSON.stringify({ currentPassword, newPassword }),
   });
   await parseOrThrow(res);
@@ -87,6 +90,7 @@ export async function updateTenantDetails(
   const res = await fetch(`${BASE_URL}/tenants/${tenantId}/update`, {
     method: "PATCH",
     headers: authHeaders(),
+    credentials: "include",
     body: JSON.stringify(fields),
   });
   const data = await parseOrThrow(res);
@@ -111,6 +115,7 @@ export async function updateOutletDetails(
   const res = await fetch(`${BASE_URL}/outlets/${outletId}/update`, {
     method: "PATCH",
     headers: authHeaders(),
+    credentials: "include",
     body: JSON.stringify(fields),
   });
   const data = await parseOrThrow(res);

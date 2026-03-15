@@ -177,6 +177,7 @@ export default function TenantMenuPanel() {
       {activeTab === "categories" && (
         <CategoriesTab
           categories={categories}
+          items={items}
           loading={categoriesLoading}
           kioskLanguages={kioskLanguages}
           onCategoriesChange={setCategories}

@@ -36,8 +36,6 @@ export default function LoginPage() {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.data?.accessToken)
-          localStorage.setItem("accessToken", data.data.accessToken);
         if (data.data?.user?.role)
           localStorage.setItem("userRole", data.data.user.role);
         if (data.data?.user?.name)

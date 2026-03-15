@@ -5,6 +5,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { withPresignedUrls, withPresignedUrl } from "../../utils/s3.js";
 import { parseDuplicateKeyError } from "../../utils/mongoError.js";
 import { invalidateMenuCache } from "../../utils/cache.js";
+import { Items } from "../models/itemModel.js";
 
 /**
  * POST /api/v1/items/categories
@@ -154,6 +155,24 @@ export const deleteCategory = asyncHandler(async (req, res) => {
   const tenantId = user.tenant?.tenantId;
   if (!tenantId) {
     throw new ApiError(400, "Tenant ID is required");
+  }
+
+  const linkedItems = await Items.find({ tenantId, category: categoryId })
+    .select("name")
+    .lean();
+
+  if (linkedItems.length > 0) {
+    const itemNames = linkedItems
+      .map((item) => (typeof item.name === "object" ? item.name?.en : ""))
+      .filter(Boolean)
+      .slice(0, 10);
+
+    const suffix = linkedItems.length > 10 ? ` and ${linkedItems.length - 10} more` : "";
+    throw new ApiError(
+      409,
+      `This category cannot be deleted because these items contain this category: [${itemNames.join(", "
+      )}${suffix}]`
+    );
   }
 
   const category = await Category.findOneAndDelete({ _id: categoryId, tenantId });

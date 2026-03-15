@@ -1,22 +1,35 @@
 import { useState } from "react";
-import { deleteCategory, type MenuCategory } from "../api";
+import { deleteCategory, type MenuCategory, type MenuItem } from "../api";
 import AddEditCategoryModal from "./AddEditCategoryModal";
 import TruncatedText from "../../../common/components/TruncatedText";
 
 interface Props {
   categories: MenuCategory[];
+  items: MenuItem[];
   loading: boolean;
   kioskLanguages: string[];
   onCategoriesChange: (updated: MenuCategory[]) => void;
 }
 
-export default function CategoriesTab({ categories, loading, kioskLanguages, onCategoriesChange }: Props) {
+export default function CategoriesTab({ categories, items, loading, kioskLanguages, onCategoriesChange }: Props) {
   // undefined = modal closed, null = create new, MenuCategory = edit existing
   const [modalTarget, setModalTarget] = useState<MenuCategory | null | undefined>(undefined);
   const [deleteError, setDeleteError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (category: MenuCategory) => {
+    const linkedItems = items
+      .filter((item) => item.category?._id === category._id)
+      .map((item) => item.name.en)
+      .filter(Boolean);
+
+    if (linkedItems.length > 0) {
+      setDeleteError(
+        `This category can not be deleted as these items [${linkedItems.join(", ")}] contain this category.`
+      );
+      return;
+    }
+
     if (!confirm(`Delete category "${category.name.en}"? This cannot be undone.`)) return;
     setDeletingId(category._id);
     setDeleteError("");

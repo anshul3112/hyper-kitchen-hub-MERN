@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 
 import AccessBlockedScreen from "../../../common/components/AccessBlockedScreen";
@@ -83,14 +83,12 @@ export default function OutletAdminPage() {
 
   // ── Socket: low-stock alerts ────────────────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem("accessToken") ?? "";
     const outletId = localStorage.getItem("outletId") ?? "";
 
-    // If auth token is missing, skip socket connection to avoid noisy failed handshakes.
-    if (!token || accessBlockedMessage) return;
+    if (accessBlockedMessage) return;
 
     const socket = io(SOCKET_URL, {
-      auth: { token },
+      withCredentials: true,
     });
     socketRef.current = socket;
 
@@ -120,14 +118,32 @@ export default function OutletAdminPage() {
     };
   }, [accessBlockedMessage]);
 
+  const loadMenu = useCallback(async () => {
+    if (accessBlockedMessage) return;
+    setMenuLoading(true);
+    setMenuError("");
+    try {
+      const data = await fetchMenuDetails();
+      setMenu(data);
+    } catch (err: unknown) {
+      if (isBlockedAccessError(err)) {
+        setAccessBlockedMessage(getBlockedAccessMessage(err, "Outlet access is disabled"));
+        return;
+      }
+      setMenuError(getErrorMessage(err, "Failed to fetch menu"));
+    } finally {
+      setMenuLoading(false);
+    }
+  }, [accessBlockedMessage]);
+
   // Load menu when menu tab is first opened
   useEffect(() => {
     if (accessBlockedMessage) return;
     if (activeSection === "menu" && !menuFetched.current) {
       menuFetched.current = true;
-      loadMenu();
+      void loadMenu();
     }
-  }, [activeSection, accessBlockedMessage]);
+  }, [activeSection, accessBlockedMessage, loadMenu]);
 
   const initializePage = async () => {
     setKiosksLoading(true);
@@ -152,24 +168,6 @@ export default function OutletAdminPage() {
       setMenuError(message);
     } finally {
       setKiosksLoading(false);
-      setMenuLoading(false);
-    }
-  };
-
-  const loadMenu = async () => {
-    if (accessBlockedMessage) return;
-    setMenuLoading(true);
-    setMenuError("");
-    try {
-      const data = await fetchMenuDetails();
-      setMenu(data);
-    } catch (err: unknown) {
-      if (isBlockedAccessError(err)) {
-        setAccessBlockedMessage(getBlockedAccessMessage(err, "Outlet access is disabled"));
-        return;
-      }
-      setMenuError(getErrorMessage(err, "Failed to fetch menu"));
-    } finally {
       setMenuLoading(false);
     }
   };
