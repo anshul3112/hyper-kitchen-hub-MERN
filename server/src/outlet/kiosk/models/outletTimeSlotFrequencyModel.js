@@ -14,13 +14,13 @@ const outletTimeSlotFrequencySchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Outlet",
       required: true,
-      index: true,
+      unique: true,
     },
     tenantId: {
       type: Schema.Types.ObjectId,
       ref: "Tenant",
       required: true,
-      index: true,
+      unique: true,
     },
     // Shape: { "0": { itemId: count }, ..., "23": { itemId: count } }
     frequency: {
@@ -34,8 +34,6 @@ const outletTimeSlotFrequencySchema = new Schema(
   },
   { versionKey: false },
 );
-
-outletTimeSlotFrequencySchema.index({ outletId: 1, tenantId: 1 }, { unique: true });
 
 export function createEmptyFrequency() {
   return buildEmptyFrequency();
