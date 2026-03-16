@@ -77,11 +77,9 @@ userSchema.methods.generateAccessToken = function() {
 
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ phoneNumber : 1 }, { unique: true });
-// role filter (role-based queries)
-userSchema.index({ role: 1 });
 // tenant lookup (getUsersByTenant)
-userSchema.index({ "tenant.tenantId": 1 });
+userSchema.index({ "tenant.tenantId": 1 , role: 1 });
 // outlet lookup (getOutletAdmins)
-userSchema.index({ "outlet.outletId": 1 });
+userSchema.index({ "outlet.outletId": 1 , role: 1 });
 
 export const User = mongoose.model("User", userSchema);

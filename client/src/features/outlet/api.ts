@@ -225,16 +225,16 @@ export async function updateInventoryPrice(
   return parsed.data;
 }
 
-/** PATCH: change quantity only for an item */
+/** PATCH: adjust quantity by delta (+x / -x) for an item */
 export async function updateInventoryQuantity(
   itemId: string,
-  quantity: number
+  delta: number
 ): Promise<InventoryRecord> {
   const res = await fetch(`${API_BASE_URL}/api/v1/items/inventory/${itemId}/quantity`, {
     method: "PATCH",
     credentials: "include",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ quantity }),
+    body: JSON.stringify({ delta }),
   });
   const parsed = await parseOrThrow<ApiResponse<InventoryRecord>>(res);
   return parsed.data;

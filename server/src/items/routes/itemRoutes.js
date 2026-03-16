@@ -67,7 +67,7 @@ router.route("/menu/all").get(getMenuDetails);
 // GET    /api/v1/items/inventory                         → all inventory for caller's outlet
 // PUT    /api/v1/items/inventory/:itemId                  → upsert price + quantity
 // PATCH  /api/v1/items/inventory/:itemId/price            → change price only
-// PATCH  /api/v1/items/inventory/:itemId/quantity         → change quantity only
+// PATCH  /api/v1/items/inventory/:itemId/quantity         → adjust quantity by delta (+x / -x)
 // PATCH  /api/v1/items/inventory/:itemId/status           → enable / disable item at outlet level
 // PATCH  /api/v1/items/inventory/:itemId/orderType        → set dineIn / takeAway / both
 // PATCH  /api/v1/items/inventory/:itemId/threshold        → set / clear low-stock alert threshold

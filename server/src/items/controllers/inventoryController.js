@@ -165,26 +165,41 @@ export const updateInventoryPrice = asyncHandler(async (req, res) => {
 
 /**
  * PATCH /api/v1/items/inventory/:itemId/quantity
- * Change quantity only for an item at this outlet.
- * Body: { quantity }
+ * Change quantity by a signed delta for an item at this outlet.
+ * Body: { delta }  // +x to increase, -x to decrease
  */
 export const updateInventoryQuantity = asyncHandler(async (req, res) => {
   requireOutletAdmin(req.user);
   const outletId = resolveOutlet(req.user);
   const tenantId = req.user.tenant?.tenantId;
   const { itemId } = req.params;
-  const { quantity } = req.body;
+  const { delta } = req.body;
 
-  if (quantity === undefined || quantity === null) throw new ApiError(400, "quantity is required");
-  if (Number(quantity) < 0) throw new ApiError(400, "quantity must be non-negative");
+  if (delta === undefined || delta === null) throw new ApiError(400, "delta is required");
+  if (!Number.isInteger(Number(delta))) throw new ApiError(400, "delta must be an integer");
+
+  const deltaValue = Number(delta);
+  if (deltaValue === 0) throw new ApiError(400, "delta must be non-zero");
 
   await validateItem(itemId, tenantId);
 
-  const record = await Inventory.findOneAndUpdate(
-    { itemId, outletId },
-    { quantity: Number(quantity), editedBy: req.user._id },
-    { new: true, upsert: true, runValidators: true }
-  );
+  let record;
+  if (deltaValue > 0) {
+    record = await Inventory.findOneAndUpdate(
+      { itemId, outletId },
+      { $inc: { quantity: deltaValue }, $set: { editedBy: req.user._id } },
+      { new: true, upsert: true, runValidators: true }
+    );
+  } else {
+    record = await Inventory.findOneAndUpdate(
+      { itemId, outletId, quantity: { $gte: Math.abs(deltaValue) } },
+      { $inc: { quantity: deltaValue }, $set: { editedBy: req.user._id } },
+      { new: true, runValidators: true }
+    );
+    if (!record) {
+      throw new ApiError(400, "insufficient quantity to decrease by requested delta");
+    }
+  }
 
   emitInventoryUpdate(outletId.toString(), {
     itemId: itemId.toString(),
@@ -197,7 +212,7 @@ export const updateInventoryQuantity = asyncHandler(async (req, res) => {
   await checkAndEmitLowStock(record, outletId);
 
   return res.status(200).json(
-    new ApiResponse(200, record, "Quantity updated successfully")
+    new ApiResponse(200, record, "Quantity adjusted successfully")
   );
 });
 

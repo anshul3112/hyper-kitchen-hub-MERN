@@ -70,6 +70,8 @@ export default function ItemOptionsModal({
   const [qtyInput, setQtyInput] = useState(
     inv?.quantity != null ? String(inv.quantity) : "0"
   );
+  const [qtyDeltaInput, setQtyDeltaInput] = useState("1");
+  const [qtyDeltaMode, setQtyDeltaMode] = useState<"increase" | "decrease">("increase");
   const [pqSaving, setPqSaving] = useState(false);
   const [pqError, setPqError] = useState("");
 
@@ -77,6 +79,8 @@ export default function ItemOptionsModal({
     // Re-sync inputs from latest inv each time user opens
     setPriceInput(inv?.price != null ? String(inv.price) : String(item.defaultAmount));
     setQtyInput(inv?.quantity != null ? String(inv.quantity) : "0");
+    setQtyDeltaInput("1");
+    setQtyDeltaMode("increase");
     setPqError("");
     setEditSection(mode);
   };
@@ -85,6 +89,7 @@ export default function ItemOptionsModal({
     setPqError("");
     const price = parseFloat(priceInput);
     const qty = parseInt(qtyInput, 10);
+    const qtyDelta = parseInt(qtyDeltaInput, 10);
     if (
       (editSection === "price" || editSection === "both") &&
       (isNaN(price) || price < 0)
@@ -93,10 +98,17 @@ export default function ItemOptionsModal({
       return;
     }
     if (
-      (editSection === "qty" || editSection === "both") &&
+      editSection === "both" &&
       (isNaN(qty) || qty < 0)
     ) {
       setPqError("Quantity must be a non-negative whole number");
+      return;
+    }
+    if (
+      editSection === "qty" &&
+      (isNaN(qtyDelta) || qtyDelta < 1)
+    ) {
+      setPqError("Change amount must be a whole number ≥ 1");
       return;
     }
     setPqSaving(true);
@@ -107,7 +119,8 @@ export default function ItemOptionsModal({
       } else if (editSection === "price") {
         updated = await updateInventoryPrice(itemId, price);
       } else {
-        updated = await updateInventoryQuantity(itemId, qty);
+        const signedDelta = qtyDeltaMode === "decrease" ? -qtyDelta : qtyDelta;
+        updated = await updateInventoryQuantity(itemId, signedDelta);
       }
       onUpdate(updated);
       setEditSection(null);
@@ -326,7 +339,7 @@ export default function ItemOptionsModal({
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
                       <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    Edit Qty
+                    Adjust Qty
                   </button>
                 )}
               </div>
@@ -348,7 +361,7 @@ export default function ItemOptionsModal({
                     />
                   </div>
                 )}
-                {(editSection === "qty" || editSection === "both") && (
+                {editSection === "both" && (
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
                       Quantity
@@ -362,6 +375,55 @@ export default function ItemOptionsModal({
                       className="w-full px-3 py-2.5 border border-blue-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
                     />
                   </div>
+                )}
+                {editSection === "qty" && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-2">
+                        Adjustment Type
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setQtyDeltaMode("increase")}
+                          className={`py-2 rounded-xl border text-sm font-semibold transition-colors ${
+                            qtyDeltaMode === "increase"
+                              ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                              : "bg-white border-blue-300 text-gray-600 hover:bg-blue-100"
+                          }`}
+                        >
+                          Increase (+)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQtyDeltaMode("decrease")}
+                          className={`py-2 rounded-xl border text-sm font-semibold transition-colors ${
+                            qtyDeltaMode === "decrease"
+                              ? "bg-rose-100 border-rose-300 text-rose-700"
+                              : "bg-white border-blue-300 text-gray-600 hover:bg-blue-100"
+                          }`}
+                        >
+                          Decrease (-)
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Change by (x)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={qtyDeltaInput}
+                        onChange={(e) => setQtyDeltaInput(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-blue-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Current quantity: {inv?.quantity ?? 0}
+                      </p>
+                    </div>
+                  </>
                 )}
                 {pqError && (
                   <p className="text-xs text-red-500">{pqError}</p>
