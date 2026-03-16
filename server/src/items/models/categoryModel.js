@@ -31,7 +31,6 @@ const categorySchema = new Schema({
   }
 }, { timestamps: true });
 
-// tenant lookup (getCategories)
 categorySchema.index({ tenantId: 1 });
 // duplicate English-name check per tenant
 categorySchema.index({ 'name.en': 1, tenantId: 1 }, { unique: true });

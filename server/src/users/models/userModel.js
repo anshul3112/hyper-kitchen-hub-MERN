@@ -77,7 +77,7 @@ userSchema.methods.generateAccessToken = function() {
 
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ phoneNumber : 1 }, { unique: true });
-userSchema.index({ "tenant.tenantId": 1 , role: 1 });
-userSchema.index({ "outlet.outletId": 1 , role: 1 });
+userSchema.index({ "tenant.tenantId": 1 , role: 1 , _id: 1 });
+userSchema.index({ "outlet.outletId": 1 , role: 1 , _id: 1 });
 
 export const User = mongoose.model("User", userSchema);
