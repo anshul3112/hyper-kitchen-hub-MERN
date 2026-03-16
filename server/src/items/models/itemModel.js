@@ -1,11 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 
-/**
- * name and description are multilingual objects:
- *   name: { en: "Paneer Butter Masala", hi: "पनीर बटर मसाला" }
- *   description: { en: "Rich creamy curry", hi: "मलाईदार करी" }
- * English (en) is required for name; other keys are optional.
- */
+//English (en) is required for name; other keys are optional.
 const itemsSchema = new Schema({
   name: {
     type: Schema.Types.Mixed,
@@ -37,7 +32,6 @@ const itemsSchema = new Schema({
     ref: "Category",
     required: true
   },
-  // imageUrl: { type: String, trim: true }, // Cloudinary URL — replaced by S3 key
   imageKey: {
     type: String,
     trim: true
@@ -47,14 +41,11 @@ const itemsSchema = new Schema({
     ref: "Tenant",
     required: true
   },
-  // ── Combo / Meal support ────────────────────────────────────────────────────
-  /** 'single' = standard item; 'combo' = a meal that bundles other items */
   type: {
     type: String,
     enum: ['single', 'combo'],
     default: 'single'
   },
-  /** Items that form this combo with their required quantities (only used when type = 'combo') */
   comboItems: [{
     item: { type: Schema.Types.ObjectId, ref: 'Items', required: true },
     quantity: { type: Number, default: 1, min: 1 }

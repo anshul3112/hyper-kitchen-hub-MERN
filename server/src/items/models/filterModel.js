@@ -1,9 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 
-/**
- * name is stored as a multilingual object: { en: "Veg", hi: "शाकाहारी" }
- * English (en) is always required; other language fields are optional.
- */
+//English (en) is always required; other language fields are optional.
 const filterSchema = new Schema({
   tenantId: {
     type: Schema.Types.ObjectId,
@@ -19,7 +16,6 @@ const filterSchema = new Schema({
       message: 'English name (name.en) is required',
     },
   },
-  // imageUrl: { type: String, trim: true }, // Cloudinary URL — replaced by S3 key
   imageKey: {
     type: String,
     trim: true

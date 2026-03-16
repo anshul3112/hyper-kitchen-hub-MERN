@@ -7,7 +7,6 @@ const tenantSchema = new Schema({
     trim: true,
     required: true
   },
-  // imageUrl: { type: String, trim: true }, // Cloudinary URL — replaced by S3 key
   imageKey: {
     type: String,
     trim: true

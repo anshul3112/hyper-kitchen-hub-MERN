@@ -1,11 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 
-/**
- * name is stored as a multilingual object: { en: "Starters", hi: "स्टार्टर" }
- * English (en) is always required; other language fields are optional.
- * Using Schema.Types.Mixed keeps the schema open for new languages without
- * model changes — just add the language to SUPPORTED_LANGUAGES in constants.js.
- */
+// English (en) is always required; other language fields are optional.s.
 const categorySchema = new Schema({
   tenantId: {
     type: Schema.Types.ObjectId,
@@ -21,7 +16,6 @@ const categorySchema = new Schema({
       message: 'English name (name.en) is required',
     },
   },
-  // imageUrl: { type: String, trim: true }, // Cloudinary URL — replaced by S3 key
   imageKey: {
     type: String,
     trim: true

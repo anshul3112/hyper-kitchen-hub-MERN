@@ -52,22 +52,14 @@ const ordersSchema = new Schema(
       enum: ["created", "received", "cooking", "prepared", "served"],
       default: "created",
     },
-    /**
-     * Arbitrary payment details object (e.g. { name, upiId } for UPI payments).
-     * Using Mixed so the schema can accept any future payment provider's structure.
-     */
     paymentDetails: {
       type: Schema.Types.Mixed,
       default: null,
     },
-    // Maximum prepTime (minutes) among all items in this order.
-    // Derived from the Inventory.prepTime of each cart item at the moment of order creation.
     prepTime: {
       type: Number,
       default: 0,
     },
-    // Estimated total wait time (minutes) for this order:
-    //   estimatedPrepTime = queueDelay (sum of prepTime of all ongoing orders ahead) + prepTime
     estimatedPrepTime: {
       type: Number,
       default: 0,
