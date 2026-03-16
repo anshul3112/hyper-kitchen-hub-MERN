@@ -28,15 +28,6 @@ const sqsClient = new SQSClient({
 
 const DEFAULT_PREP_TIME = 3; // minutes — used when an item has no inventory record
 
-// ── Combo expansion ───────────────────────────────────────────────────────────
-/**
- * Expand any combo items in the order list to their component items.
- * A combo has no independent inventory — when one is ordered, we decrement
- * the stock of every component item instead (each by the same quantity).
- * Single (non-combo) items pass through unchanged.
- *
- * Returns the expanded list suitable for inventory operations.
- */
 async function expandOrderItemsWithCombos(orderItems) {
   // Identify which order items might be combos
   const potentialComboIds = orderItems.map((it) => it.id);
@@ -80,15 +71,6 @@ async function expandOrderItemsWithCombos(orderItems) {
   return expanded;
 }
 
-// ── Prep-time helpers ────────────────────────────────────────────────────────
-
-/**
- * Compute the prep time for the current order.
- * We use the *expanded* items list (combo components) so that every item
- * the kitchen actually has to cook is represented.  The result is the
- * maximum prepTime across all unique items — the kitchen works in parallel,
- * so total kitchen time equals the longest single item.
- */
 async function computeOrderPrepTime(expandedItems, outletId) {
   const uniqueItemIds = [...new Set(expandedItems.map((it) => it.id))];
 
@@ -106,12 +88,6 @@ async function computeOrderPrepTime(expandedItems, outletId) {
   }, 0);
 }
 
-/**
- * Aggregate the sum of prepTime for all *ongoing* orders at this outlet.
- * An order is "ongoing" when payment succeeded (orderStatus = Completed) but
- * the kitchen has not yet served it (fulfillmentStatus != 'served').
- * This sum represents the total work already queued ahead of the new order.
- */
 async function computeQueueDelay(outletId) {
   const result = await Orders.aggregate([
     {
@@ -132,13 +108,6 @@ async function computeQueueDelay(outletId) {
   return result[0]?.total ?? 0;
 }
 
-// ── Price validation ────────────────────────────────────────────────────────
-/**
- * Validate the prices in the order against the current database prices.
- * Returns an array of items whose price has changed since the frontend last fetched inventory.
- * Uses the same resolution order as getKioskInventory:
- *   resolvedActivePrice (schedule) → inventory.price → item.defaultAmount
- */
 async function validateItemPrices(items, outletId) {
   const itemIds = items.map((it) => it.id);
 
@@ -182,15 +151,7 @@ async function validateItemPrices(items, outletId) {
   return changed;
 }
 
-// ── Inventory helpers (no MongoDB sessions — FIFO queue ensures serialisation) ─
-
-/**
- * Attempt to atomically decrement inventory for ALL items.
- * If every item has sufficient stock → all decrements are applied, returns [].
- * If ANY item has insufficient stock → every decrement that already succeeded
- * is rolled back before returning, and the full list of failed items is returned.
- * This guarantees an all-or-nothing outcome with no partial inventory changes.
- */
+// ── Inventory helpers (no MongoDB sessions, FIFO queue ensures serialisation) 
 async function tryDecrementInventory(items, outletId) {
   const decremented = []; // items whose inventory was successfully decremented so far
   const failed = [];
@@ -230,18 +191,7 @@ async function restoreInventory(items, outletId) {
   );
 }
 
-// ── Core processor ────────────────────────────────────────────────────────────
-/**
- * Process one SQS order message end-to-end:
- *
- *  1. Check & atomically decrement inventory
- *     → insufficient stock: create a Failed order and return
- *  2. Get next order number
- *  3. Create order document (Pending)
- *  4. Call mock payment
- *     → success: mark Completed, emit socket events, broadcast inventory
- *     → failure: restore inventory, mark Failed
- */
+
 async function processOrderMessage(body) {
   const { correlationId, outletId, outletName, tenantId, tenantName, items, totalAmount, paymentDetails } = body;
 
@@ -249,17 +199,8 @@ async function processOrderMessage(body) {
     `[SQS consumer] Processing correlationId: ${correlationId} | outletId: ${outletId}`
   );
 
-  // Expand any combo items to their component items before touching inventory.
-  // The original `items` list is kept for the order document (customer sees the
-  // combo name); `expandedItems` is used for all inventory operations so that
-  // the stock of each component is decremented / restored correctly.
   const expandedItems = await expandOrderItemsWithCombos(items);
 
-  // ── Step 0.5: price validation ─────────────────────────────────────────────
-  // Validate every item's price against the current DB price before touching
-  // inventory or payment.  If any price has changed since the frontend last
-  // fetched inventory, reject the order immediately so the customer is not
-  // charged the wrong amount.
   const priceChangedItems = await validateItemPrices(items, outletId);
   if (priceChangedItems.length > 0) {
     const summary = priceChangedItems
@@ -273,7 +214,7 @@ async function processOrderMessage(body) {
       reason: "price_changed",
       priceChangedItems,
     });
-    return; // message will be deleted by the caller; no inventory or DB writes made
+    return; 
   }
 
   // ── Step 1: atomic inventory decrement ─────────────────────────────────────────
@@ -305,7 +246,6 @@ async function processOrderMessage(body) {
       orderStatus: "Failed",
     });
 
-    // Notify the kiosk that its order could not be fulfilled due to stock
     emitOrderFailed(outletId.toString(), {
       orderId: correlationId,
       reason: "out_of_stock",
@@ -315,22 +255,14 @@ async function processOrderMessage(body) {
     return; // message will be deleted by the caller
   }
 
-  //  Step 2: get next order number ────
   const orderNo = await getNextOrderNumber(outletId);
 
-  //  Step 2.5: compute ETA ────────────────────────────────────────────────────
-  // currentOrderPrepTime = max prepTime of all (expanded) items in this order
-  // If currentOrderPrepTime is 0 (all items are instant / packaged), ETA = 0
-  // and we skip queueDelay — there is nothing to cook.
-  // Otherwise: queueDelay = sum of prepTime of all ongoing orders already queued,
-  //            estimatedPrepTime = queueDelay + currentOrderPrepTime
   const currentOrderPrepTime = await computeOrderPrepTime(expandedItems, outletId);
   let queueDelay = 0;
   if (currentOrderPrepTime > 0) {
     queueDelay = await computeQueueDelay(outletId);
   }
   let estimatedPrepTime = currentOrderPrepTime === 0 ? 0 : queueDelay + currentOrderPrepTime;
-  // Round up to the next multiple of 5 when > 20 min and not already on a 5-min boundary
   if (estimatedPrepTime > 20 && estimatedPrepTime % 5 !== 0) {
     estimatedPrepTime = Math.ceil(estimatedPrepTime / 5) * 5;
   }
@@ -372,7 +304,7 @@ async function processOrderMessage(body) {
     order.paymentDetails = paymentDetails;
     await order.save();
 
-    // Emit new order to outlet room (kitchen / admin screens)
+    // Emit new order to outlet room (kitchen / display screens)
     emitNewOrder(outletId, order.toObject());
 
     // Notify the originating kiosk that its order was confirmed
@@ -432,19 +364,6 @@ async function deleteMessage(receiptHandle) {
   );
 }
 
-// ── Polling loop ──────────────────────────────────────────────────────────────
-/**
- * startOrderConsumer — infinite long-poll loop, started once at server boot
- * (after initSocket so socket events can be emitted from inside the worker).
- *
- * SQS FIFO behaviour:
- *  - MessageGroupId = outletId → messages for each outlet arrive in order.
- *  - MaxNumberOfMessages: 1    → one message processed at a time.
- *  - WaitTimeSeconds: 20       → long polling reduces empty-receive costs.
- *  - Message is deleted ONLY after successful processing.
- *  - On processing error the message is NOT deleted; SQS returns it after the
- *    visibility timeout expires, giving automatic retry.
- */
 export async function startOrderConsumer() {
   if (!QUEUE_URL) {
     console.warn("[SQS consumer] AWS_SQS_QUEUE_URL not set — consumer will not start");

@@ -20,9 +20,6 @@ import { emitOrderPending } from "../../../utils/socket.js";
  *  1. Validate request body
  *  2. Enqueue message to SQS FIFO queue (MessageGroupId = outletId)
  *  3. Return 202 Accepted immediately
- *
- * All heavy lifting (inventory check, order creation, payment, socket events)
- * is handled sequentially per-outlet by the consumer worker (orderConsumer.js).
  */
 export const placeOrder = asyncHandler(async (req, res) => {
   const { items, totalAmount, paymentDetails } = req.body;

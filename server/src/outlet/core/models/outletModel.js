@@ -56,7 +56,7 @@ const outletSchema = new Schema({
   }
 }, { timestamps: true });
 
-// tenant lookup (getAllOutletsByTenant, toggleOutletStatus)
+
 outletSchema.index({ "tenant.tenantId": 1 });
 // unique name within a tenant
 outletSchema.index({ name: 1, "tenant.tenantId": 1 }, { unique: true });    
