@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 type Props = {
@@ -7,11 +8,12 @@ type Props = {
 
 export default function DashboardHeader({ title, subtitle }: Props) {
   const navigate = useNavigate();
+  const [showConfirm, setShowConfirm] = useState(false);
   const API_BASE_URL =
     (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE_URL ||
     "http://localhost:8000";
 
-  const handleLogout = async () => {
+  const executeLogout = async () => {
     await fetch(`${API_BASE_URL}/api/v1/users/logout`, {
       method: "POST",
       credentials: "include",
@@ -25,6 +27,7 @@ export default function DashboardHeader({ title, subtitle }: Props) {
   };
 
   return (
+    <>
     <header className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
         <div className="min-w-0">
@@ -46,7 +49,7 @@ export default function DashboardHeader({ title, subtitle }: Props) {
           </button>
 
           <button
-            onClick={handleLogout}
+            onClick={() => setShowConfirm(true)}
             className="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
           >
             Logout
@@ -54,5 +57,28 @@ export default function DashboardHeader({ title, subtitle }: Props) {
         </div>
       </div>
     </header>
-  );
+
+    {showConfirm && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm text-center">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Confirm Logout</h2>
+          <p className="text-sm text-gray-500 mb-6">Are you sure you want to logout?</p>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => setShowConfirm(false)}
+              className="px-5 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              No
+            </button>
+            <button
+              onClick={executeLogout}
+              className="px-5 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Yes
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>);
 }
